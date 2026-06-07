@@ -40,18 +40,21 @@ The codebase separates a framework-free core from the React UI:
 
 ```
 src/
-  lib/theory/   Pure music theory — scales, chord qualities, pitch helpers,
-                voicings, chord analysis. Imports no React; unit-testable.
-  lib/midi/     MIDI-file parsing (@tonejs/midi → Song) and time queries
-                (active-notes-at-T, next/prev onset).
-  audio/        synth.ts (Web Audio note synth) and transport.ts (the
-                anchor-based lookahead scheduler that drives playback).
-  hooks/        React adapters — usePlayback, useAudioContext, explorer state.
-  geometry/     piano.ts — the single source of truth for the pitch axis,
-                shared by the Piano keyboard and the PianoRoll timeline.
-  components/   Grid, Piano, PianoRoll, TransportBar, Analyzer, control panels.
-  styles/       theme.css
+  lib/theory/        Pure music theory — scales, chord qualities, pitch helpers,
+                     voicings, chord analysis. Imports no React; unit-testable.   [done]
+  geometry/piano.ts  Single source of truth for the pitch axis, shared by the
+                     Piano keyboard and the (upcoming) PianoRoll timeline.        [done]
+  styles/theme.css   The one stylesheet (px- prefixed classes).                  [done]
+  PushExplorer.jsx   The original monolith — still renders the whole app. Being
+                     decomposed into components phase by phase (see CLAUDE.md).
+  lib/midi/          MIDI parsing (@tonejs/midi → Song) + time queries.          [planned]
+  audio/             synth.ts + transport.ts (anchor-based lookahead scheduler). [planned]
+  hooks/             usePlayback, useAudioContext, explorer state.               [planned]
+  components/        Grid, Piano, PianoRoll, TransportBar, Analyzer, panels.     [planned]
 ```
+
+> **Migration status & roadmap live in [CLAUDE.md](CLAUDE.md).** Phases 0–1 (TS setup +
+> typed theory core) are done; Phase 2 adds MIDI parsing and the playback transport.
 
 ### Key invariants
 

@@ -20,5 +20,5 @@
     "allowJs": true,
     "checkJs": false
   },
-  "include": ["src", "PushExplorer.jsx"]
+  "include": ["src"]
 }
