@@ -68,6 +68,35 @@ the source of truth.** Keep the app runnable (typecheck + build pass) after ever
   `src/lib/theory/*` (`constants`, `types`, `pitch`, `voicing`, `analyze`, `index`)
   and `src/geometry/piano.ts`; styles moved to `src/styles/theme.css`. The monolith
   moved to **`src/PushExplorer.jsx`** and now imports from those modules.
+- **Live play (out of original phase order).** A third chord mode `live` plays from
+  the computer keyboard (Ableton-style layout; `Z`/`X` octave) or a Web MIDI
+  controller, lights held notes on Grid + Piano, and identifies them via
+  `analyzeSelection` with an in-key/out-of-key indicator. Added `src/audio/synth.ts`
+  (`createSynth` — one-shot `playMidi` **plus** sustained `noteOn`/`noteOff`/`allOff`),
+  `src/lib/midi/input.ts` (pure key→semitone map + Web MIDI parse), and
+  `src/hooks/useLiveInput.ts`. This front-ran the Phase 2 synth and part of Phase 4.
+- **Phase 2 — Synth + MIDI parse + Transport.** `src/lib/midi/{types,parse,query}.ts`
+  (`@tonejs/midi` → `Song`; `activeNotesAt`, `nextOnset`, `prevOnset`) + `index.ts`
+  barrel. `src/audio/transport.ts` (anchor-pair clock + 25ms lookahead scheduler).
+  `src/hooks/useAudioContext.ts` (shared lazy ctx/synth — PushExplorer now uses it
+  instead of its own refs) and `src/hooks/usePlayback.ts`. `src/components/TransportBar.tsx`
+  (load .mid, play/pause, seek, tempo, step — numeric only). Verified with a Node test of
+  the clock/scheduler/query (no-jump tempo & seek, step, end-detect, lookahead) since the
+  headless preview's AudioContext can't run; typecheck + build pass. Also added
+  **restart-on-ended** (play from the end starts over) and a **loop** toggle.
+- **Phase 3 — PianoRoll + live highlighting.** `src/components/PianoRoll.tsx`: a 2-layer,
+  DPR-aware canvas — notes rasterized once to an offscreen layer and blitted, with the
+  moving playhead + active-note glow drawn on top each frame. Pitch maps through
+  `geometry/piano` (`pitchToLane`); horizontal time, follow-scroll (playhead parks at ~28%
+  once scrolling), click/drag-to-seek. Sounding notes (`playback.activeNotes`) now also
+  light up the Push grid and Piano (highest-priority `isLit` glow). typecheck + build pass;
+  verified in-browser (notes, playhead alignment at start + while scrolled, key lighting).
+- **MIDI file key analysis.** `src/lib/theory/scale-detect.ts` (pure): `pitchClassesOf`,
+  `scalePitchClasses`, `pcsFitScale`, `outOfScale`, `scalesContaining` (every root×scale
+  whose notes contain the file's pitch classes, tightest-first, Chromatic excluded by
+  default). PushExplorer shows a **"MIDI file key"** card when a song is loaded: fits /
+  doesn't-fit the selected scale (+ the outside notes), and a tap-to-apply list of every
+  scale that fits. Node-tested; typecheck + build pass; verified in-browser.
 
 ### Deliberate deviation from the original plan
 The monolith is intentionally **still `src/PushExplorer.jsx`** (plain JSX, loaded via
@@ -77,18 +106,9 @@ components. So the UI split **and** its `.tsx` typing happen together in Phase 5
 (`allowJs` flips to `false` then). The pure core is already fully typed.
 
 ### Next up
-- **Phase 2 — Synth + MIDI parse + Transport.** Extract the synth to `src/audio/synth.ts`
-  (`createSynth(ctx)` returning the existing `playMidi`) + `src/hooks/useAudioContext.ts`.
-  Add `src/lib/midi/{types,parse,query}.ts` (`@tonejs/midi` → `Song`; `activeNotesAt(T)`,
-  `nextOnset`, `prevOnset`). Add `src/audio/transport.ts` (the scheduler below) and
-  `src/hooks/usePlayback.ts`. Add `src/components/TransportBar.tsx` (file input,
-  play/pause, tempo slider, seek, step) — numeric readout only, no visuals yet.
-  *Verify:* load a `.mid`, play/pause/resume, scrub, change tempo mid-play (no jump), step.
-- **Phase 3 — PianoRoll + live highlighting.** Canvas piano-roll (2-layer, DPR-aware)
-  wired to `usePlayback`: notes, moving playhead, click/drag-to-seek, follow-scroll.
-  Add a `litMidis` prop to Grid + Piano so sounding notes light up.
-- **Phase 4 — Analyzer live wiring.** Chord-card mode `build | analyze | live`; make the
-  analyzer presentational; in live mode feed it `playback.activeNotes` (coalesce ~60ms).
+- **Phase 4 — Analyzer live wiring.** The chord-card `live` mode already exists (drives
+  off Web MIDI / keyboard). Remaining: also let it consume **`playback.activeNotes`** from
+  a playing `.mid` (coalesce ~60ms), and make the analyzer fully presentational.
 - **Phase 5 — UI split + polish.** Break the monolith into `App.tsx` / `ControlPanels.tsx`
   / `primitives.tsx` / `Grid.tsx` / `Piano.tsx`; delete the monolith; flip `allowJs:false`;
   stack PianoRoll above Piano; theme the transport bar.

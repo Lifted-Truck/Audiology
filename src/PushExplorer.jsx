@@ -1,13 +1,17 @@
-import React, { useState, useMemo, useRef, useEffect, useCallback } from "react";
+import React, { useState, useMemo, useEffect, useCallback } from "react";
 import "./styles/theme.css";
 import {
   SHARP, FLAT, FLAT_KEYS, SCALES, CHROMA_INT, INKEY_INT,
   QUALITIES, QUAL_CATS, SYM, DEG_NUM, DEG_ROM, DEG_SOL,
   mod, pcOf, octOf, buildVoicing, analyzeSelection,
+  pitchClassesOf, pcsFitScale, outOfScale, scalesContaining,
 } from "./lib/theory";
 import { PIANO_LO, PIANO_HI, WHITE_PCS, BLACK_PCS, WW, BW, WH, BH } from "./geometry/piano";
-import { createSynth } from "./audio/synth";
+import { useAudioContext } from "./hooks/useAudioContext";
 import { useLiveInput, ALL_INPUTS } from "./hooks/useLiveInput";
+import { usePlayback } from "./hooks/usePlayback";
+import TransportBar from "./components/TransportBar";
+import PianoRoll from "./components/PianoRoll";
 import { KEY_TO_SEMITONE, OCTAVE_DOWN_KEY, OCTAVE_UP_KEY } from "./lib/midi/input";
 
 /* ------------------------------------------------------------------ */
@@ -138,16 +142,10 @@ export default function PushExplorer() {
   }, [ivCount, inversion]);
 
   /* ----- audio ----- */
-  // One AudioContext, one synth (see CLAUDE.md). Created lazily on first sound.
-  const acRef = useRef(null);
-  const synthRef = useRef(null);
-  const getSynth = () => {
-    if (!synthRef.current) {
-      if (!acRef.current) acRef.current = new (window.AudioContext || window.webkitAudioContext)();
-      synthRef.current = createSynth(acRef.current);
-    }
-    return synthRef.current;
-  };
+  // One AudioContext, one synth, shared by taps, live play, and playback.
+  const audio = useAudioContext();
+  const getSynth = audio.getSynth;
+  const playback = usePlayback(audio);
   const playMidi = useCallback(
     (m, dur = 0.55, when = 0, gMul = 1) => {
       if (!sound) return;
@@ -174,6 +172,23 @@ export default function PushExplorer() {
   // In Live mode the held notes drive highlighting + analysis; in Analyze mode
   // the manual selection does. Build mode highlights the constructed chord.
   const highlightSel = isLive ? live.heldNotes : selected;
+  // Notes sounding from MIDI-file playback — lit on the Grid + Piano in any mode.
+  const litSet = useMemo(() => new Set(playback.activeNotes), [playback.activeNotes]);
+
+  // Key analysis of the whole loaded MIDI file: which pitch classes it uses,
+  // whether it fits the selected scale, and every scale it does fit into.
+  const songPcs = useMemo(
+    () => (playback.song ? pitchClassesOf(playback.song.notes.map((n) => n.midi)) : []),
+    [playback.song]
+  );
+  const songFit = useMemo(
+    () =>
+      songPcs.length
+        ? { fits: pcsFitScale(songPcs, root, scaleName), out: outOfScale(songPcs, root, scaleName) }
+        : null,
+    [songPcs, root, scaleName]
+  );
+  const songMatches = useMemo(() => scalesContaining(songPcs), [songPcs]);
 
   /* ----- build chord ----- */
   // voice the current quality/inversion/voicing for any root midi note
@@ -255,12 +270,12 @@ export default function PushExplorer() {
           isSel = selSet.has(midi);
           isSelPc = !isSel && selPcs.has(pc);
         }
-        row.push({ midi, pc, inScale, isRoot, isTone, isCRoot, isVoice, voiceNum, isSel, isSelPc, r, c });
+        row.push({ midi, pc, inScale, isRoot, isTone, isCRoot, isVoice, voiceNum, isSel, isSelPc, isLit: litSet.has(midi), r, c });
       }
       rows.push(row);
     }
     return rows;
-  }, [root, scaleName, mode, fixed, layout, orient, len, pattern, inScalePc, chordOn, chordDisplay, chord, chordRootPc, interaction, highlightSel]);
+  }, [root, scaleName, mode, fixed, layout, orient, len, pattern, inScalePc, chordOn, chordDisplay, chord, chordRootPc, interaction, highlightSel, litSet]);
 
   const bottomLeft = grid[0][0];
 
@@ -283,7 +298,7 @@ export default function PushExplorer() {
         isSel = selSet.has(midi);
         isSelPc = !isSel && selPcs.has(pc);
       }
-      return { midi, pc, inScale, isRoot, isTone, isCRoot, isVoice, voiceNum, isSel, isSelPc };
+      return { midi, pc, inScale, isRoot, isTone, isCRoot, isVoice, voiceNum, isSel, isSelPc, isLit: litSet.has(midi) };
     };
     const whites = [], blacks = [];
     for (let m = PIANO_LO; m <= PIANO_HI; m++) {
@@ -295,7 +310,7 @@ export default function PushExplorer() {
       }
     }
     return { whites, blacks };
-  }, [root, scaleName, inScalePc, chordOn, chordDisplay, chord, chordRootPc, interaction, highlightSel]);
+  }, [root, scaleName, inScalePc, chordOn, chordDisplay, chord, chordRootPc, interaction, highlightSel, litSet]);
 
   /* ----- labels ----- */
   const degLabel = (rel) => (degNot === "roman" ? DEG_ROM[rel] : degNot === "solfege" ? DEG_SOL[rel] : DEG_NUM[rel]);
@@ -330,11 +345,17 @@ export default function PushExplorer() {
       border = "1px solid " + (out ? "#ef4444" : "#f59e0b");
       glow = out ? "0 0 10px rgba(239,68,68,.45)" : "0 0 10px rgba(245,158,11,.45), inset 0 0 8px rgba(245,158,11,.22)";
     }
+    // Sounding right now (MIDI playback): brightest, overrides the rest.
+    if (p.isLit) {
+      bg = "#0c3b36"; color = "#defff8"; border = "1px solid #7fffe9";
+      glow = "0 0 18px rgba(126,255,233,.9), inset 0 0 11px rgba(126,255,233,.5)";
+    }
     return { background: bg, color, border, boxShadow: glow };
   };
 
   // accent color + emphasis for a piano key given its highlight flags
   const keyAccent = (p) => {
+    if (p.isLit) return { c: "#7fffe9", strong: true };
     if (p.isSel) return { c: "#fbbf24", strong: true };
     if (p.isSelPc) return { c: "#d97706", dashed: true };
     if (p.isVoice || p.isCRoot) return { c: "#fbbf24", strong: true, badge: p.voiceNum };
@@ -428,6 +449,11 @@ export default function PushExplorer() {
         {/* ---------------- STAGE ---------------- */}
         <section className="px-stage">
           <div className="px-stage-block">
+            <div className="px-block-cap">Transport</div>
+            <TransportBar playback={playback} />
+          </div>
+
+          <div className="px-stage-block">
             <div className="px-block-cap">Push grid</div>
             <div className="px-grid-wrap">
             <div className="px-grid">
@@ -442,6 +468,17 @@ export default function PushExplorer() {
               )}
             </div>
             </div>
+          </div>
+
+          <div className="px-stage-block">
+            <div className="px-block-cap">Piano roll</div>
+            <PianoRoll
+              song={playback.song}
+              currentTime={playback.currentTime}
+              duration={playback.duration}
+              activeNotes={playback.activeNotes}
+              onSeek={playback.seek}
+            />
           </div>
 
           <div className="px-stage-block">
@@ -515,6 +552,49 @@ export default function PushExplorer() {
               </Sel>
             </Field>
           </div>
+
+          {playback.song && songFit && (
+            <div className="px-card">
+              <h2 className="px-card-h">MIDI file key</h2>
+              <div className={"px-keyfit " + (songFit.fits ? "in" : "out")}>
+                <span className="px-keyfit-dot" />
+                {songFit.fits
+                  ? "Fits " + noteName(root) + " " + scaleName
+                  : "Doesn't fit " + noteName(root) + " " + scaleName}
+              </div>
+              {!songFit.fits && (
+                <div className="px-keyfit-out">
+                  Outside notes: {songFit.out.map((pc) => noteName(pc)).join(", ")}
+                </div>
+              )}
+              <Field label={"Fits these scales (tap to apply) · " + songPcs.length + " notes"}>
+                {songMatches.length === 0 ? (
+                  <div className="px-analyze-empty">No scale in the list contains every note.</div>
+                ) : (
+                  <>
+                    <div className="px-scale-matches">
+                      {songMatches.slice(0, 24).map((m) => {
+                        const sel = m.root === root && m.scale === scaleName;
+                        return (
+                          <button
+                            key={m.root + ":" + m.scale}
+                            className={"px-scale-chip" + (sel ? " sel" : "") + (m.exact ? " exact" : "")}
+                            title={m.exact ? "exact fit" : m.extra + " extra note(s)"}
+                            onClick={() => { setRoot(m.root); setScaleName(m.scale); }}
+                          >
+                            {noteName(m.root)} {m.scale}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    {songMatches.length > 24 && (
+                      <span className="px-mini-legend">+{songMatches.length - 24} more</span>
+                    )}
+                  </>
+                )}
+              </Field>
+            </div>
+          )}
 
           <div className="px-card">
             <h2 className="px-card-h">Layout</h2>

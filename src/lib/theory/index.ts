@@ -4,3 +4,4 @@ export * from "./constants";
 export * from "./pitch";
 export * from "./voicing";
 export * from "./analyze";
+export * from "./scale-detect";
