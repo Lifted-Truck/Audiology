@@ -12,7 +12,7 @@ const fmt = (sec: number): string => {
 };
 
 export default function TransportBar({ playback }: { playback: Playback }) {
-  const { song, isPlaying, currentTime, duration, tempoScale } = playback;
+  const { song, isPlaying, currentTime, duration, tempoScale, loop } = playback;
 
   const onFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -50,6 +50,14 @@ export default function TransportBar({ playback }: { playback: Playback }) {
         </button>
         <button className="px-tp-btn" onClick={playback.stepForward} disabled={!hasSong} title="Next onset">
           {"⏭"}
+        </button>
+        <button
+          className={"px-tp-btn loop" + (loop ? " on" : "")}
+          onClick={() => playback.setLoop(!loop)}
+          disabled={!hasSong}
+          title={loop ? "Loop on" : "Loop off"}
+        >
+          {"⟲"}
         </button>
 
         <input

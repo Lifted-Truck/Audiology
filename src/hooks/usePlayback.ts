@@ -17,6 +17,8 @@ export interface Playback {
   duration: number;
   /** Tempo multiplier (1 = as authored). */
   tempoScale: number;
+  /** Whether playback loops back to the start at the end. */
+  loop: boolean;
   /** MIDI numbers sounding right now — feeds Grid/Piano/Analyzer highlighting. */
   activeNotes: number[];
   /** Parse + load a MIDI file from an ArrayBuffer. */
@@ -27,6 +29,7 @@ export interface Playback {
   stepForward(): void;
   stepBack(): void;
   setTempoScale(s: number): void;
+  setLoop(on: boolean): void;
 }
 
 export function usePlayback(audio: AudioHandle): Playback {
@@ -36,6 +39,7 @@ export function usePlayback(audio: AudioHandle): Playback {
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [tempoScale, setTempoScaleState] = useState(1);
+  const [loop, setLoopState] = useState(false);
 
   const getTransport = useCallback((): Transport => {
     if (!transportRef.current) {
@@ -89,6 +93,14 @@ export function usePlayback(audio: AudioHandle): Playback {
     [getTransport]
   );
 
+  const setLoop = useCallback(
+    (on: boolean) => {
+      getTransport().setLoop(on);
+      setLoopState(on);
+    },
+    [getTransport]
+  );
+
   // Sounding notes, recomputed as the position advances. Read from the transport
   // (live ctx.currentTime) so highlighting stays in sync with what's audible.
   const activeNotes = useMemo(() => {
@@ -105,6 +117,7 @@ export function usePlayback(audio: AudioHandle): Playback {
     currentTime,
     duration,
     tempoScale,
+    loop,
     activeNotes,
     load,
     play,
@@ -113,5 +126,6 @@ export function usePlayback(audio: AudioHandle): Playback {
     stepForward,
     stepBack,
     setTempoScale,
+    setLoop,
   };
 }

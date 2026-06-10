@@ -26,6 +26,8 @@ export interface Transport {
   stepForward(): void;
   stepBack(): void;
   setTempoScale(scale: number): void;
+  setLoop(on: boolean): void;
+  isLooping(): boolean;
   /** Current song-time position in seconds. */
   currentTime(): number;
   duration(): number;
@@ -57,6 +59,7 @@ export function createTransport(ctx: AudioContext, synth: Synth): Transport {
   let song: Song | null = null;
   let playing = false;
   let scale = 1;
+  let loop = false;
 
   let anchorSong = 0;
   let anchorAudio = 0;
@@ -86,15 +89,21 @@ export function createTransport(ctx: AudioContext, synth: Synth): Transport {
 
   const tick = (): void => {
     if (!song || !playing) return;
-    const now = currentTime();
+    let now = currentTime();
 
-    // End of song: stop and park the cursor at the end.
+    // Reached the end: loop back to the start, or stop and park the cursor.
     if (now >= song.duration) {
-      pauseSong = song.duration;
-      stopLoops();
-      playing = false;
-      onTick(pauseSong);
-      return;
+      if (loop) {
+        anchorAt(0);
+        resetSchedule(0);
+        now = currentTime(); // ~0 after re-anchor
+      } else {
+        pauseSong = song.duration;
+        stopLoops();
+        playing = false;
+        onTick(pauseSong);
+        return;
+      }
     }
 
     const horizon = now + LOOKAHEAD * scale; // song-time window edge
@@ -147,6 +156,8 @@ export function createTransport(ctx: AudioContext, synth: Synth): Transport {
     play() {
       if (!song || playing) return;
       synth.resume();
+      // If parked at the end, start over from the beginning.
+      if (pauseSong >= song.duration - 1e-6) pauseSong = 0;
       playing = true;
       anchorAt(pauseSong);
       resetSchedule(pauseSong);
@@ -187,6 +198,10 @@ export function createTransport(ctx: AudioContext, synth: Synth): Transport {
       }
       scale = next;
     },
+    setLoop(on) {
+      loop = on;
+    },
+    isLooping: () => loop,
     currentTime,
     duration,
     isPlaying: () => playing,
