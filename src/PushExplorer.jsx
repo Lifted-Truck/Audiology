@@ -6,6 +6,9 @@ import {
   mod, pcOf, octOf, buildVoicing, analyzeSelection,
 } from "./lib/theory";
 import { PIANO_LO, PIANO_HI, WHITE_PCS, BLACK_PCS, WW, BW, WH, BH } from "./geometry/piano";
+import { createSynth } from "./audio/synth";
+import { useLiveInput, ALL_INPUTS } from "./hooks/useLiveInput";
+import { KEY_TO_SEMITONE, OCTAVE_DOWN_KEY, OCTAVE_UP_KEY } from "./lib/midi/input";
 
 /* ------------------------------------------------------------------ */
 /*  UI PRIMITIVES                                                      */
@@ -135,34 +138,42 @@ export default function PushExplorer() {
   }, [ivCount, inversion]);
 
   /* ----- audio ----- */
+  // One AudioContext, one synth (see CLAUDE.md). Created lazily on first sound.
   const acRef = useRef(null);
-  const getAC = () => {
-    if (!acRef.current) acRef.current = new (window.AudioContext || window.webkitAudioContext)();
-    return acRef.current;
+  const synthRef = useRef(null);
+  const getSynth = () => {
+    if (!synthRef.current) {
+      if (!acRef.current) acRef.current = new (window.AudioContext || window.webkitAudioContext)();
+      synthRef.current = createSynth(acRef.current);
+    }
+    return synthRef.current;
   };
   const playMidi = useCallback(
     (m, dur = 0.55, when = 0, gMul = 1) => {
       if (!sound) return;
-      try {
-        const ac = getAC();
-        if (ac.state === "suspended") ac.resume();
-        const t = ac.currentTime + when;
-        const o = ac.createOscillator();
-        const o2 = ac.createOscillator();
-        const g = ac.createGain();
-        const gO2 = ac.createGain();
-        o.type = "triangle"; o2.type = "sine";
-        const f = 440 * Math.pow(2, (m - 69) / 12);
-        o.frequency.value = f; o2.frequency.value = f * 2; gO2.gain.value = 0.25;
-        g.gain.setValueAtTime(0, t);
-        g.gain.linearRampToValueAtTime(0.16 * gMul, t + 0.008);
-        g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-        o.connect(g); o2.connect(gO2).connect(g); g.connect(ac.destination);
-        o.start(t); o2.start(t); o.stop(t + dur + 0.05); o2.stop(t + dur + 0.05);
-      } catch (e) {}
+      try { getSynth().playMidi(m, dur, when, gMul); } catch (e) {}
     },
     [sound]
   );
+  // Sustained voices for Live play — held while a key / MIDI note is down.
+  const liveNoteOn = useCallback((m, vel) => {
+    if (!sound) return;
+    try { getSynth().noteOn(m, vel); } catch (e) {}
+  }, [sound]);
+  const liveNoteOff = useCallback((m) => {
+    try { getSynth().noteOff(m); } catch (e) {}
+  }, []);
+
+  /* ----- live input (computer keyboard + Web MIDI) ----- */
+  const live = useLiveInput({
+    enabled: interaction === "live",
+    onNoteOn: liveNoteOn,
+    onNoteOff: liveNoteOff,
+  });
+  const isLive = interaction === "live";
+  // In Live mode the held notes drive highlighting + analysis; in Analyze mode
+  // the manual selection does. Build mode highlights the constructed chord.
+  const highlightSel = isLive ? live.heldNotes : selected;
 
   /* ----- build chord ----- */
   // voice the current quality/inversion/voicing for any root midi note
@@ -177,14 +188,23 @@ export default function PushExplorer() {
     return { closePcs, voicing: voiceChord(48 + chordRootPc), symbol: noteName(chordRootPc) + SYM[chordQuality] };
   }, [chordQuality, chordRootPc, voiceChord, noteName]);
 
-  const analysis = useMemo(() => analyzeSelection(selected, noteName), [selected, noteName]);
+  const analysis = useMemo(() => analyzeSelection(highlightSel, noteName), [highlightSel, noteName]);
+
+  // Whether the sounding/selected notes sit inside the current scale, plus which
+  // pitch classes (if any) fall outside it.
+  const keyCheck = useMemo(() => {
+    const pcs = Array.from(new Set(highlightSel.map(pcOf)));
+    if (pcs.length === 0) return null;
+    const out = pcs.filter((pc) => !inScalePc(pc));
+    return { inKey: out.length === 0, out };
+  }, [highlightSel, inScalePc]);
 
   /* ----- reference for degree labels ----- */
   const refPc =
     degRef === "root"
-      ? interaction === "analyze"
-        ? selected.length
-          ? pcOf(Math.min(...selected))
+      ? interaction === "analyze" || isLive
+        ? highlightSel.length
+          ? pcOf(Math.min(...highlightSel))
           : root
         : chordRootPc
       : root;
@@ -210,8 +230,8 @@ export default function PushExplorer() {
       }
     } else baseMidi = fixed ? 36 : 36 + root;
 
-    const selSet = new Set(selected);
-    const selPcs = new Set(selected.map(pcOf));
+    const selSet = new Set(highlightSel);
+    const selPcs = new Set(highlightSel.map(pcOf));
 
     const rows = [];
     for (let r = 0; r < 8; r++) {
@@ -231,7 +251,7 @@ export default function PushExplorer() {
           isCRoot = isTone && pc === chordRootPc;
           isVoice = chordDisplay === "voicing" && chord.voicing.includes(midi);
           voiceNum = isVoice ? chord.voicing.indexOf(midi) + 1 : null;
-        } else if (interaction === "analyze") {
+        } else if (interaction === "analyze" || interaction === "live") {
           isSel = selSet.has(midi);
           isSelPc = !isSel && selPcs.has(pc);
         }
@@ -240,14 +260,14 @@ export default function PushExplorer() {
       rows.push(row);
     }
     return rows;
-  }, [root, scaleName, mode, fixed, layout, orient, len, pattern, inScalePc, chordOn, chordDisplay, chord, chordRootPc, interaction, selected]);
+  }, [root, scaleName, mode, fixed, layout, orient, len, pattern, inScalePc, chordOn, chordDisplay, chord, chordRootPc, interaction, highlightSel]);
 
   const bottomLeft = grid[0][0];
 
   /* ----- piano keyboard ----- */
   const piano = useMemo(() => {
-    const selSet = new Set(selected);
-    const selPcs = new Set(selected.map(pcOf));
+    const selSet = new Set(highlightSel);
+    const selPcs = new Set(highlightSel.map(pcOf));
     const make = (midi) => {
       const pc = pcOf(midi);
       const inScale = inScalePc(pc);
@@ -259,7 +279,7 @@ export default function PushExplorer() {
         isCRoot = isTone && pc === chordRootPc;
         isVoice = chordDisplay === "voicing" && chord.voicing.includes(midi);
         voiceNum = isVoice ? chord.voicing.indexOf(midi) + 1 : null;
-      } else if (interaction === "analyze") {
+      } else if (interaction === "analyze" || interaction === "live") {
         isSel = selSet.has(midi);
         isSelPc = !isSel && selPcs.has(pc);
       }
@@ -275,7 +295,7 @@ export default function PushExplorer() {
       }
     }
     return { whites, blacks };
-  }, [root, scaleName, inScalePc, chordOn, chordDisplay, chord, chordRootPc, interaction, selected]);
+  }, [root, scaleName, inScalePc, chordOn, chordDisplay, chord, chordRootPc, interaction, highlightSel]);
 
   /* ----- labels ----- */
   const degLabel = (rel) => (degNot === "roman" ? DEG_ROM[rel] : degNot === "solfege" ? DEG_SOL[rel] : DEG_NUM[rel]);
@@ -330,6 +350,11 @@ export default function PushExplorer() {
       setSelected((s) => (s.includes(p.midi) ? s.filter((m) => m !== p.midi) : [...s, p.midi]));
       return;
     }
+    if (interaction === "live") {
+      // Live highlighting follows held keys/MIDI; clicking a pad is just a tap.
+      playMidi(p.midi);
+      return;
+    }
     // build mode
     if (chordOn && tapChord) {
       voiceChord(p.midi).forEach((m, i) => playMidi(m, 1.0, i * 0.03, 0.85));
@@ -348,6 +373,43 @@ export default function PushExplorer() {
       : (orient === "vert" ? "Each row up" : "Each column right") + " = a " + (layout === "4ths" ? "4th" : "3rd") + " higher.";
 
   const qualFits = (k) => QUALITIES[k].iv.every((i) => inScalePc(mod(chordRootPc + i, 12)));
+
+  // Shared analysis readout — used by both Analyze and Live panels. Wrapped in a
+  // fixed-min-height slot so the panel doesn't reflow / jump while you play.
+  const renderAnalysis = () => (
+    <div className="px-analysis-slot">
+      {keyCheck && (
+        <div className={"px-keycheck" + (keyCheck.inKey ? " in" : " out")}>
+          <span className="px-keycheck-dot" />
+          {keyCheck.inKey
+            ? "In key — " + noteName(root) + " " + scaleName
+            : "Out of key: " + keyCheck.out.map(noteName).join(", ")}
+        </div>
+      )}
+      {analysis.empty && <div className="px-analyze-empty">{isLive ? "Play some notes to identify them." : "No notes selected yet."}</div>}
+      {analysis.single && <div className="px-analyze-empty">{analysis.text}</div>}
+      {analysis.none && (
+        <div className="px-analyze-empty">
+          No standard name. Bass {noteName(analysis.bassPc)}; intervals from bass: {analysis.intervals.join(", ")} semitones.
+        </div>
+      )}
+      {analysis.candidates && (
+        <div className="px-cands">
+          {analysis.candidates.map((c, i) => (
+            <div key={i} className={"px-cand" + (c.primary ? " primary" : "")}>
+              <span className="px-cand-name">{c.name}</span>
+              <span className="px-cand-sub">{c.sub}</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+
+  // Computer-keyboard cheat-sheet for Live mode (white keys, in pitch order).
+  const keyHints = Object.entries(KEY_TO_SEMITONE)
+    .filter(([, s]) => WHITE_PCS.includes(mod(s, 12)))
+    .map(([k]) => k.toUpperCase());
 
   return (
     <div className="px-root">
@@ -435,7 +497,7 @@ export default function PushExplorer() {
             <Dot c="#a5b4fc" t="root / tonic" />
             <Dot c="#2dd4bf" t="in scale" />
             {mode === "chromatic" && <Dot c="#f87171" t="out of scale" />}
-            <Dot c="#fbbf24" t={interaction === "analyze" ? "selected" : chordDisplay === "voicing" ? "voicing note" : "chord tone"} />
+            <Dot c="#fbbf24" t={isLive ? "playing" : interaction === "analyze" ? "selected" : chordDisplay === "voicing" ? "voicing note" : "chord tone"} />
             <span className="px-legend-note">{layoutNote}</span>
           </div>
         </section>
@@ -485,7 +547,7 @@ export default function PushExplorer() {
                   <Seg options={[{ v: "number", l: "1\u20137" }, { v: "roman", l: "I\u2013VII" }, { v: "solfege", l: "Do\u2013Ti" }]} value={degNot} onChange={setDegNot} />
                 </Field>
                 <Field label="Relative to">
-                  <Seg options={[{ v: "tonic", l: "Tonic" }, { v: "root", l: interaction === "analyze" ? "Bass note" : "Chord root" }]} value={degRef} onChange={setDegRef} />
+                  <Seg options={[{ v: "tonic", l: "Tonic" }, { v: "root", l: interaction === "analyze" || isLive ? "Bass note" : "Chord root" }]} value={degRef} onChange={setDegRef} />
                 </Field>
               </>
             )}
@@ -494,7 +556,7 @@ export default function PushExplorer() {
           <div className="px-card">
             <div className="px-card-hrow">
               <h2 className="px-card-h">Chord</h2>
-              <Seg small options={[{ v: "build", l: "Build" }, { v: "analyze", l: "Analyze" }]} value={interaction} onChange={setInteraction} />
+              <Seg small options={[{ v: "build", l: "Build" }, { v: "analyze", l: "Analyze" }, { v: "live", l: "Live" }]} value={interaction} onChange={setInteraction} />
             </div>
 
             {interaction === "build" ? (
@@ -564,7 +626,7 @@ export default function PushExplorer() {
                   </div>
                 </div>
               </>
-            ) : (
+            ) : interaction === "analyze" ? (
               <div className="px-analyze">
                 <p className="px-hint">Tap pads to add them to the selection; tap again to remove. Identification updates live and surfaces multiple readings when they overlap.</p>
                 {selected.length > 0 && (
@@ -577,23 +639,7 @@ export default function PushExplorer() {
                   </div>
                 )}
 
-                {analysis.empty && <div className="px-analyze-empty">No notes selected yet.</div>}
-                {analysis.single && <div className="px-analyze-empty">{analysis.text}</div>}
-                {analysis.none && (
-                  <div className="px-analyze-empty">
-                    No standard name. Bass {noteName(analysis.bassPc)}; intervals from bass: {analysis.intervals.join(", ")} semitones.
-                  </div>
-                )}
-                {analysis.candidates && (
-                  <div className="px-cands">
-                    {analysis.candidates.map((c, i) => (
-                      <div key={i} className={"px-cand" + (c.primary ? " primary" : "")}>
-                        <span className="px-cand-name">{c.name}</span>
-                        <span className="px-cand-sub">{c.sub}</span>
-                      </div>
-                    ))}
-                  </div>
-                )}
+                {renderAnalysis()}
 
                 {selected.length > 0 && (
                   <div className="px-analyze-btns">
@@ -601,6 +647,52 @@ export default function PushExplorer() {
                     <button className="px-clear" onClick={() => setSelected([])}>Clear</button>
                   </div>
                 )}
+              </div>
+            ) : (
+              <div className="px-analyze">
+                <p className="px-hint">
+                  Play with your computer keyboard or a connected MIDI controller. Held notes light up the grid &amp; piano and are identified below in real time.
+                </p>
+
+                {live.midiSupported ? (
+                  <Field label="MIDI input">
+                    <Sel value={live.midiInputId} onChange={live.setMidiInputId}>
+                      <option value={ALL_INPUTS}>All inputs</option>
+                      {live.midiDevices.map((d) => (<option key={d.id} value={d.id}>{d.name}</option>))}
+                    </Sel>
+                  </Field>
+                ) : (
+                  <p className="px-hint px-live-warn">Web MIDI isn't available in this browser \u2014 computer keyboard still works.</p>
+                )}
+                {live.midiSupported && !live.midiEnabled && (
+                  <p className="px-hint px-live-warn">Waiting for MIDI access{"\u2026"} (allow it if your browser prompts).</p>
+                )}
+                {live.midiSupported && live.midiEnabled && live.midiDevices.length === 0 && (
+                  <p className="px-hint">No MIDI controllers detected \u2014 connect one or use the keyboard.</p>
+                )}
+
+                <div className="px-live-row">
+                  <span className="field-lbl">Octave</span>
+                  <div className="px-oct">
+                    <button className="px-oct-btn" onClick={() => live.setOctaveOffset(live.octaveOffset - 1)} title={"Octave down (" + OCTAVE_DOWN_KEY.toUpperCase() + ")"}>{"\u2013"}</button>
+                    <span className="px-oct-val">C{3 + live.octaveOffset}</span>
+                    <button className="px-oct-btn" onClick={() => live.setOctaveOffset(live.octaveOffset + 1)} title={"Octave up (" + OCTAVE_UP_KEY.toUpperCase() + ")"}>+</button>
+                  </div>
+                </div>
+
+                <div className="px-keyhint">
+                  <span className="px-keyhint-keys">{keyHints.join(" ")}</span> = white keys{" \u00b7 "}
+                  <span className="px-keyhint-keys">W E T Y U</span> = black{" \u00b7 "}
+                  <span className="px-keyhint-keys">{OCTAVE_DOWN_KEY.toUpperCase()} / {OCTAVE_UP_KEY.toUpperCase()}</span> = octave
+                </div>
+
+                <div className="px-chord-notes px-live-held">
+                  {live.heldNotes.map((m, i) => (
+                    <span key={i} className="px-chip">{noteName(pcOf(m))}<sub>{octOf(m)}</sub></span>
+                  ))}
+                </div>
+
+                {renderAnalysis()}
               </div>
             )}
           </div>
