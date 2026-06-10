@@ -4,6 +4,7 @@ import {
   SHARP, FLAT, FLAT_KEYS, SCALES, CHROMA_INT, INKEY_INT,
   QUALITIES, QUAL_CATS, SYM, DEG_NUM, DEG_ROM, DEG_SOL,
   mod, pcOf, octOf, buildVoicing, analyzeSelection,
+  pitchClassesOf, pcsFitScale, outOfScale, scalesContaining,
 } from "./lib/theory";
 import { PIANO_LO, PIANO_HI, WHITE_PCS, BLACK_PCS, WW, BW, WH, BH } from "./geometry/piano";
 import { useAudioContext } from "./hooks/useAudioContext";
@@ -173,6 +174,21 @@ export default function PushExplorer() {
   const highlightSel = isLive ? live.heldNotes : selected;
   // Notes sounding from MIDI-file playback — lit on the Grid + Piano in any mode.
   const litSet = useMemo(() => new Set(playback.activeNotes), [playback.activeNotes]);
+
+  // Key analysis of the whole loaded MIDI file: which pitch classes it uses,
+  // whether it fits the selected scale, and every scale it does fit into.
+  const songPcs = useMemo(
+    () => (playback.song ? pitchClassesOf(playback.song.notes.map((n) => n.midi)) : []),
+    [playback.song]
+  );
+  const songFit = useMemo(
+    () =>
+      songPcs.length
+        ? { fits: pcsFitScale(songPcs, root, scaleName), out: outOfScale(songPcs, root, scaleName) }
+        : null,
+    [songPcs, root, scaleName]
+  );
+  const songMatches = useMemo(() => scalesContaining(songPcs), [songPcs]);
 
   /* ----- build chord ----- */
   // voice the current quality/inversion/voicing for any root midi note
@@ -536,6 +552,49 @@ export default function PushExplorer() {
               </Sel>
             </Field>
           </div>
+
+          {playback.song && songFit && (
+            <div className="px-card">
+              <h2 className="px-card-h">MIDI file key</h2>
+              <div className={"px-keyfit " + (songFit.fits ? "in" : "out")}>
+                <span className="px-keyfit-dot" />
+                {songFit.fits
+                  ? "Fits " + noteName(root) + " " + scaleName
+                  : "Doesn't fit " + noteName(root) + " " + scaleName}
+              </div>
+              {!songFit.fits && (
+                <div className="px-keyfit-out">
+                  Outside notes: {songFit.out.map((pc) => noteName(pc)).join(", ")}
+                </div>
+              )}
+              <Field label={"Fits these scales (tap to apply) · " + songPcs.length + " notes"}>
+                {songMatches.length === 0 ? (
+                  <div className="px-analyze-empty">No scale in the list contains every note.</div>
+                ) : (
+                  <>
+                    <div className="px-scale-matches">
+                      {songMatches.slice(0, 24).map((m) => {
+                        const sel = m.root === root && m.scale === scaleName;
+                        return (
+                          <button
+                            key={m.root + ":" + m.scale}
+                            className={"px-scale-chip" + (sel ? " sel" : "") + (m.exact ? " exact" : "")}
+                            title={m.exact ? "exact fit" : m.extra + " extra note(s)"}
+                            onClick={() => { setRoot(m.root); setScaleName(m.scale); }}
+                          >
+                            {noteName(m.root)} {m.scale}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    {songMatches.length > 24 && (
+                      <span className="px-mini-legend">+{songMatches.length - 24} more</span>
+                    )}
+                  </>
+                )}
+              </Field>
+            </div>
+          )}
 
           <div className="px-card">
             <h2 className="px-card-h">Layout</h2>

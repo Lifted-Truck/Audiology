@@ -91,6 +91,12 @@ the source of truth.** Keep the app runnable (typecheck + build pass) after ever
   once scrolling), click/drag-to-seek. Sounding notes (`playback.activeNotes`) now also
   light up the Push grid and Piano (highest-priority `isLit` glow). typecheck + build pass;
   verified in-browser (notes, playhead alignment at start + while scrolled, key lighting).
+- **MIDI file key analysis.** `src/lib/theory/scale-detect.ts` (pure): `pitchClassesOf`,
+  `scalePitchClasses`, `pcsFitScale`, `outOfScale`, `scalesContaining` (every root×scale
+  whose notes contain the file's pitch classes, tightest-first, Chromatic excluded by
+  default). PushExplorer shows a **"MIDI file key"** card when a song is loaded: fits /
+  doesn't-fit the selected scale (+ the outside notes), and a tap-to-apply list of every
+  scale that fits. Node-tested; typecheck + build pass; verified in-browser.
 
 ### Deliberate deviation from the original plan
 The monolith is intentionally **still `src/PushExplorer.jsx`** (plain JSX, loaded via
