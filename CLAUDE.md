@@ -82,7 +82,15 @@ the source of truth.** Keep the app runnable (typecheck + build pass) after ever
   instead of its own refs) and `src/hooks/usePlayback.ts`. `src/components/TransportBar.tsx`
   (load .mid, play/pause, seek, tempo, step — numeric only). Verified with a Node test of
   the clock/scheduler/query (no-jump tempo & seek, step, end-detect, lookahead) since the
-  headless preview's AudioContext can't run; typecheck + build pass.
+  headless preview's AudioContext can't run; typecheck + build pass. Also added
+  **restart-on-ended** (play from the end starts over) and a **loop** toggle.
+- **Phase 3 — PianoRoll + live highlighting.** `src/components/PianoRoll.tsx`: a 2-layer,
+  DPR-aware canvas — notes rasterized once to an offscreen layer and blitted, with the
+  moving playhead + active-note glow drawn on top each frame. Pitch maps through
+  `geometry/piano` (`pitchToLane`); horizontal time, follow-scroll (playhead parks at ~28%
+  once scrolling), click/drag-to-seek. Sounding notes (`playback.activeNotes`) now also
+  light up the Push grid and Piano (highest-priority `isLit` glow). typecheck + build pass;
+  verified in-browser (notes, playhead alignment at start + while scrolled, key lighting).
 
 ### Deliberate deviation from the original plan
 The monolith is intentionally **still `src/PushExplorer.jsx`** (plain JSX, loaded via
@@ -92,10 +100,6 @@ components. So the UI split **and** its `.tsx` typing happen together in Phase 5
 (`allowJs` flips to `false` then). The pure core is already fully typed.
 
 ### Next up
-- **Phase 3 — PianoRoll + live highlighting.** Canvas piano-roll (2-layer, DPR-aware)
-  wired to `usePlayback`: notes, moving playhead, click/drag-to-seek, follow-scroll.
-  Add a `litMidis` prop to Grid + Piano so sounding notes light up. `usePlayback`
-  already exposes `activeNotes` (MIDI numbers) for this.
 - **Phase 4 — Analyzer live wiring.** The chord-card `live` mode already exists (drives
   off Web MIDI / keyboard). Remaining: also let it consume **`playback.activeNotes`** from
   a playing `.mid` (coalesce ~60ms), and make the analyzer fully presentational.

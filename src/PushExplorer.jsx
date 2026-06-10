@@ -10,6 +10,7 @@ import { useAudioContext } from "./hooks/useAudioContext";
 import { useLiveInput, ALL_INPUTS } from "./hooks/useLiveInput";
 import { usePlayback } from "./hooks/usePlayback";
 import TransportBar from "./components/TransportBar";
+import PianoRoll from "./components/PianoRoll";
 import { KEY_TO_SEMITONE, OCTAVE_DOWN_KEY, OCTAVE_UP_KEY } from "./lib/midi/input";
 
 /* ------------------------------------------------------------------ */
@@ -170,6 +171,8 @@ export default function PushExplorer() {
   // In Live mode the held notes drive highlighting + analysis; in Analyze mode
   // the manual selection does. Build mode highlights the constructed chord.
   const highlightSel = isLive ? live.heldNotes : selected;
+  // Notes sounding from MIDI-file playback — lit on the Grid + Piano in any mode.
+  const litSet = useMemo(() => new Set(playback.activeNotes), [playback.activeNotes]);
 
   /* ----- build chord ----- */
   // voice the current quality/inversion/voicing for any root midi note
@@ -251,12 +254,12 @@ export default function PushExplorer() {
           isSel = selSet.has(midi);
           isSelPc = !isSel && selPcs.has(pc);
         }
-        row.push({ midi, pc, inScale, isRoot, isTone, isCRoot, isVoice, voiceNum, isSel, isSelPc, r, c });
+        row.push({ midi, pc, inScale, isRoot, isTone, isCRoot, isVoice, voiceNum, isSel, isSelPc, isLit: litSet.has(midi), r, c });
       }
       rows.push(row);
     }
     return rows;
-  }, [root, scaleName, mode, fixed, layout, orient, len, pattern, inScalePc, chordOn, chordDisplay, chord, chordRootPc, interaction, highlightSel]);
+  }, [root, scaleName, mode, fixed, layout, orient, len, pattern, inScalePc, chordOn, chordDisplay, chord, chordRootPc, interaction, highlightSel, litSet]);
 
   const bottomLeft = grid[0][0];
 
@@ -279,7 +282,7 @@ export default function PushExplorer() {
         isSel = selSet.has(midi);
         isSelPc = !isSel && selPcs.has(pc);
       }
-      return { midi, pc, inScale, isRoot, isTone, isCRoot, isVoice, voiceNum, isSel, isSelPc };
+      return { midi, pc, inScale, isRoot, isTone, isCRoot, isVoice, voiceNum, isSel, isSelPc, isLit: litSet.has(midi) };
     };
     const whites = [], blacks = [];
     for (let m = PIANO_LO; m <= PIANO_HI; m++) {
@@ -291,7 +294,7 @@ export default function PushExplorer() {
       }
     }
     return { whites, blacks };
-  }, [root, scaleName, inScalePc, chordOn, chordDisplay, chord, chordRootPc, interaction, highlightSel]);
+  }, [root, scaleName, inScalePc, chordOn, chordDisplay, chord, chordRootPc, interaction, highlightSel, litSet]);
 
   /* ----- labels ----- */
   const degLabel = (rel) => (degNot === "roman" ? DEG_ROM[rel] : degNot === "solfege" ? DEG_SOL[rel] : DEG_NUM[rel]);
@@ -326,11 +329,17 @@ export default function PushExplorer() {
       border = "1px solid " + (out ? "#ef4444" : "#f59e0b");
       glow = out ? "0 0 10px rgba(239,68,68,.45)" : "0 0 10px rgba(245,158,11,.45), inset 0 0 8px rgba(245,158,11,.22)";
     }
+    // Sounding right now (MIDI playback): brightest, overrides the rest.
+    if (p.isLit) {
+      bg = "#0c3b36"; color = "#defff8"; border = "1px solid #7fffe9";
+      glow = "0 0 18px rgba(126,255,233,.9), inset 0 0 11px rgba(126,255,233,.5)";
+    }
     return { background: bg, color, border, boxShadow: glow };
   };
 
   // accent color + emphasis for a piano key given its highlight flags
   const keyAccent = (p) => {
+    if (p.isLit) return { c: "#7fffe9", strong: true };
     if (p.isSel) return { c: "#fbbf24", strong: true };
     if (p.isSelPc) return { c: "#d97706", dashed: true };
     if (p.isVoice || p.isCRoot) return { c: "#fbbf24", strong: true, badge: p.voiceNum };
@@ -443,6 +452,17 @@ export default function PushExplorer() {
               )}
             </div>
             </div>
+          </div>
+
+          <div className="px-stage-block">
+            <div className="px-block-cap">Piano roll</div>
+            <PianoRoll
+              song={playback.song}
+              currentTime={playback.currentTime}
+              duration={playback.duration}
+              activeNotes={playback.activeNotes}
+              onSeek={playback.seek}
+            />
           </div>
 
           <div className="px-stage-block">
