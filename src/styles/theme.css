@@ -122,6 +122,27 @@
 .px-clear:hover{border-color:#ef4444;color:#fca5a5;}
 .px-hint{font-size:10.5px;line-height:1.5;color:var(--mut);margin:0;}
 
+/* analysis slot — reserve height so the panel doesn't jump as chords change */
+.px-analysis-slot{min-height:148px;margin-top:11px;display:flex;flex-direction:column;}
+.px-analysis-slot .px-analyze-empty,.px-analysis-slot .px-cands{margin-top:9px;}
+.px-keycheck{display:flex;align-items:center;gap:7px;padding:6px 11px;border-radius:7px;font-size:11px;font-weight:700;letter-spacing:.03em;border:1px solid var(--line);}
+.px-keycheck-dot{width:8px;height:8px;border-radius:50%;flex:0 0 auto;}
+.px-keycheck.in{color:#7fffe9;border-color:#2dd4bf;background:rgba(45,212,191,.08);}
+.px-keycheck.in .px-keycheck-dot{background:#2dd4bf;box-shadow:0 0 8px rgba(45,212,191,.7);}
+.px-keycheck.out{color:#fca5a5;border-color:#ef4444;background:rgba(239,68,68,.08);}
+.px-keycheck.out .px-keycheck-dot{background:#ef4444;box-shadow:0 0 8px rgba(239,68,68,.7);}
+
+/* live mode */
+.px-live-held{min-height:31px;margin-top:10px;}
+.px-live-warn{color:#fbbf24;margin-top:8px;}
+.px-live-row{display:flex;justify-content:space-between;align-items:center;margin-top:11px;}
+.px-oct{display:flex;align-items:center;gap:8px;}
+.px-oct-btn{width:26px;height:26px;border-radius:7px;border:1px solid var(--line);background:#0e1117;color:#bfeee6;font-family:'JetBrains Mono',monospace;font-size:15px;font-weight:700;line-height:1;cursor:pointer;transition:all .12s;}
+.px-oct-btn:hover{border-color:#2dd4bf;color:#7fffe9;}
+.px-oct-val{min-width:34px;text-align:center;font-family:'Bricolage Grotesque',sans-serif;font-weight:800;font-size:15px;color:#eef2ff;}
+.px-keyhint{margin-top:11px;font-size:10px;line-height:1.6;color:var(--mut);letter-spacing:.02em;}
+.px-keyhint-keys{color:#5eead4;font-weight:700;}
+
 @media (max-width:760px){
   .px-root{padding:14px;}
   .px-title{font-size:24px;}
