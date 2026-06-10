@@ -122,6 +122,25 @@
 .px-clear:hover{border-color:#ef4444;color:#fca5a5;}
 .px-hint{font-size:10.5px;line-height:1.5;color:var(--mut);margin:0;}
 
+/* transport bar */
+.px-transport{display:flex;flex-direction:column;gap:10px;padding:14px 16px;border-radius:16px;border:1px solid var(--line);background:linear-gradient(180deg,#0d1016,#070809);box-shadow:inset 0 1px 0 rgba(255,255,255,.03),0 18px 40px -20px rgba(0,0,0,.9);}
+.px-tp-row{display:flex;align-items:center;gap:10px;}
+.px-tp-file{position:relative;overflow:hidden;display:inline-flex;align-items:center;gap:6px;padding:7px 13px;border-radius:8px;border:1px solid #2dd4bf;background:linear-gradient(180deg,#143b38,#0c2825);color:#7fffe9;font-size:11.5px;font-weight:700;letter-spacing:.04em;cursor:pointer;flex:0 0 auto;}
+.px-tp-file:hover{box-shadow:0 0 12px rgba(45,212,191,.3);}
+.px-tp-file input{position:absolute;inset:0;opacity:0;cursor:pointer;font-size:0;}
+.px-tp-name{font-size:11.5px;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.px-tp-btn{width:38px;height:34px;border-radius:8px;border:1px solid var(--line);background:#0e1117;color:#cdd6e4;font-size:15px;cursor:pointer;transition:all .12s;flex:0 0 auto;display:flex;align-items:center;justify-content:center;}
+.px-tp-btn:hover:not(:disabled){border-color:#2dd4bf;color:#7fffe9;}
+.px-tp-btn.play{color:#fde68a;border-color:#fbbf24;background:linear-gradient(180deg,#4a2f06,#2a1c04);}
+.px-tp-btn.play:hover:not(:disabled){box-shadow:0 0 14px rgba(251,191,36,.35);}
+.px-tp-btn:disabled{opacity:.4;cursor:not-allowed;}
+.px-tp-lbl{font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--mut);flex:0 0 auto;}
+.px-tp-seek,.px-tp-tempo{flex:1 1 auto;min-width:80px;accent-color:#2dd4bf;cursor:pointer;}
+.px-tp-tempo{accent-color:#fbbf24;}
+.px-tp-seek:disabled,.px-tp-tempo:disabled{opacity:.4;cursor:not-allowed;}
+.px-tp-time{font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;color:#eef2ff;flex:0 0 auto;min-width:84px;text-align:right;}
+.px-tp-dim{color:var(--mut);font-weight:500;}
+
 /* analysis slot — reserve height so the panel doesn't jump as chords change */
 .px-analysis-slot{min-height:148px;margin-top:11px;display:flex;flex-direction:column;}
 .px-analysis-slot .px-analyze-empty,.px-analysis-slot .px-cands{margin-top:9px;}

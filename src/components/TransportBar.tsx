@@ -1,0 +1,86 @@
+// Numeric transport controls (no visuals yet — the PianoRoll lands in Phase 3).
+// Purely presentational: it drives the usePlayback API and reads its state.
+
+import React from "react";
+import type { Playback } from "../hooks/usePlayback";
+
+const fmt = (sec: number): string => {
+  if (!isFinite(sec) || sec < 0) sec = 0;
+  const m = Math.floor(sec / 60);
+  const s = Math.floor(sec % 60);
+  return m + ":" + String(s).padStart(2, "0");
+};
+
+export default function TransportBar({ playback }: { playback: Playback }) {
+  const { song, isPlaying, currentTime, duration, tempoScale } = playback;
+
+  const onFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const buf = await file.arrayBuffer();
+    playback.load(buf, file.name.replace(/\.midi?$/i, ""));
+    e.target.value = ""; // allow re-loading the same file
+  };
+
+  const hasSong = !!song;
+
+  return (
+    <div className="px-transport">
+      <div className="px-tp-row">
+        <label className="px-tp-file">
+          <input type="file" accept=".mid,.midi" onChange={onFile} />
+          <span>{"↑"} Load MIDI</span>
+        </label>
+        <span className="px-tp-name" title={song?.name}>
+          {song ? song.name : "No file loaded"}
+        </span>
+      </div>
+
+      <div className="px-tp-row">
+        <button className="px-tp-btn" onClick={playback.stepBack} disabled={!hasSong} title="Previous onset">
+          {"⏮"}
+        </button>
+        <button
+          className={"px-tp-btn play" + (isPlaying ? " on" : "")}
+          onClick={isPlaying ? playback.pause : playback.play}
+          disabled={!hasSong}
+          title={isPlaying ? "Pause" : "Play"}
+        >
+          {isPlaying ? "⏸" : "▶"}
+        </button>
+        <button className="px-tp-btn" onClick={playback.stepForward} disabled={!hasSong} title="Next onset">
+          {"⏭"}
+        </button>
+
+        <input
+          className="px-tp-seek"
+          type="range"
+          min={0}
+          max={Math.max(duration, 0.001)}
+          step={0.01}
+          value={Math.min(currentTime, duration)}
+          onChange={(e) => playback.seek(parseFloat(e.target.value))}
+          disabled={!hasSong}
+        />
+        <span className="px-tp-time">
+          {fmt(currentTime)} <span className="px-tp-dim">/ {fmt(duration)}</span>
+        </span>
+      </div>
+
+      <div className="px-tp-row">
+        <span className="px-tp-lbl">Tempo</span>
+        <input
+          className="px-tp-tempo"
+          type="range"
+          min={0.25}
+          max={2}
+          step={0.05}
+          value={tempoScale}
+          onChange={(e) => playback.setTempoScale(parseFloat(e.target.value))}
+          disabled={!hasSong}
+        />
+        <span className="px-tp-time">{tempoScale.toFixed(2)}{"×"}</span>
+      </div>
+    </div>
+  );
+}

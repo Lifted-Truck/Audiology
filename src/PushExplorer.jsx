@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useRef, useEffect, useCallback } from "react";
+import React, { useState, useMemo, useEffect, useCallback } from "react";
 import "./styles/theme.css";
 import {
   SHARP, FLAT, FLAT_KEYS, SCALES, CHROMA_INT, INKEY_INT,
@@ -6,8 +6,10 @@ import {
   mod, pcOf, octOf, buildVoicing, analyzeSelection,
 } from "./lib/theory";
 import { PIANO_LO, PIANO_HI, WHITE_PCS, BLACK_PCS, WW, BW, WH, BH } from "./geometry/piano";
-import { createSynth } from "./audio/synth";
+import { useAudioContext } from "./hooks/useAudioContext";
 import { useLiveInput, ALL_INPUTS } from "./hooks/useLiveInput";
+import { usePlayback } from "./hooks/usePlayback";
+import TransportBar from "./components/TransportBar";
 import { KEY_TO_SEMITONE, OCTAVE_DOWN_KEY, OCTAVE_UP_KEY } from "./lib/midi/input";
 
 /* ------------------------------------------------------------------ */
@@ -138,16 +140,10 @@ export default function PushExplorer() {
   }, [ivCount, inversion]);
 
   /* ----- audio ----- */
-  // One AudioContext, one synth (see CLAUDE.md). Created lazily on first sound.
-  const acRef = useRef(null);
-  const synthRef = useRef(null);
-  const getSynth = () => {
-    if (!synthRef.current) {
-      if (!acRef.current) acRef.current = new (window.AudioContext || window.webkitAudioContext)();
-      synthRef.current = createSynth(acRef.current);
-    }
-    return synthRef.current;
-  };
+  // One AudioContext, one synth, shared by taps, live play, and playback.
+  const audio = useAudioContext();
+  const getSynth = audio.getSynth;
+  const playback = usePlayback(audio);
   const playMidi = useCallback(
     (m, dur = 0.55, when = 0, gMul = 1) => {
       if (!sound) return;
@@ -427,6 +423,11 @@ export default function PushExplorer() {
       <div className="px-body">
         {/* ---------------- STAGE ---------------- */}
         <section className="px-stage">
+          <div className="px-stage-block">
+            <div className="px-block-cap">Transport</div>
+            <TransportBar playback={playback} />
+          </div>
+
           <div className="px-stage-block">
             <div className="px-block-cap">Push grid</div>
             <div className="px-grid-wrap">
