@@ -10,6 +10,7 @@ import { PIANO_LO, PIANO_HI, WHITE_PCS, BLACK_PCS, WW, BW, WH, BH } from "./geom
 import { useAudioContext } from "./hooks/useAudioContext";
 import { useLiveInput, ALL_INPUTS } from "./hooks/useLiveInput";
 import { usePlayback } from "./hooks/usePlayback";
+import { useCoalescedNotes } from "./hooks/useCoalescedNotes";
 import TransportBar from "./components/TransportBar";
 import PianoRoll from "./components/PianoRoll";
 import { KEY_TO_SEMITONE, OCTAVE_DOWN_KEY, OCTAVE_UP_KEY } from "./lib/midi/input";
@@ -169,9 +170,18 @@ export default function PushExplorer() {
     onNoteOff: liveNoteOff,
   });
   const isLive = interaction === "live";
-  // In Live mode the held notes drive highlighting + analysis; in Analyze mode
-  // the manual selection does. Build mode highlights the constructed chord.
-  const highlightSel = isLive ? live.heldNotes : selected;
+  // MIDI-file notes sounding now, smoothed ~60ms so a chord's notes (which may
+  // start a few ms apart) read as one set instead of flickering.
+  const coalescedActive = useCoalescedNotes(playback.activeNotes, 60);
+  // In Live mode, identify everything sounding: keyboard / MIDI-controller input
+  // *and* the playing MIDI file. Analyze mode uses the manual selection; Build
+  // mode highlights the constructed chord.
+  const liveNotes = useMemo(() => {
+    const s = new Set(live.heldNotes);
+    for (const m of coalescedActive) s.add(m);
+    return [...s].sort((a, b) => a - b);
+  }, [live.heldNotes, coalescedActive]);
+  const highlightSel = isLive ? liveNotes : selected;
   // Notes sounding from MIDI-file playback — lit on the Grid + Piano in any mode.
   const litSet = useMemo(() => new Set(playback.activeNotes), [playback.activeNotes]);
 
@@ -731,7 +741,7 @@ export default function PushExplorer() {
             ) : (
               <div className="px-analyze">
                 <p className="px-hint">
-                  Play with your computer keyboard or a connected MIDI controller. Held notes light up the grid &amp; piano and are identified below in real time.
+                  Identifies whatever is sounding in real time — your computer keyboard, a connected MIDI controller, or the playing MIDI file. Notes light up the grid &amp; piano and are named below.
                 </p>
 
                 {live.midiSupported ? (
@@ -767,8 +777,10 @@ export default function PushExplorer() {
                 </div>
 
                 <div className="px-chord-notes px-live-held">
-                  {live.heldNotes.map((m, i) => (
-                    <span key={i} className="px-chip">{noteName(pcOf(m))}<sub>{octOf(m)}</sub></span>
+                  {liveNotes.map((m, i) => (
+                    <span key={i} className={"px-chip" + (litSet.has(m) ? " file" : "")}>
+                      {noteName(pcOf(m))}<sub>{octOf(m)}</sub>
+                    </span>
                   ))}
                 </div>
 

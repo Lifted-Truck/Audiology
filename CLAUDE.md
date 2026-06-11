@@ -97,6 +97,14 @@ the source of truth.** Keep the app runnable (typecheck + build pass) after ever
   default). PushExplorer shows a **"MIDI file key"** card when a song is loaded: fits /
   doesn't-fit the selected scale (+ the outside notes), and a tap-to-apply list of every
   scale that fits. Node-tested; typecheck + build pass; verified in-browser.
+- **Phase 4 — Analyzer consumes playback.** Live mode now identifies the playing MIDI file
+  too: `liveNotes` = union of held keyboard/MIDI notes and `playback.activeNotes`, the
+  latter smoothed by `src/hooks/useCoalescedNotes.ts` (a note lingers ~60ms after it
+  disappears, so chord onsets a few ms apart don't flicker; re-stamps active notes each
+  pass so a held/scrubbed position doesn't expire). File notes show as teal chips. Fixed
+  two bugs found here: (1) `useAudioContext` getters used `this` and broke when destructured
+  (no sound until a file was loaded) — now closures; (2) the coalescer expired notes while
+  paused/scrubbing because `activeNotes` is a stable ref then — now re-stamps.
 
 ### Deliberate deviation from the original plan
 The monolith is intentionally **still `src/PushExplorer.jsx`** (plain JSX, loaded via
@@ -106,9 +114,6 @@ components. So the UI split **and** its `.tsx` typing happen together in Phase 5
 (`allowJs` flips to `false` then). The pure core is already fully typed.
 
 ### Next up
-- **Phase 4 — Analyzer live wiring.** The chord-card `live` mode already exists (drives
-  off Web MIDI / keyboard). Remaining: also let it consume **`playback.activeNotes`** from
-  a playing `.mid` (coalesce ~60ms), and make the analyzer fully presentational.
 - **Phase 5 — UI split + polish.** Break the monolith into `App.tsx` / `ControlPanels.tsx`
   / `primitives.tsx` / `Grid.tsx` / `Piano.tsx`; delete the monolith; flip `allowJs:false`;
   stack PianoRoll above Piano; theme the transport bar.

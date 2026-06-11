@@ -19,21 +19,23 @@ export function useAudioContext(): AudioHandle {
   const handleRef = useRef<AudioHandle | null>(null);
 
   if (!handleRef.current) {
-    handleRef.current = {
-      getCtx() {
-        if (!ctxRef.current) {
-          const Ctor =
-            window.AudioContext ||
-            (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
-          ctxRef.current = new Ctor();
-        }
-        return ctxRef.current;
-      },
-      getSynth() {
-        if (!synthRef.current) synthRef.current = createSynth(this.getCtx());
-        return synthRef.current;
-      },
+    // Closures, not `this` methods — callers routinely destructure these
+    // getters (e.g. `const getSynth = audio.getSynth`), which would unbind
+    // `this` and break lazy creation before anything else touched the synth.
+    const getCtx = (): AudioContext => {
+      if (!ctxRef.current) {
+        const Ctor =
+          window.AudioContext ||
+          (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+        ctxRef.current = new Ctor();
+      }
+      return ctxRef.current;
     };
+    const getSynth = (): Synth => {
+      if (!synthRef.current) synthRef.current = createSynth(getCtx());
+      return synthRef.current;
+    };
+    handleRef.current = { getCtx, getSynth };
   }
 
   return handleRef.current;
