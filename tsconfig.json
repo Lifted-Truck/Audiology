@@ -17,7 +17,7 @@
     "noFallthroughCasesInSwitch": true,
     "skipLibCheck": true,
 
-    "allowJs": true,
+    "allowJs": false,
     "checkJs": false
   },
   "include": ["src"]
