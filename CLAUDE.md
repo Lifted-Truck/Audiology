@@ -105,18 +105,17 @@ the source of truth.** Keep the app runnable (typecheck + build pass) after ever
   two bugs found here: (1) `useAudioContext` getters used `this` and broke when destructured
   (no sound until a file was loaded) — now closures; (2) the coalescer expired notes while
   paused/scrubbing because `activeNotes` is a stable ref then — now re-stamps.
+- **Phase 5 — UI split + strict TS.** The monolith is gone. `src/App.tsx` owns state and
+  derives grid/piano/chord/highlight data; `src/components/{Grid,Piano,ControlPanels}.tsx`
+  and `src/ui/{types,primitives}.tsx` are the typed pieces. `PushExplorer.jsx` deleted,
+  `allowJs:false`. Markup kept byte-identical (verified visually); typecheck + build pass.
+  (PianoRoll already sits above Piano; transport bar already themed — done in earlier phases.)
 
-### Deliberate deviation from the original plan
-The monolith is intentionally **still `src/PushExplorer.jsx`** (plain JSX, loaded via
-`allowJs`), NOT yet converted to strict `.tsx`. Reason: a full strict-TS conversion of
-the ~600-line component is high-churn and best done *while* splitting it into
-components. So the UI split **and** its `.tsx` typing happen together in Phase 5
-(`allowJs` flips to `false` then). The pure core is already fully typed.
-
-### Next up
-- **Phase 5 — UI split + polish.** Break the monolith into `App.tsx` / `ControlPanels.tsx`
-  / `primitives.tsx` / `Grid.tsx` / `Piano.tsx`; delete the monolith; flip `allowJs:false`;
-  stack PianoRoll above Piano; theme the transport bar.
+### Migration complete
+All phases (0–5) plus Live play, MIDI key analysis, and Phase-4 playback wiring are done.
+The app is fully `.tsx`, strict-typed, component-split; the pure core stays React-free in
+`lib/theory/*` and `lib/midi/*`. No monolith remains. Next directions are feature work or
+the **Tonality engine integration** (see that planned doc before MIDI/theory changes).
 
 ### Phase 2 transport design (get this right first)
 Two clocks — **song-time** `s` (`Note.time`, sec) and **audio-time** `a`
