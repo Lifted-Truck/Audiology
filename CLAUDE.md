@@ -114,8 +114,36 @@ the source of truth.** Keep the app runnable (typecheck + build pass) after ever
 ### Migration complete
 All phases (0–5) plus Live play, MIDI key analysis, and Phase-4 playback wiring are done.
 The app is fully `.tsx`, strict-typed, component-split; the pure core stays React-free in
-`lib/theory/*` and `lib/midi/*`. No monolith remains. Next directions are feature work or
-the **Tonality engine integration** (see that planned doc before MIDI/theory changes).
+`lib/theory/*` and `lib/midi/*`. No monolith remains.
+
+## Tonality integration (north star: Audiology → a GUI for Tonality)
+
+The long-range goal is to surface **all** of Tonality's capabilities in the UI; expect the
+coupling to grow beyond a single bridge. Keep integration points as clean, swappable
+data-contract boundaries — `src/lib/tonality/` is the only module that knows the engine's
+wire format; everything downstream consumes the normalized `FileAnalysis`. The brief +
+triage response of record live in the Tonality repo at `integrations/audiology/`.
+
+### Done — path 1: offline file analysis import
+- `src/lib/tonality/{types,parse}.ts` — schema-pinned (`DatasetRecord` v1.0) parse of
+  `midi_file_analysis` JSON → `FileAnalysis` (inferred key + ranked candidates, per-segment
+  chord readings with second-accurate placement, key regions). Throws on schema drift.
+- `scripts/tonality-analyze.py` — runs `midi_file_analysis` out-of-band, writes
+  `<name>.tonality.json` (needs `mts` importable; the interim workflow until path 2).
+- UI: a **"+ Tonality"** loader in the transport bar; the **MIDI file key** card shows the
+  engine's **inferred key** (score · margin · profile, with Apply + alternatives); the
+  **PianoRoll** draws a time-aligned **chord-region label strip**. Analysis is dropped when
+  the song changes. Node-tested vs a real fixture; verified in-browser.
+
+### Roadmap — path 2: interactive bridge (live naming over the wire)
+Replace `analyzeSelection` (and eventually `scalesContaining`) with live engine calls for
+the Live-mode analyzer. Tonality sanctioned a **local HTTP bridge over `mts.mcp.tools`**
+(their gap 9, "the web door"); interim, stand up our own thin server importing those
+functions and serving their JSON dicts — tool signatures + result shapes are the contract,
+so swapping to the official bridge is ~a URL change. Other recorded upgrades: `name_pcs`
+(bass-aware naming), `voicing_analysis`/`voicing_suggestions` (Build mode), `catalog_*`
+(catalog parity + containment, retires `scalesContaining`), and consuming the coming
+**Representation layer (Phase 5)** for view descriptions. See `integrations/audiology/response.md`.
 
 ### Phase 2 transport design (get this right first)
 Two clocks — **song-time** `s` (`Note.time`, sec) and **audio-time** `a`

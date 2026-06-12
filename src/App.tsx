@@ -22,6 +22,7 @@ import PianoRoll from "./components/PianoRoll";
 import Grid from "./components/Grid";
 import Piano from "./components/Piano";
 import ControlPanels from "./components/ControlPanels";
+import { parseTonalityAnalysis, qualitySymbol, type FileAnalysis } from "./lib/tonality";
 import { Dot } from "./ui/primitives";
 import type {
   Interaction, GridMode, Layout, Orient, LabelMode, NoteNotation,
@@ -50,6 +51,10 @@ export default function App() {
   const [voicing, setVoicing] = useState<Voicing>("close");
   const [chordDisplay, setChordDisplay] = useState<ChordDisplay>("tones");
   const [selected, setSelected] = useState<number[]>([]);
+
+  // Tonality engine analysis of the loaded file (path 1: offline JSON import).
+  const [analysis, setAnalysis] = useState<FileAnalysis | null>(null);
+  const [analysisError, setAnalysisError] = useState<string | null>(null);
 
   const pattern = SCALES[scaleName];
   const len = pattern.length;
@@ -89,6 +94,23 @@ export default function App() {
   const audio = useAudioContext();
   const getSynth = audio.getSynth;
   const playback = usePlayback(audio);
+
+  // A loaded analysis belongs to a specific file — drop it when the song changes.
+  useEffect(() => {
+    setAnalysis(null);
+    setAnalysisError(null);
+  }, [playback.song]);
+
+  const loadAnalysis = useCallback(async (file: File) => {
+    try {
+      const fa = parseTonalityAnalysis(JSON.parse(await file.text()));
+      setAnalysis(fa);
+      setAnalysisError(null);
+    } catch (e) {
+      setAnalysis(null);
+      setAnalysisError(e instanceof Error ? e.message : "Failed to parse analysis");
+    }
+  }, []);
   const playMidi = useCallback(
     (m: number, dur = 0.55, when = 0, gMul = 1) => {
       if (!sound) return;
@@ -115,6 +137,21 @@ export default function App() {
   }, [live.heldNotes, coalescedActive]);
   const highlightSel = isLive ? liveNotes : selected;
   const litSet = useMemo(() => new Set(playback.activeNotes), [playback.activeNotes]);
+
+  // Tonality's per-segment chord readings → time-aligned labels for the roll.
+  const chordRegions = useMemo(() => {
+    if (!analysis) return [];
+    return analysis.segments.map((s) => ({
+      startSec: s.startSec,
+      endSec: s.endSec,
+      label:
+        s.rootPc != null && s.quality != null
+          ? noteName(s.rootPc) + qualitySymbol(s.quality)
+          : s.pcs.length === 1
+            ? noteName(s.pcs[0])
+            : "",
+    }));
+  }, [analysis, noteName]);
 
   /* ----- build chord ----- */
   const voiceChord = useCallback(
@@ -319,7 +356,7 @@ export default function App() {
         <section className="px-stage">
           <div className="px-stage-block">
             <div className="px-block-cap">Transport</div>
-            <TransportBar playback={playback} />
+            <TransportBar playback={playback} onLoadAnalysis={loadAnalysis} hasAnalysis={!!analysis} analysisError={analysisError} />
           </div>
 
           <div className="px-stage-block">
@@ -335,6 +372,7 @@ export default function App() {
               duration={playback.duration}
               activeNotes={playback.activeNotes}
               onSeek={playback.seek}
+              regions={chordRegions}
             />
           </div>
 
@@ -375,7 +413,7 @@ export default function App() {
           sound={sound} setSound={setSound}
           noteName={noteName} inScalePc={inScalePc} isLive={isLive}
           chord={chord} highlightSel={highlightSel} liveNotes={liveNotes} litSet={litSet}
-          live={live} song={playback.song} playMidi={playMidi}
+          live={live} song={playback.song} playMidi={playMidi} analysis={analysis}
         />
       </div>
     </div>

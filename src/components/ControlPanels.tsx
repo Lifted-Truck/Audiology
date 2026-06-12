@@ -15,6 +15,7 @@ import { KEY_TO_SEMITONE, OCTAVE_DOWN_KEY, OCTAVE_UP_KEY } from "../lib/midi/inp
 import { WHITE_PCS } from "../geometry/piano";
 import { ALL_INPUTS, type LiveInput } from "../hooks/useLiveInput";
 import type { Song } from "../lib/midi/types";
+import { modeToScaleName, type FileAnalysis } from "../lib/tonality";
 import { Field, Seg, Sel, PcChips } from "../ui/primitives";
 import type {
   Interaction, GridMode, Layout, Orient, LabelMode, NoteNotation,
@@ -73,6 +74,7 @@ export interface ControlPanelsProps {
   live: LiveInput;
   song: Song | null;
   playMidi: (m: number, dur?: number, when?: number, gMul?: number) => void;
+  analysis: FileAnalysis | null;
 }
 
 export default function ControlPanels(p: ControlPanelsProps) {
@@ -161,16 +163,51 @@ export default function ControlPanels(p: ControlPanelsProps) {
         </Field>
       </div>
 
-      {p.song && songFit && (
+      {p.song && (p.analysis || songFit) && (
         <div className="px-card">
           <h2 className="px-card-h">MIDI file key</h2>
-          <div className={"px-keyfit " + (songFit.fits ? "in" : "out")}>
-            <span className="px-keyfit-dot" />
-            {songFit.fits
-              ? "Fits " + noteName(p.root) + " " + p.scaleName
-              : "Doesn't fit " + noteName(p.root) + " " + p.scaleName}
-          </div>
-          {!songFit.fits && (
+
+          {p.analysis && (() => {
+            const k = p.analysis.key;
+            const apply = (tonicPc: number, mode: string) => {
+              p.setRoot(tonicPc);
+              const sn = modeToScaleName(mode);
+              if (sn) p.setScaleName(sn);
+            };
+            const label = (pc: number, mode: string) =>
+              noteName(pc) + " " + mode.charAt(0).toUpperCase() + mode.slice(1);
+            return (
+              <div className="px-inferkey">
+                <div className="px-inferkey-top">
+                  <span className="px-inferkey-cap">Inferred key · Tonality</span>
+                  <button className="px-apply" onClick={() => apply(k.tonicPc, k.mode)}>Apply</button>
+                </div>
+                <div className="px-inferkey-main">{label(k.tonicPc, k.mode)}</div>
+                <div className="px-inferkey-sub">
+                  score {k.score.toFixed(2)} · margin {k.margin.toFixed(2)} · {k.profileVersion}
+                </div>
+                {k.candidates.length > 1 && (
+                  <div className="px-inferkey-alts">
+                    {k.candidates.slice(1, 4).map((c, i) => (
+                      <button key={i} className="px-scale-chip" title={"score " + c.score.toFixed(2)} onClick={() => apply(c.tonicPc, c.mode)}>
+                        {label(c.tonicPc, c.mode)}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })()}
+
+          {songFit && (
+            <div className={"px-keyfit " + (songFit.fits ? "in" : "out")}>
+              <span className="px-keyfit-dot" />
+              {songFit.fits
+                ? "Fits " + noteName(p.root) + " " + p.scaleName
+                : "Doesn't fit " + noteName(p.root) + " " + p.scaleName}
+            </div>
+          )}
+          {songFit && !songFit.fits && (
             <div className="px-keyfit-out">Outside notes: {songFit.out.map((pc) => noteName(pc)).join(", ")}</div>
           )}
           <Field label={"Fits these scales (tap to apply) · " + songPcs.length + " notes"}>
