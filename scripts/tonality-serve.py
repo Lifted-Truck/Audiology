@@ -13,12 +13,15 @@ Run (needs the Tonality engine importable as `mts` — install it or set PYTHONP
     PYTHONPATH=/path/to/Tonality python3 scripts/tonality-serve.py 9000   # custom port
 
 CORS is open (localhost dev tool). Endpoints:
-    GET  /health     -> {ok: true}                  (auto-detect probe)
-    POST /name_pcs   {pcs, tonic?, key_name?, realization_midi?} -> name_pcs() dict
+    GET  /health        -> {ok: true}                  (auto-detect probe)
+    POST /name_pcs      {pcs, tonic?, key_name?, realization_midi?} -> name_pcs() dict
+    POST /analyze_midi  (raw .mid bytes in the body)    -> midi_file_analysis() dict
 """
 
 import json
+import os
 import sys
+import tempfile
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 DEFAULT_PORT = 8765
@@ -57,8 +60,26 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_POST(self):
         length = int(self.headers.get("Content-Length", "0"))
+        body = self.rfile.read(length)
+
+        # Analyze a whole MIDI file: the body is raw .mid bytes (the browser can't
+        # hand us a path, so we round-trip through a temp file).
+        if self.path == "/analyze_midi":
+            tmp = None
+            try:
+                with tempfile.NamedTemporaryFile(suffix=".mid", delete=False) as f:
+                    f.write(body)
+                    tmp = f.name
+                res = _tools().midi_file_analysis(tmp)
+                return self._send(200, res)
+            except Exception as e:  # noqa: BLE001 — engine raises are signals; relay them
+                return self._send(400, {"error": str(e)})
+            finally:
+                if tmp and os.path.exists(tmp):
+                    os.unlink(tmp)
+
         try:
-            args = json.loads(self.rfile.read(length) or b"{}")
+            args = json.loads(body or b"{}")
         except Exception as e:  # noqa: BLE001
             return self._send(400, {"error": f"bad json: {e}"})
 
