@@ -135,6 +135,19 @@ triage response of record live in the Tonality repo at `integrations/audiology/`
   **PianoRoll** draws a time-aligned **chord-region label strip**. Analysis is dropped when
   the song changes. Node-tested vs a real fixture; verified in-browser.
 
+### Done — modular views + pitch-class diagrams
+The stage surfaces are optional modules toggled in a **Views** bar: Push grid, Piano roll,
+Piano, **Bracelet**, **Tonnetz**. Hiding the grid also hides its Layout card (`showLayout`
+prop). `src/components/{Bracelet,Tonnetz}.tsx` are SVG driven by `scalePcs` (backdrop) +
+`activePcs` (built chord in Build, selected/sounding pcs in Analyze/Live), rendered
+client-side from pitch classes the app already has. They share the Push surfaces' behaviour:
+labels honor the Labels settings via App's `pcLabel`; nodes are **clickable** (App's
+`onPickPc`, a fixed C3 register since the views are octave-less); the **scale tonic** keeps an
+indigo ring even when it's also a chord tone. The **Tonnetz is endless** — drag-to-pan with a
+windowed lattice (only in-view cells rendered from an unbounded integer grid). Bracelet +
+Tonnetz are recorded with Tonality as **Representation-layer descriptor needs**
+(`integrations/audiology/brief-2.md`) for when that engine layer can describe them.
+
 ### Roadmap — path 2: interactive bridge (live naming over the wire)
 Replace `analyzeSelection` (and eventually `scalesContaining`) with live engine calls for
 the Live-mode analyzer. Tonality sanctioned a **local HTTP bridge over `mts.mcp.tools`**
@@ -144,6 +157,10 @@ so swapping to the official bridge is ~a URL change. Other recorded upgrades: `n
 (bass-aware naming), `voicing_analysis`/`voicing_suggestions` (Build mode), `catalog_*`
 (catalog parity + containment, retires `scalesContaining`), and consuming the coming
 **Representation layer (Phase 5)** for view descriptions. See `integrations/audiology/response.md`.
+- **Coalescing note (from Tonality #50):** the engine now coalesces server-side, so once
+  the Live analyzer calls the engine over the bridge, `src/hooks/useCoalescedNotes.ts` can be
+  dropped (same contract either side of the wire). Keep it until then — today we analyze
+  locally and still need it.
 
 ### Phase 2 transport design (get this right first)
 Two clocks — **song-time** `s` (`Note.time`, sec) and **audio-time** `a`

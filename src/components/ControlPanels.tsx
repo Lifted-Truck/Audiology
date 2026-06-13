@@ -75,6 +75,8 @@ export interface ControlPanelsProps {
   song: Song | null;
   playMidi: (m: number, dur?: number, when?: number, gMul?: number) => void;
   analysis: FileAnalysis | null;
+  /** Whether the Push grid is visible — its Layout card hides when it isn't. */
+  showLayout: boolean;
 }
 
 export default function ControlPanels(p: ControlPanelsProps) {
@@ -239,6 +241,7 @@ export default function ControlPanels(p: ControlPanelsProps) {
         </div>
       )}
 
+      {p.showLayout && (
       <div className="px-card">
         <h2 className="px-card-h">Layout</h2>
         <Field label="Pad notes">
@@ -254,6 +257,7 @@ export default function ControlPanels(p: ControlPanelsProps) {
           <Seg options={[{ v: "vert", l: "Vertical" }, { v: "horiz", l: "Horizontal" }]} value={p.orient} onChange={p.setOrient} />
         </Field>
       </div>
+      )}
 
       <div className="px-card">
         <h2 className="px-card-h">Labels</h2>
