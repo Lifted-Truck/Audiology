@@ -153,6 +153,20 @@ windowed lattice (only in-view cells rendered from an unbounded integer grid). B
 Tonnetz are recorded with Tonality as **Representation-layer descriptor needs**
 (`integrations/audiology/brief-2.md`) for when that engine layer can describe them.
 
+### Done — playback visibility + transport QoL
+- **Sounding notes (MIDI playback `isLit`) are now bright white** on the grid + piano — was a
+  teal glow that collided with the teal scale tint and read as "passive."
+- **Scale-colours toggle** (Labels card, `showScaleColors`): off → grid/piano drop the scale
+  tint to a neutral surface; only played / selected / chord notes highlight ("blank piano").
+- **Restart** button (⇤, seek 0) in the transport.
+- **Wheel over the PianoRoll pans the view** (manual scroll) *independent of the playhead* —
+  look ahead without moving the selector; the playhead is moved only by **click**. Manual pan
+  clears when playback starts (resumes follow). Non-passive listener; `manualScroll` state +
+  an `isPlaying` prop.
+- **Push grid enlarged** (`clamp(320px,32vw,520px)`) and the octave now sits *below* the note
+  name (was an absolute corner element that overlapped the label at small sizes).
+- **Defaults:** Chromatic + Fixed (C) + scale colours On (the maintainer's preferred setup).
+
 ### Done — path 2: interactive bridge (live engine naming over the wire)
 `scripts/tonality-serve.py` is a thin local HTTP server over `mts.mcp.tools` (CORS,
 `/health` + `POST /name_pcs`) — the sanctioned "web door" (gap 9). `src/lib/tonality/bridge.ts`
@@ -183,6 +197,11 @@ honest about uncertainty via the margin (e.g. a Bm window in a G-major piece sco
 confidence is the consumer's job. So a C→G→(ambiguous Bm) file reads simply as **C maj → G maj**.
 
 ### Roadmap — remaining Tonality upgrades
+- **Follow-the-key mode (planned):** a toggle that auto-switches the app's root+scale to the
+  **current playback segment's local key** as the playhead moves — needs a "current segment key"
+  derived from `analysis.keyRegions` / per-segment `analytical_context` at `playback.currentTime`
+  (distinct from the whole-file inferred key), and a **circle-of-fifths** view module to follow
+  the key changes. Builds on the merged key-region work; the segment-key tracker is the new piece.
 - **"Deeper analysis" mode (planned):** a toggle that surfaces *everything* the engine returns —
   every key region (incl. low-confidence ones) with its margin, all chord-naming alternatives,
   set-class / DFT info. The default view stays simplified (above); this is the opt-in full view.

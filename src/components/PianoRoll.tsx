@@ -26,6 +26,8 @@ interface Props {
   song: Song | null;
   currentTime: number;
   duration: number;
+  /** Whether playback is running — the view auto-follows then (clears manual pan). */
+  isPlaying: boolean;
   /** MIDI numbers sounding right now (for the glow). */
   activeNotes: number[];
   onSeek: (t: number) => void;
@@ -76,6 +78,7 @@ export default function PianoRoll({
   song,
   currentTime,
   duration,
+  isPlaying,
   activeNotes,
   onSeek,
   regions = [],
@@ -88,11 +91,22 @@ export default function PianoRoll({
   const [width, setWidth] = useState(600);
   const scrollXRef = useRef(0);
   const draggingRef = useRef(false);
+  // Manual horizontal pan (px). null = follow the playhead. Set by the wheel,
+  // cleared when playback starts so it resumes following.
+  const [manualScroll, setManualScroll] = useState<number | null>(null);
+  // Live values the (once-attached) wheel handler reads.
+  const liveRef = useRef({ width, duration, manualScroll, time: currentTime });
+  liveRef.current = { width, duration, manualScroll, time: currentTime };
 
   const keyStripH = keyRegions.length ? KEY_STRIP_H : 0;
   const chordStripH = regions.length ? CHORD_STRIP_H : 0;
   const topH = keyStripH + chordStripH;
   const height = topH + NOTE_H;
+
+  // Resume following when playback starts.
+  useEffect(() => {
+    if (isPlaying) setManualScroll(null);
+  }, [isPlaying]);
 
   /* measure the container width */
   useEffect(() => {
@@ -105,6 +119,25 @@ export default function PianoRoll({
     ro.observe(el);
     return () => ro.disconnect();
   }, []);
+
+  /* wheel over the roll PANS the view (look ahead) without moving the playhead;
+     the playhead is only moved by clicking. */
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const onWheel = (e: WheelEvent) => {
+      const { width: w, duration: dur, manualScroll: ms, time } = liveRef.current;
+      if (dur <= 0) return;
+      e.preventDefault();
+      const d = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY;
+      const playheadX = w * PLAYHEAD_X;
+      const base = ms ?? Math.max(0, time * pxPerSec - playheadX);
+      const maxScroll = Math.max(0, dur * pxPerSec - w * 0.3);
+      setManualScroll(Math.max(0, Math.min(maxScroll, base + d)));
+    };
+    canvas.addEventListener("wheel", onWheel, { passive: false });
+    return () => canvas.removeEventListener("wheel", onWheel);
+  }, [pxPerSec]);
 
   /* static layer (strips + notes) — rebuilt only when its inputs change */
   useEffect(() => {
@@ -174,7 +207,8 @@ export default function PianoRoll({
 
     const playheadX = width * PLAYHEAD_X;
     if (!draggingRef.current) {
-      scrollXRef.current = Math.max(0, currentTime * pxPerSec - playheadX);
+      // manual pan (wheel) overrides the follow; otherwise track the playhead
+      scrollXRef.current = manualScroll !== null ? manualScroll : Math.max(0, currentTime * pxPerSec - playheadX);
     }
     const scrollX = scrollXRef.current;
 
@@ -205,7 +239,7 @@ export default function PianoRoll({
     ctx.fillRect(headX - 0.5, 0, 1.5, height);
 
     void activeNotes;
-  }, [song, currentTime, duration, width, pxPerSec, activeNotes, topH, height]);
+  }, [song, currentTime, duration, width, pxPerSec, activeNotes, topH, height, manualScroll]);
 
   /* click / drag to seek */
   const timeFromEvent = (clientX: number): number => {

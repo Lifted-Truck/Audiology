@@ -77,6 +77,8 @@ export interface ControlPanelsProps {
   analysis: FileAnalysis | null;
   /** Whether the Push grid is visible — its Layout card hides when it isn't. */
   showLayout: boolean;
+  showScaleColors: boolean;
+  setShowScaleColors: (b: boolean) => void;
   /** Engine-backed naming for the Live set (null = none / use local analyzer). */
   engineNaming: ChordNaming | null;
   /** Whether the Tonality bridge is connected (drives the Live status chip). */
@@ -311,6 +313,9 @@ export default function ControlPanels(p: ControlPanelsProps) {
             </Field>
           </>
         )}
+        <Field label="Scale colours">
+          <Seg options={[{ v: true, l: "On" }, { v: false, l: "Off" }]} value={p.showScaleColors} onChange={p.setShowScaleColors} />
+        </Field>
       </div>
 
       <div className="px-card">

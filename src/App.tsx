@@ -44,8 +44,8 @@ const VIEW_DEFS: { key: ViewKey; label: string }[] = [
 export default function App() {
   const [root, setRoot] = useState(0);
   const [scaleName, setScaleName] = useState<ScaleName>("Major");
-  const [mode, setMode] = useState<GridMode>("inkey");
-  const [fixed, setFixed] = useState(false);
+  const [mode, setMode] = useState<GridMode>("chromatic");
+  const [fixed, setFixed] = useState(true);
   const [layout, setLayout] = useState<Layout>("4ths");
   const [orient, setOrient] = useState<Orient>("vert");
   const [labelMode, setLabelMode] = useState<LabelMode>("note");
@@ -77,6 +77,9 @@ export default function App() {
     grid: true, pianoRoll: true, piano: true, bracelet: true, tonnetz: true,
   });
   const toggleView = (k: ViewKey) => setViews((v) => ({ ...v, [k]: !v[k] }));
+  // When off, the grid/piano drop the scale tint — a "blank" surface where only
+  // played / selected / chord notes are highlighted.
+  const [showScaleColors, setShowScaleColors] = useState(true);
 
   const pattern = SCALES[scaleName];
   const len = pattern.length;
@@ -391,7 +394,9 @@ export default function App() {
   /* ----- pad style ----- */
   const padStyle = (p: Cell): React.CSSProperties => {
     let bg: string, color: string, border: string, glow: string;
-    if (p.isRoot) {
+    if (!showScaleColors) {
+      bg = "#0e1117"; color = "#8893a4"; border = "1px solid #1c2129"; glow = "none";
+    } else if (p.isRoot) {
       bg = "#1d2540"; color = "#eef2ff"; border = "1px solid #a5b4fc";
       glow = "0 0 13px rgba(165,180,252,.5), inset 0 0 9px rgba(165,180,252,.28)";
     } else if (p.inScale) {
@@ -399,7 +404,7 @@ export default function App() {
     } else {
       bg = "#1d0f12"; color = "#f87171"; border = "1px solid #5b1d22"; glow = "none";
     }
-    const out = !p.inScale;
+    const out = showScaleColors && !p.inScale;
     if (p.isSel) {
       bg = "#4a2f06"; color = "#fde68a"; border = "1px solid #fbbf24";
       glow = "0 0 17px rgba(251,191,36,.72), inset 0 0 11px rgba(251,191,36,.38)";
@@ -417,21 +422,23 @@ export default function App() {
       border = "1px solid " + (out ? "#ef4444" : "#f59e0b");
       glow = out ? "0 0 10px rgba(239,68,68,.45)" : "0 0 10px rgba(245,158,11,.45), inset 0 0 8px rgba(245,158,11,.22)";
     }
+    // Sounding right now (MIDI playback): bright white so it's unmistakable
+    // against the teal scale tint (and visible on a blank surface too).
     if (p.isLit) {
-      bg = "#0c3b36"; color = "#defff8"; border = "1px solid #7fffe9";
-      glow = "0 0 18px rgba(126,255,233,.9), inset 0 0 11px rgba(126,255,233,.5)";
+      bg = "#f2fbff"; color = "#06121a"; border = "1px solid #ffffff";
+      glow = "0 0 20px rgba(255,255,255,.9), inset 0 0 11px rgba(255,255,255,.5)";
     }
     return { background: bg, color, border, boxShadow: glow };
   };
 
   const keyAccent = (p: Cell): KeyAccent | null => {
-    if (p.isLit) return { c: "#7fffe9", strong: true };
+    if (p.isLit) return { c: "#ffffff", strong: true };
     if (p.isSel) return { c: "#fbbf24", strong: true };
     if (p.isSelPc) return { c: "#d97706", dashed: true };
     if (p.isVoice || p.isCRoot) return { c: "#fbbf24", strong: true, badge: p.voiceNum };
     if (p.isTone) return { c: "#f59e0b" };
-    if (p.isRoot) return { c: "#a5b4fc", strong: true };
-    if (p.inScale) return { c: "#2dd4bf" };
+    if (showScaleColors && p.isRoot) return { c: "#a5b4fc", strong: true };
+    if (showScaleColors && p.inScale) return { c: "#2dd4bf" };
     return null;
   };
 
@@ -535,6 +542,7 @@ export default function App() {
                 song={playback.song}
                 currentTime={playback.currentTime}
                 duration={playback.duration}
+                isPlaying={playback.isPlaying}
                 activeNotes={playback.activeNotes}
                 onSeek={playback.seek}
                 regions={chordRegions}
@@ -604,6 +612,7 @@ export default function App() {
           chord={chord} highlightSel={highlightSel} liveNotes={liveNotes} litSet={litSet}
           live={live} song={playback.song} playMidi={playMidi} analysis={analysis}
           showLayout={views.grid}
+          showScaleColors={showScaleColors} setShowScaleColors={setShowScaleColors}
           engineNaming={engineNaming} bridgeConnected={bridge.connected}
         />
       </div>
