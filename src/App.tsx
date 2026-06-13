@@ -231,9 +231,21 @@ export default function App() {
   }, [analysis, noteName]);
 
   // Tonality's local-key regions → a key-band strip (modulations become visible).
+  // Low-confidence regions (tiny margin — the engine flagging near-ambiguity) are
+  // absorbed into the prevailing key so the strip reads simply; the full,
+  // every-region view is the planned "deeper analysis" mode (see CLAUDE.md).
   const keyRegionBands = useMemo(() => {
     if (!analysis) return [];
-    return analysis.keyRegions.map((r) => ({
+    const MIN_MARGIN = 0.03; // below this, treat as "no real key change here"
+    const merged: typeof analysis.keyRegions = [];
+    for (const r of analysis.keyRegions) {
+      if (merged.length && r.meanMargin < MIN_MARGIN) {
+        merged[merged.length - 1] = { ...merged[merged.length - 1], endSec: r.endSec };
+      } else {
+        merged.push({ ...r });
+      }
+    }
+    return merged.map((r) => ({
       startSec: r.startSec,
       endSec: r.endSec,
       label: noteName(r.tonicPc) + (r.mode === "major" ? " maj" : r.mode === "minor" ? " min" : " " + r.mode),
