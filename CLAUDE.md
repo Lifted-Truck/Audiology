@@ -165,6 +165,16 @@ to the local `analyzeSelection`. A status chip in the Live panel shows connected
 `PYTHONPATH=/path/to/Tonality python3 scripts/tonality-serve.py`. Verified in-browser both ways
 (engine "Cmaj7/tonic" connected; local "C/root position" offline).
 
+**File analysis over the bridge (no script step).** The bridge also serves
+`POST /analyze_midi` (raw .mid bytes → `midi_file_analysis` dict); `bridge.ts` `analyzeMidi`
++ App `analyzeViaBridge` parse it into `FileAnalysis`. App keeps the loaded MIDI bytes
+(`midiBytesRef`) and **auto-analyzes on load when the bridge is connected** (and when the
+bridge connects after a file is already loaded). The transport's Tonality control adapts:
+connected → an **"↻ Analyze / ✓ Tonality"** button (auto-runs on load); offline → the manual
+`.json` loader (`scripts/tonality-analyze.py` output). So "path 1" file analysis no longer
+needs the out-of-band script when the bridge is up. Verified: loading a modulating .mid with
+the bridge connected auto-produced the inferred key + chord/key-region strips.
+
 ### Roadmap — remaining Tonality upgrades
 Still local, to move onto the bridge over time: `catalog_*` (catalog parity + containment,
 retires `scalesContaining`), `voicing_analysis`/`voicing_suggestions` (Build mode), and

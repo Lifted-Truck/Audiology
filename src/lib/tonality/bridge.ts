@@ -80,6 +80,22 @@ export async function nameChord(baseUrl: string, input: NameChordInput, signal?:
 }
 
 /**
+ * POST /analyze_midi — analyze a whole MIDI file (raw bytes) via the engine.
+ * Returns the raw `midi_file_analysis` dict; feed it to `parseTonalityAnalysis`.
+ * Throws on HTTP/engine error.
+ */
+export async function analyzeMidi(baseUrl: string, midi: ArrayBuffer, signal?: AbortSignal): Promise<unknown> {
+  const r = await fetch(baseUrl + "/analyze_midi", {
+    method: "POST",
+    headers: { "Content-Type": "application/octet-stream" },
+    body: midi,
+    signal,
+  });
+  if (!r.ok) throw new Error("bridge /analyze_midi " + r.status);
+  return r.json();
+}
+
+/**
  * Map Audiology's scale name to a Tonality scale name for the naming key context.
  * Returns undefined for scales without a confident mapping — the bridge then
  * names with tonic-only context (no functional roles) rather than erroring.
