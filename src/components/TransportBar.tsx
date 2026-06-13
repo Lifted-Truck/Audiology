@@ -11,7 +11,17 @@ const fmt = (sec: number): string => {
   return m + ":" + String(s).padStart(2, "0");
 };
 
-export default function TransportBar({ playback }: { playback: Playback }) {
+export default function TransportBar({
+  playback,
+  onLoadAnalysis,
+  hasAnalysis,
+  analysisError,
+}: {
+  playback: Playback;
+  onLoadAnalysis: (file: File) => void;
+  hasAnalysis: boolean;
+  analysisError: string | null;
+}) {
   const { song, isPlaying, currentTime, duration, tempoScale, loop } = playback;
 
   const onFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -20,6 +30,12 @@ export default function TransportBar({ playback }: { playback: Playback }) {
     const buf = await file.arrayBuffer();
     playback.load(buf, file.name.replace(/\.midi?$/i, ""));
     e.target.value = ""; // allow re-loading the same file
+  };
+
+  const onAnalysisFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) onLoadAnalysis(file);
+    e.target.value = "";
   };
 
   const hasSong = !!song;
@@ -34,7 +50,15 @@ export default function TransportBar({ playback }: { playback: Playback }) {
         <span className="px-tp-name" title={song?.name}>
           {song ? song.name : "No file loaded"}
         </span>
+        <label
+          className={"px-tp-analysis" + (hasAnalysis ? " on" : "") + (hasSong ? "" : " dis")}
+          title="Load a Tonality analysis (.json) — see scripts/tonality-analyze.py"
+        >
+          <input type="file" accept=".json,application/json" onChange={onAnalysisFile} disabled={!hasSong} />
+          <span>{hasAnalysis ? "✓ Tonality" : "+ Tonality"}</span>
+        </label>
       </div>
+      {analysisError && <div className="px-tp-analysis-err">{analysisError}</div>}
 
       <div className="px-tp-row">
         <button className="px-tp-btn" onClick={playback.stepBack} disabled={!hasSong} title="Previous onset">
