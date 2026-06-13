@@ -24,7 +24,8 @@ import Piano from "./components/Piano";
 import Bracelet from "./components/Bracelet";
 import Tonnetz from "./components/Tonnetz";
 import ControlPanels from "./components/ControlPanels";
-import { parseTonalityAnalysis, qualitySymbol, type FileAnalysis } from "./lib/tonality";
+import { parseTonalityAnalysis, qualitySymbol, nameChord, scaleToEngineKey, type FileAnalysis, type ChordNaming } from "./lib/tonality";
+import { useBridge } from "./hooks/useBridge";
 import { Dot } from "./ui/primitives";
 import type {
   Interaction, GridMode, Layout, Orient, LabelMode, NoteNotation,
@@ -154,6 +155,28 @@ export default function App() {
   }, [live.heldNotes, coalescedActive]);
   const highlightSel = isLive ? liveNotes : selected;
   const litSet = useMemo(() => new Set(playback.activeNotes), [playback.activeNotes]);
+
+  // Live engine-backed naming via the local Tonality bridge (Option B). Auto-
+  // detects the bridge; falls back to the local analyzer when it's offline.
+  const bridge = useBridge();
+  const [engineNaming, setEngineNaming] = useState<ChordNaming | null>(null);
+  useEffect(() => {
+    if (!isLive || !bridge.connected || highlightSel.length < 2) {
+      setEngineNaming(null);
+      return;
+    }
+    const pcs = Array.from(new Set(highlightSel.map(pcOf)));
+    const tonic = noteName(root);
+    const keyName = scaleToEngineKey(scaleName);
+    const realization = [...highlightSel].sort((a, b) => a - b);
+    const ctrl = new AbortController();
+    const id = setTimeout(() => {
+      nameChord(bridge.baseUrl, { pcs, tonic, keyName, realizationMidi: realization }, ctrl.signal)
+        .then(setEngineNaming)
+        .catch(() => setEngineNaming(null));
+    }, 80); // coalesce rapid changes
+    return () => { clearTimeout(id); ctrl.abort(); };
+  }, [isLive, bridge.connected, bridge.baseUrl, highlightSel, root, scaleName, noteName]);
 
   // Pitch-class views (bracelet / Tonnetz) backdrop: the current scale's pcs.
   const scalePcs = useMemo(() => new Set(pattern.map((i) => mod(root + i, 12))), [pattern, root]);
@@ -515,6 +538,7 @@ export default function App() {
           chord={chord} highlightSel={highlightSel} liveNotes={liveNotes} litSet={litSet}
           live={live} song={playback.song} playMidi={playMidi} analysis={analysis}
           showLayout={views.grid}
+          engineNaming={engineNaming} bridgeConnected={bridge.connected}
         />
       </div>
     </div>

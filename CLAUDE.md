@@ -153,19 +153,26 @@ windowed lattice (only in-view cells rendered from an unbounded integer grid). B
 Tonnetz are recorded with Tonality as **Representation-layer descriptor needs**
 (`integrations/audiology/brief-2.md`) for when that engine layer can describe them.
 
-### Roadmap — path 2: interactive bridge (live naming over the wire)
-Replace `analyzeSelection` (and eventually `scalesContaining`) with live engine calls for
-the Live-mode analyzer. Tonality sanctioned a **local HTTP bridge over `mts.mcp.tools`**
-(their gap 9, "the web door"); interim, stand up our own thin server importing those
-functions and serving their JSON dicts — tool signatures + result shapes are the contract,
-so swapping to the official bridge is ~a URL change. Other recorded upgrades: `name_pcs`
-(bass-aware naming), `voicing_analysis`/`voicing_suggestions` (Build mode), `catalog_*`
-(catalog parity + containment, retires `scalesContaining`), and consuming the coming
-**Representation layer (Phase 5)** for view descriptions. See `integrations/audiology/response.md`.
-- **Coalescing note (from Tonality #50):** the engine now coalesces server-side, so once
-  the Live analyzer calls the engine over the bridge, `src/hooks/useCoalescedNotes.ts` can be
-  dropped (same contract either side of the wire). Keep it until then — today we analyze
-  locally and still need it.
+### Done — path 2: interactive bridge (live engine naming over the wire)
+`scripts/tonality-serve.py` is a thin local HTTP server over `mts.mcp.tools` (CORS,
+`/health` + `POST /name_pcs`) — the sanctioned "web door" (gap 9). `src/lib/tonality/bridge.ts`
+is the typed client (`probeBridge`, `nameChord` → `ChordNaming`, `scaleToEngineKey`);
+`src/hooks/useBridge.ts` **auto-detects** the bridge (probe on mount + every 5s, so starting/
+stopping it flips connection live). In Live mode, App debounce-calls `nameChord` with the
+sounding pcs + tonic + scale + realization and shows the engine's **chosen reading + functional
+role + alternatives + `is_ambiguous`**; when the bridge is offline it **gracefully falls back**
+to the local `analyzeSelection`. A status chip in the Live panel shows connected/offline. Run:
+`PYTHONPATH=/path/to/Tonality python3 scripts/tonality-serve.py`. Verified in-browser both ways
+(engine "Cmaj7/tonic" connected; local "C/root position" offline).
+
+### Roadmap — remaining Tonality upgrades
+Still local, to move onto the bridge over time: `catalog_*` (catalog parity + containment,
+retires `scalesContaining`), `voicing_analysis`/`voicing_suggestions` (Build mode), and
+consuming the coming **Representation layer** for view descriptions (keyboard slice first;
+bracelet/Tonnetz descriptors recorded). See `integrations/audiology/response*.md`.
+- **Coalescing (Tonality #50):** the engine coalesces server-side; when the Live analyzer's
+  inputs come from the engine path we can drop `src/hooks/useCoalescedNotes.ts`. Today the
+  bridge call is debounced client-side and we still coalesce the local fallback, so keep it.
 
 ### Phase 2 transport design (get this right first)
 Two clocks — **song-time** `s` (`Note.time`, sec) and **audio-time** `a`

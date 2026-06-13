@@ -15,7 +15,7 @@ import { KEY_TO_SEMITONE, OCTAVE_DOWN_KEY, OCTAVE_UP_KEY } from "../lib/midi/inp
 import { WHITE_PCS } from "../geometry/piano";
 import { ALL_INPUTS, type LiveInput } from "../hooks/useLiveInput";
 import type { Song } from "../lib/midi/types";
-import { modeToScaleName, type FileAnalysis } from "../lib/tonality";
+import { modeToScaleName, qualitySymbol, type FileAnalysis, type ChordNaming } from "../lib/tonality";
 import { Field, Seg, Sel, PcChips } from "../ui/primitives";
 import type {
   Interaction, GridMode, Layout, Orient, LabelMode, NoteNotation,
@@ -77,6 +77,10 @@ export interface ControlPanelsProps {
   analysis: FileAnalysis | null;
   /** Whether the Push grid is visible — its Layout card hides when it isn't. */
   showLayout: boolean;
+  /** Engine-backed naming for the Live set (null = none / use local analyzer). */
+  engineNaming: ChordNaming | null;
+  /** Whether the Tonality bridge is connected (drives the Live status chip). */
+  bridgeConnected: boolean;
 }
 
 export default function ControlPanels(p: ControlPanelsProps) {
@@ -117,18 +121,47 @@ export default function ControlPanels(p: ControlPanelsProps) {
     .filter(([, s]) => WHITE_PCS.includes(mod(s, 12)))
     .map(([k]) => k.toUpperCase());
 
-  // Shared analysis readout (Analyze + Live), in a fixed-min-height slot so the
-  // panel doesn't reflow while you play.
+  // In/out-of-key indicator, shared by the local and engine readouts.
+  const keyCheckEl = keyCheck && (
+    <div className={"px-keycheck" + (keyCheck.inKey ? " in" : " out")}>
+      <span className="px-keycheck-dot" />
+      {keyCheck.inKey
+        ? "In key — " + noteName(p.root) + " " + p.scaleName
+        : "Out of key: " + keyCheck.out.map(noteName).join(", ")}
+    </div>
+  );
+
+  // Engine-backed reading (Live, bridge connected): chosen + role + alternatives.
+  const engineName = (r: { rootPc: number; quality: string }) => noteName(r.rootPc) + qualitySymbol(r.quality);
+  const renderEngineNaming = () => {
+    const en = p.engineNaming!;
+    return (
+      <div className="px-analysis-slot">
+        {keyCheckEl}
+        {en.chosen && (
+          <div className="px-cands">
+            <div className="px-cand primary">
+              <span className="px-cand-name">{engineName(en.chosen)}</span>
+              <span className="px-cand-sub">
+                {(en.chosen.functionalRole || "engine") + (en.isAmbiguous ? " · ambiguous" : "")}
+              </span>
+            </div>
+            {en.alternatives.slice(0, 3).map((a, i) => (
+              <div key={i} className="px-cand">
+                <span className="px-cand-name">{engineName(a)}</span>
+                <span className="px-cand-sub">{a.functionalRole || "alternative"}</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  // Shared local analysis readout (Analyze + Live fallback), fixed-min-height.
   const renderAnalysis = () => (
     <div className="px-analysis-slot">
-      {keyCheck && (
-        <div className={"px-keycheck" + (keyCheck.inKey ? " in" : " out")}>
-          <span className="px-keycheck-dot" />
-          {keyCheck.inKey
-            ? "In key — " + noteName(p.root) + " " + p.scaleName
-            : "Out of key: " + keyCheck.out.map(noteName).join(", ")}
-        </div>
-      )}
+      {keyCheckEl}
       {"empty" in analysis && (
         <div className="px-analyze-empty">{isLive ? "Play some notes to identify them." : "No notes selected yet."}</div>
       )}
@@ -381,6 +414,11 @@ export default function ControlPanels(p: ControlPanelsProps) {
               Identifies whatever is sounding in real time — your computer keyboard, a connected MIDI controller, or the playing MIDI file. Notes light up the grid &amp; piano and are named below.
             </p>
 
+            <div className={"px-engine-chip" + (p.bridgeConnected ? " on" : "")} title="Tonality engine bridge — run scripts/tonality-serve.py">
+              <span className="px-engine-dot" />
+              {p.bridgeConnected ? "Tonality engine — naming live" : "Local analyzer (engine bridge offline)"}
+            </div>
+
             {p.live.midiSupported ? (
               <Field label="MIDI input">
                 <Sel value={p.live.midiInputId} onChange={p.live.setMidiInputId}>
@@ -421,7 +459,7 @@ export default function ControlPanels(p: ControlPanelsProps) {
               ))}
             </div>
 
-            {renderAnalysis()}
+            {p.engineNaming && p.engineNaming.chosen ? renderEngineNaming() : renderAnalysis()}
           </div>
         )}
       </div>
