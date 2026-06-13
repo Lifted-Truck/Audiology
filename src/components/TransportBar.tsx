@@ -83,6 +83,9 @@ export default function TransportBar({
       {analysisError && <div className="px-tp-analysis-err">{analysisError}</div>}
 
       <div className="px-tp-row">
+        <button className="px-tp-btn" onClick={() => playback.seek(0)} disabled={!hasSong} title="Restart (to start)">
+          {"⇤"}
+        </button>
         <button className="px-tp-btn" onClick={playback.stepBack} disabled={!hasSong} title="Previous onset">
           {"⏮"}
         </button>

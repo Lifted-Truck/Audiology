@@ -88,6 +88,8 @@ export default function PianoRoll({
   const [width, setWidth] = useState(600);
   const scrollXRef = useRef(0);
   const draggingRef = useRef(false);
+  const timeRef = useRef(currentTime); // latest position, for the wheel handler
+  timeRef.current = currentTime;
 
   const keyStripH = keyRegions.length ? KEY_STRIP_H : 0;
   const chordStripH = regions.length ? CHORD_STRIP_H : 0;
@@ -105,6 +107,21 @@ export default function PianoRoll({
     ro.observe(el);
     return () => ro.disconnect();
   }, []);
+
+  /* wheel over the roll scrubs through time (look ahead without clicking-to-seek) */
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const onWheel = (e: WheelEvent) => {
+      if (duration <= 0) return;
+      e.preventDefault();
+      const d = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY;
+      const next = Math.max(0, Math.min(duration, timeRef.current + d / pxPerSec));
+      onSeek(next);
+    };
+    canvas.addEventListener("wheel", onWheel, { passive: false });
+    return () => canvas.removeEventListener("wheel", onWheel);
+  }, [duration, pxPerSec, onSeek]);
 
   /* static layer (strips + notes) — rebuilt only when its inputs change */
   useEffect(() => {
