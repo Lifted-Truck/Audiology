@@ -21,6 +21,8 @@ import TransportBar from "./components/TransportBar";
 import PianoRoll from "./components/PianoRoll";
 import Grid from "./components/Grid";
 import Piano from "./components/Piano";
+import Bracelet from "./components/Bracelet";
+import Tonnetz from "./components/Tonnetz";
 import ControlPanels from "./components/ControlPanels";
 import { parseTonalityAnalysis, qualitySymbol, type FileAnalysis } from "./lib/tonality";
 import { Dot } from "./ui/primitives";
@@ -28,6 +30,15 @@ import type {
   Interaction, GridMode, Layout, Orient, LabelMode, NoteNotation,
   DegNotation, DegRef, ChordDisplay, Cell, GridCell, WhiteKey, BlackKey, KeyAccent, BuiltChord,
 } from "./ui/types";
+
+type ViewKey = "grid" | "pianoRoll" | "piano" | "bracelet" | "tonnetz";
+const VIEW_DEFS: { key: ViewKey; label: string }[] = [
+  { key: "grid", label: "Push grid" },
+  { key: "pianoRoll", label: "Piano roll" },
+  { key: "piano", label: "Piano" },
+  { key: "bracelet", label: "Bracelet" },
+  { key: "tonnetz", label: "Tonnetz" },
+];
 
 export default function App() {
   const [root, setRoot] = useState(0);
@@ -55,6 +66,12 @@ export default function App() {
   // Tonality engine analysis of the loaded file (path 1: offline JSON import).
   const [analysis, setAnalysis] = useState<FileAnalysis | null>(null);
   const [analysisError, setAnalysisError] = useState<string | null>(null);
+
+  // Optional visual modules — each surface can be shown or hidden.
+  const [views, setViews] = useState<Record<ViewKey, boolean>>({
+    grid: true, pianoRoll: true, piano: true, bracelet: true, tonnetz: true,
+  });
+  const toggleView = (k: ViewKey) => setViews((v) => ({ ...v, [k]: !v[k] }));
 
   const pattern = SCALES[scaleName];
   const len = pattern.length;
@@ -138,6 +155,9 @@ export default function App() {
   const highlightSel = isLive ? liveNotes : selected;
   const litSet = useMemo(() => new Set(playback.activeNotes), [playback.activeNotes]);
 
+  // Pitch-class views (bracelet / Tonnetz) backdrop: the current scale's pcs.
+  const scalePcs = useMemo(() => new Set(pattern.map((i) => mod(root + i, 12))), [pattern, root]);
+
   // Tonality's per-segment chord readings → time-aligned labels for the roll.
   const chordRegions = useMemo(() => {
     if (!analysis) return [];
@@ -164,6 +184,13 @@ export default function App() {
     const closePcs = Array.from(new Set(iv.map((i) => pcOf(48 + chordRootPc + i))));
     return { closePcs, voicing: voiceChord(48 + chordRootPc), symbol: noteName(chordRootPc) + SYM[chordQuality] };
   }, [chordQuality, chordRootPc, voiceChord, noteName]);
+
+  // Active pitch classes for the diagrams: the built chord (Build) or the
+  // selected/sounding notes (Analyze/Live).
+  const activePcs = useMemo(() => {
+    if (interaction === "build") return chordOn ? chord.closePcs : [];
+    return Array.from(new Set(highlightSel.map(pcOf)));
+  }, [interaction, chordOn, chord, highlightSel]);
 
   /* ----- reference for degree labels ----- */
   const refPc =
@@ -354,32 +381,71 @@ export default function App() {
 
       <div className="px-body">
         <section className="px-stage">
+          <div className="px-views">
+            <span className="px-views-cap">Views</span>
+            {VIEW_DEFS.map(({ key, label }) => (
+              <button
+                key={key}
+                className={"px-view-chip" + (views[key] ? " on" : "")}
+                onClick={() => toggleView(key)}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+
           <div className="px-stage-block">
             <div className="px-block-cap">Transport</div>
             <TransportBar playback={playback} onLoadAnalysis={loadAnalysis} hasAnalysis={!!analysis} analysisError={analysisError} />
           </div>
 
-          <div className="px-stage-block">
-            <div className="px-block-cap">Push grid</div>
-            <Grid rows={grid} styleOf={padStyle} label={padMain} labelMode={labelMode} onPad={onPad} />
-          </div>
+          {views.grid && (
+            <div className="px-stage-block">
+              <div className="px-block-cap">Push grid</div>
+              <Grid rows={grid} styleOf={padStyle} label={padMain} labelMode={labelMode} onPad={onPad} />
+            </div>
+          )}
 
-          <div className="px-stage-block">
-            <div className="px-block-cap">Piano roll</div>
-            <PianoRoll
-              song={playback.song}
-              currentTime={playback.currentTime}
-              duration={playback.duration}
-              activeNotes={playback.activeNotes}
-              onSeek={playback.seek}
-              regions={chordRegions}
-            />
-          </div>
+          {views.pianoRoll && (
+            <div className="px-stage-block">
+              <div className="px-block-cap">Piano roll</div>
+              <PianoRoll
+                song={playback.song}
+                currentTime={playback.currentTime}
+                duration={playback.duration}
+                activeNotes={playback.activeNotes}
+                onSeek={playback.seek}
+                regions={chordRegions}
+              />
+            </div>
+          )}
 
-          <div className="px-stage-block">
-            <div className="px-block-cap">Piano · C2 – C6</div>
-            <Piano whites={piano.whites} blacks={piano.blacks} accentOf={keyAccent} label={padMain} labelMode={labelMode} onPad={onPad} />
-          </div>
+          {views.piano && (
+            <div className="px-stage-block">
+              <div className="px-block-cap">Piano · C2 – C6</div>
+              <Piano whites={piano.whites} blacks={piano.blacks} accentOf={keyAccent} label={padMain} labelMode={labelMode} onPad={onPad} />
+            </div>
+          )}
+
+          {(views.bracelet || views.tonnetz) && (
+            <div className="px-stage-block">
+              <div className="px-block-cap">Diagrams</div>
+              <div className="px-diagrams">
+                {views.bracelet && (
+                  <div className="px-diagram">
+                    <div className="px-diagram-cap">Bracelet</div>
+                    <Bracelet rootPc={root} scalePcs={scalePcs} activePcs={activePcs} noteName={noteName} />
+                  </div>
+                )}
+                {views.tonnetz && (
+                  <div className="px-diagram">
+                    <div className="px-diagram-cap">Tonnetz</div>
+                    <Tonnetz rootPc={root} scalePcs={scalePcs} activePcs={activePcs} noteName={noteName} />
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
 
           <div className="px-legend">
             <Dot c="#a5b4fc" t="root / tonic" />
@@ -414,6 +480,7 @@ export default function App() {
           noteName={noteName} inScalePc={inScalePc} isLive={isLive}
           chord={chord} highlightSel={highlightSel} liveNotes={liveNotes} litSet={litSet}
           live={live} song={playback.song} playMidi={playMidi} analysis={analysis}
+          showLayout={views.grid}
         />
       </div>
     </div>
