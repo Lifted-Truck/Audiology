@@ -295,6 +295,8 @@ export default function App() {
   /* ----- labels ----- */
   const degLabel = (rel: number) => (degNot === "roman" ? DEG_ROM[rel] : degNot === "solfege" ? DEG_SOL[rel] : DEG_NUM[rel]);
   const padMain = (p: Cell) => (labelMode === "note" ? noteName(p.pc) : degLabel(mod(p.pc - refPc, 12)));
+  // Pitch-class label honoring the Labels settings — for the bracelet / Tonnetz.
+  const pcLabel = (pc: number) => (labelMode === "note" ? noteName(pc) : degLabel(mod(pc - refPc, 12)));
 
   /* ----- pad style ----- */
   const padStyle = (p: Cell): React.CSSProperties => {
@@ -359,6 +361,27 @@ export default function App() {
       playMidi(p.midi);
     }
     if (chordOn) setChordRootPc(p.pc);
+  };
+
+  // Clicking a pitch class on the bracelet / Tonnetz behaves like a pad tap, in a
+  // fixed middle register (these views are octave-less).
+  const onPickPc = (pc: number) => {
+    const midi = 60 + pc; // C3..B3
+    if (interaction === "analyze") {
+      playMidi(midi);
+      setSelected((s) => (s.includes(midi) ? s.filter((m) => m !== midi) : [...s, midi]));
+      return;
+    }
+    if (interaction === "live") {
+      playMidi(midi);
+      return;
+    }
+    if (chordOn && tapChord) {
+      voiceChord(midi).forEach((m, i) => playMidi(m, 1.0, i * 0.03, 0.85));
+    } else {
+      playMidi(midi);
+    }
+    if (chordOn) setChordRootPc(pc);
   };
 
   const layoutNote =
@@ -434,13 +457,13 @@ export default function App() {
                 {views.bracelet && (
                   <div className="px-diagram">
                     <div className="px-diagram-cap">Bracelet</div>
-                    <Bracelet rootPc={root} scalePcs={scalePcs} activePcs={activePcs} noteName={noteName} />
+                    <Bracelet rootPc={root} scalePcs={scalePcs} activePcs={activePcs} label={pcLabel} onPick={onPickPc} />
                   </div>
                 )}
                 {views.tonnetz && (
                   <div className="px-diagram">
-                    <div className="px-diagram-cap">Tonnetz</div>
-                    <Tonnetz rootPc={root} scalePcs={scalePcs} activePcs={activePcs} noteName={noteName} />
+                    <div className="px-diagram-cap">Tonnetz · drag to pan</div>
+                    <Tonnetz rootPc={root} scalePcs={scalePcs} activePcs={activePcs} label={pcLabel} onPick={onPickPc} />
                   </div>
                 )}
               </div>

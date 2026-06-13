@@ -138,11 +138,15 @@ triage response of record live in the Tonality repo at `integrations/audiology/`
 ### Done — modular views + pitch-class diagrams
 The stage surfaces are optional modules toggled in a **Views** bar: Push grid, Piano roll,
 Piano, **Bracelet**, **Tonnetz**. Hiding the grid also hides its Layout card (`showLayout`
-prop). `src/components/{Bracelet,Tonnetz}.tsx` are pure SVG driven by `scalePcs` (backdrop)
-+ `activePcs` (built chord in Build, selected/sounding pcs in Analyze/Live) + `noteName` —
-rendered client-side from pitch classes the app already has. Bracelet + Tonnetz are recorded
-with Tonality as **Representation-layer descriptor needs** (`integrations/audiology/brief-2.md`)
-for when that engine layer can describe them.
+prop). `src/components/{Bracelet,Tonnetz}.tsx` are SVG driven by `scalePcs` (backdrop) +
+`activePcs` (built chord in Build, selected/sounding pcs in Analyze/Live), rendered
+client-side from pitch classes the app already has. They share the Push surfaces' behaviour:
+labels honor the Labels settings via App's `pcLabel`; nodes are **clickable** (App's
+`onPickPc`, a fixed C3 register since the views are octave-less); the **scale tonic** keeps an
+indigo ring even when it's also a chord tone. The **Tonnetz is endless** — drag-to-pan with a
+windowed lattice (only in-view cells rendered from an unbounded integer grid). Bracelet +
+Tonnetz are recorded with Tonality as **Representation-layer descriptor needs**
+(`integrations/audiology/brief-2.md`) for when that engine layer can describe them.
 
 ### Roadmap — path 2: interactive bridge (live naming over the wire)
 Replace `analyzeSelection` (and eventually `scalesContaining`) with live engine calls for

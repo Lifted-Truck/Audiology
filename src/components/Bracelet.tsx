@@ -1,9 +1,9 @@
 // Bracelet (pitch-class clock): the 12 pitch classes around a circle, C at top,
-// clockwise. The scale is the backdrop (in-scale nodes filled), the root is
-// marked, and the active set (current chord / selection / sounding notes) is
-// joined into a polygon — the "bracelet". Pure SVG, driven by pitch classes the
-// app already has; a future Tonality Representation-layer descriptor (symmetry
-// axes, etc.) could enrich it.
+// clockwise. The scale is the backdrop (in-scale nodes filled), the scale tonic
+// keeps an indigo ring even when it's also a chord tone, and the active set
+// (current chord / selection / sounding notes) is joined into a polygon — the
+// "bracelet". Nodes are clickable (like the pads). Labels honor the Labels
+// settings (note vs degree) via the `label` prop.
 
 import React from "react";
 
@@ -19,12 +19,14 @@ export default function Bracelet({
   rootPc,
   scalePcs,
   activePcs,
-  noteName,
+  label,
+  onPick,
 }: {
   rootPc: number;
   scalePcs: Set<number>;
   activePcs: number[];
-  noteName: (pc: number) => string;
+  label: (pc: number) => string;
+  onPick: (pc: number) => void;
 }) {
   const activeSet = new Set(activePcs);
   const ring = [...activePcs].sort((a, b) => a - b).map(pos);
@@ -44,15 +46,16 @@ export default function Bracelet({
       {PCS.map((pc) => {
         const [x, y] = pos(pc);
         const active = activeSet.has(pc);
-        const isRoot = pc === rootPc;
+        const isTonic = pc === rootPc;
         const inScale = scalePcs.has(pc);
         let fill = "transparent", stroke = "#2a3340", txt = "#5b6675";
         if (inScale) { fill = "#0a2825"; stroke = "#2dd4bf"; txt = "#5eead4"; }
-        if (isRoot) { fill = "#1d2540"; stroke = "#a5b4fc"; txt = "#eef2ff"; }
+        if (isTonic) { fill = "#1d2540"; stroke = "#a5b4fc"; txt = "#eef2ff"; }
         if (active) { fill = "#4a2f06"; stroke = "#fbbf24"; txt = "#fde68a"; }
         return (
-          <g key={pc}>
-            <circle cx={x} cy={y} r={NR} fill={fill} stroke={stroke} strokeWidth={active || isRoot ? 2 : 1.2} />
+          <g key={pc} className="px-node" onClick={() => onPick(pc)}>
+            {isTonic && <circle cx={x} cy={y} r={NR + 3} fill="none" stroke="#a5b4fc" strokeWidth={1.5} />}
+            <circle cx={x} cy={y} r={NR} fill={fill} stroke={stroke} strokeWidth={active || isTonic ? 2 : 1.2} />
             <text
               x={x}
               y={y}
@@ -63,7 +66,7 @@ export default function Bracelet({
               fontFamily="'JetBrains Mono', monospace"
               fill={txt}
             >
-              {noteName(pc)}
+              {label(pc)}
             </text>
           </g>
         );

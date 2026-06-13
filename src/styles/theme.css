@@ -153,6 +153,11 @@
 .px-diagram{flex:1 1 240px;min-width:220px;border-radius:16px;border:1px solid var(--line);background:linear-gradient(180deg,#0d1016,#070809);box-shadow:inset 0 1px 0 rgba(255,255,255,.03),0 18px 40px -20px rgba(0,0,0,.9);padding:14px;}
 .px-diagram-cap{font-size:10px;letter-spacing:.2em;text-transform:uppercase;color:var(--mut);margin-bottom:8px;}
 .px-bracelet-svg,.px-tonnetz-svg{display:block;width:100%;height:auto;}
+.px-tonnetz-svg{cursor:grab;touch-action:none;}
+.px-tonnetz-svg:active{cursor:grabbing;}
+.px-node{cursor:pointer;}
+.px-node circle{transition:filter .1s ease;}
+.px-node:hover circle{filter:brightness(1.25);}
 
 /* transport bar */
 .px-transport{display:flex;flex-direction:column;gap:10px;padding:14px 16px;border-radius:16px;border:1px solid var(--line);background:linear-gradient(180deg,#0d1016,#070809);box-shadow:inset 0 1px 0 rgba(255,255,255,.03),0 18px 40px -20px rgba(0,0,0,.9);}
