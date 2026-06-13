@@ -165,11 +165,21 @@ to the local `analyzeSelection`. A status chip in the Live panel shows connected
 `PYTHONPATH=/path/to/Tonality python3 scripts/tonality-serve.py`. Verified in-browser both ways
 (engine "Cmaj7/tonic" connected; local "C/root position" offline).
 
+### Key-region confidence (done)
+The key-region strip **merges low-confidence regions into the prevailing key**: `keyRegionBands`
+absorbs any region whose `meanMargin < 0.03` into the previous band. Rationale: Tonality is
+honest about uncertainty via the margin (e.g. a Bm window in a G-major piece scored margin
+0.0005 — a coin-flip), and per the division of labor (their boundary ruling) thresholding that
+confidence is the consumer's job. So a C→G→(ambiguous Bm) file reads simply as **C maj → G maj**.
+
 ### Roadmap — remaining Tonality upgrades
-Still local, to move onto the bridge over time: `catalog_*` (catalog parity + containment,
-retires `scalesContaining`), `voicing_analysis`/`voicing_suggestions` (Build mode), and
-consuming the coming **Representation layer** for view descriptions (keyboard slice first;
-bracelet/Tonnetz descriptors recorded). See `integrations/audiology/response*.md`.
+- **"Deeper analysis" mode (planned):** a toggle that surfaces *everything* the engine returns —
+  every key region (incl. low-confidence ones) with its margin, all chord-naming alternatives,
+  set-class / DFT info. The default view stays simplified (above); this is the opt-in full view.
+- Still local, to move onto the bridge over time: `catalog_*` (catalog parity + containment,
+  retires `scalesContaining`), `voicing_analysis`/`voicing_suggestions` (Build mode), and
+  consuming the coming **Representation layer** for view descriptions (keyboard slice first;
+  bracelet/Tonnetz descriptors recorded). See `integrations/audiology/response*.md`.
 - **Coalescing (Tonality #50):** the engine coalesces server-side; when the Live analyzer's
   inputs come from the engine path we can drop `src/hooks/useCoalescedNotes.ts`. Today the
   bridge call is debounced client-side and we still coalesce the local fallback, so keep it.
