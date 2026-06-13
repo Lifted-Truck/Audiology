@@ -5,9 +5,13 @@ Guidance for Claude Code when working in this repo.
 ## What this is
 
 **Audiology** — a React + TypeScript (Vite) single-page app for exploring scales and
-chords and for playing/analyzing MIDI files in real time. Started life as a one-file
-Ableton-Push-style scale explorer (`PushExplorer.jsx`) and is being refactored into a
-modular project (see README "Architecture").
+chords and for playing/analyzing MIDI files in real time. It began as a one-file
+Ableton-Push-style scale explorer and is now a modular, strictly-typed app whose
+north star is to become **a GUI for the Tonality music-theory engine**.
+
+> **Fresh thread? Start with [HANDOFF.md](HANDOFF.md)** — a one-page snapshot of the
+> current state, how to run, the Tonality integration, the roadmap, and workflow
+> gotchas. The detailed history is the "Handoff — current status" section below.
 
 ## Run & verify
 
