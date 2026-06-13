@@ -44,8 +44,8 @@ const VIEW_DEFS: { key: ViewKey; label: string }[] = [
 export default function App() {
   const [root, setRoot] = useState(0);
   const [scaleName, setScaleName] = useState<ScaleName>("Major");
-  const [mode, setMode] = useState<GridMode>("inkey");
-  const [fixed, setFixed] = useState(false);
+  const [mode, setMode] = useState<GridMode>("chromatic");
+  const [fixed, setFixed] = useState(true);
   const [layout, setLayout] = useState<Layout>("4ths");
   const [orient, setOrient] = useState<Orient>("vert");
   const [labelMode, setLabelMode] = useState<LabelMode>("note");
@@ -542,6 +542,7 @@ export default function App() {
                 song={playback.song}
                 currentTime={playback.currentTime}
                 duration={playback.duration}
+                isPlaying={playback.isPlaying}
                 activeNotes={playback.activeNotes}
                 onSeek={playback.seek}
                 regions={chordRegions}

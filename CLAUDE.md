@@ -158,8 +158,14 @@ Tonnetz are recorded with Tonality as **Representation-layer descriptor needs**
   teal glow that collided with the teal scale tint and read as "passive."
 - **Scale-colours toggle** (Labels card, `showScaleColors`): off → grid/piano drop the scale
   tint to a neutral surface; only played / selected / chord notes highlight ("blank piano").
-- **Restart** button (⇤, seek 0) in the transport, and **wheel-over-the-PianoRoll scrubs**
-  time (look ahead without click-to-seek; non-passive listener, `deltaY|deltaX / pxPerSec`).
+- **Restart** button (⇤, seek 0) in the transport.
+- **Wheel over the PianoRoll pans the view** (manual scroll) *independent of the playhead* —
+  look ahead without moving the selector; the playhead is moved only by **click**. Manual pan
+  clears when playback starts (resumes follow). Non-passive listener; `manualScroll` state +
+  an `isPlaying` prop.
+- **Push grid enlarged** (`clamp(320px,32vw,520px)`) and the octave now sits *below* the note
+  name (was an absolute corner element that overlapped the label at small sizes).
+- **Defaults:** Chromatic + Fixed (C) + scale colours On (the maintainer's preferred setup).
 
 ### Done — path 2: interactive bridge (live engine naming over the wire)
 `scripts/tonality-serve.py` is a thin local HTTP server over `mts.mcp.tools` (CORS,
