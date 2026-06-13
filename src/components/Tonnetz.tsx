@@ -116,7 +116,10 @@ export default function Tonnetz({
         let fill = "#0b0e13", stroke = "#2a3340", txt = "#5b6675";
         if (inScale) { fill = "#0a2825"; stroke = "#2dd4bf"; txt = "#5eead4"; }
         if (isTonic) { fill = "#1d2540"; stroke = "#a5b4fc"; txt = "#eef2ff"; }
-        if (active) { fill = "#4a2f06"; stroke = "#fbbf24"; txt = "#fde68a"; }
+        if (active) {
+          if (inScale) { fill = "#4a2f06"; stroke = "#fbbf24"; txt = "#fde68a"; }
+          else { fill = "#3a0f12"; stroke = "#ef4444"; txt = "#fca5a5"; } // out-of-scale chord tone
+        }
         return (
           <g
             key={"n" + c + "_" + r}
