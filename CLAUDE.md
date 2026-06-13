@@ -134,6 +134,11 @@ triage response of record live in the Tonality repo at `integrations/audiology/`
   engine's **inferred key** (score · margin · profile, with Apply + alternatives); the
   **PianoRoll** draws a time-aligned **chord-region label strip**. Analysis is dropped when
   the song changes. Node-tested vs a real fixture; verified in-browser.
+- **Local key regions (path-1 enhancement).** The PianoRoll also draws a **key-region strip**
+  above the chord strip from `analysis.keyRegions` (Tonality's `key_regions` / local key
+  tracking + gap-13 per-segment key contexts), so modulations are visible — a C→G→Bm file
+  shows three labelled key bands with full-height boundary dividers. `App.keyRegionBands`
+  derives the labels; `fixtures/sample-modulating.*` exercise it.
 
 ### Done — modular views + pitch-class diagrams
 The stage surfaces are optional modules toggled in a **Views** bar: Push grid, Piano roll,
