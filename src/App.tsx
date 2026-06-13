@@ -225,6 +225,17 @@ export default function App() {
     return Array.from(new Set(highlightSel.map(pcOf)));
   }, [interaction, chordOn, chord, highlightSel]);
 
+  // Chord root for the diagrams: the explicit chord root (Build), else the bass
+  // (lowest sounding) pc (Analyze/Live). null = nothing to mark.
+  const diagramRootPc =
+    interaction === "build"
+      ? chordOn
+        ? chordRootPc
+        : null
+      : highlightSel.length
+        ? pcOf(Math.min(...highlightSel))
+        : null;
+
   /* ----- reference for degree labels ----- */
   const refPc =
     degRef === "root"
@@ -491,13 +502,13 @@ export default function App() {
                 {views.bracelet && (
                   <div className="px-diagram">
                     <div className="px-diagram-cap">Bracelet</div>
-                    <Bracelet rootPc={root} scalePcs={scalePcs} activePcs={activePcs} label={pcLabel} onPick={onPickPc} />
+                    <Bracelet rootPc={root} chordRootPc={diagramRootPc} scalePcs={scalePcs} activePcs={activePcs} label={pcLabel} onPick={onPickPc} />
                   </div>
                 )}
                 {views.tonnetz && (
                   <div className="px-diagram">
                     <div className="px-diagram-cap">Tonnetz · drag to pan</div>
-                    <Tonnetz rootPc={root} scalePcs={scalePcs} activePcs={activePcs} label={pcLabel} onPick={onPickPc} />
+                    <Tonnetz rootPc={root} chordRootPc={diagramRootPc} scalePcs={scalePcs} activePcs={activePcs} label={pcLabel} onPick={onPickPc} />
                   </div>
                 )}
               </div>
