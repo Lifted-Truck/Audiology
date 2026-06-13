@@ -173,6 +173,16 @@ export default function App() {
     }));
   }, [analysis, noteName]);
 
+  // Tonality's local-key regions → a key-band strip (modulations become visible).
+  const keyRegionBands = useMemo(() => {
+    if (!analysis) return [];
+    return analysis.keyRegions.map((r) => ({
+      startSec: r.startSec,
+      endSec: r.endSec,
+      label: noteName(r.tonicPc) + (r.mode === "major" ? " maj" : r.mode === "minor" ? " min" : " " + r.mode),
+    }));
+  }, [analysis, noteName]);
+
   /* ----- build chord ----- */
   const voiceChord = useCallback(
     (rootMidi: number) => buildVoicing(rootMidi, chordQuality, inversion, voicing),
@@ -439,6 +449,7 @@ export default function App() {
                 activeNotes={playback.activeNotes}
                 onSeek={playback.seek}
                 regions={chordRegions}
+                keyRegions={keyRegionBands}
               />
             </div>
           )}
