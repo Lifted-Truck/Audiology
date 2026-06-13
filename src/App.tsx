@@ -3,7 +3,7 @@
 // control panel. The pure music-theory + MIDI logic lives in lib/* and hooks/*;
 // this file is the wiring.
 
-import React, { useState, useMemo, useEffect, useCallback } from "react";
+import React, { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import "./styles/theme.css";
 import {
   SHARP, FLAT, FLAT_KEYS, SCALES, CHROMA_INT, INKEY_INT,
@@ -24,7 +24,7 @@ import Piano from "./components/Piano";
 import Bracelet from "./components/Bracelet";
 import Tonnetz from "./components/Tonnetz";
 import ControlPanels from "./components/ControlPanels";
-import { parseTonalityAnalysis, qualitySymbol, nameChord, scaleToEngineKey, type FileAnalysis, type ChordNaming } from "./lib/tonality";
+import { parseTonalityAnalysis, qualitySymbol, nameChord, analyzeMidi, scaleToEngineKey, type FileAnalysis, type ChordNaming } from "./lib/tonality";
 import { useBridge } from "./hooks/useBridge";
 import { Dot } from "./ui/primitives";
 import type {
@@ -64,9 +64,13 @@ export default function App() {
   const [chordDisplay, setChordDisplay] = useState<ChordDisplay>("tones");
   const [selected, setSelected] = useState<number[]>([]);
 
-  // Tonality engine analysis of the loaded file (path 1: offline JSON import).
+  // Tonality engine analysis of the loaded file: auto via the bridge when
+  // connected, or a manually-loaded JSON (offline). midiBytesRef holds the raw
+  // file so we can (re-)analyze it on demand / when the bridge connects.
   const [analysis, setAnalysis] = useState<FileAnalysis | null>(null);
   const [analysisError, setAnalysisError] = useState<string | null>(null);
+  const [analyzing, setAnalyzing] = useState(false);
+  const midiBytesRef = useRef<ArrayBuffer | null>(null);
 
   // Optional visual modules — each surface can be shown or hidden.
   const [views, setViews] = useState<Record<ViewKey, boolean>>({
@@ -113,11 +117,9 @@ export default function App() {
   const getSynth = audio.getSynth;
   const playback = usePlayback(audio);
 
-  // A loaded analysis belongs to a specific file — drop it when the song changes.
-  useEffect(() => {
-    setAnalysis(null);
-    setAnalysisError(null);
-  }, [playback.song]);
+  const onMidiLoaded = useCallback((buf: ArrayBuffer) => {
+    midiBytesRef.current = buf;
+  }, []);
 
   const loadAnalysis = useCallback(async (file: File) => {
     try {
@@ -159,6 +161,38 @@ export default function App() {
   // Live engine-backed naming via the local Tonality bridge (Option B). Auto-
   // detects the bridge; falls back to the local analyzer when it's offline.
   const bridge = useBridge();
+
+  // File analysis via the bridge (no manual script step). Sends the raw MIDI
+  // bytes to /analyze_midi and parses the result into our FileAnalysis.
+  const analyzeViaBridge = useCallback(async (buf: ArrayBuffer) => {
+    setAnalyzing(true);
+    setAnalysisError(null);
+    try {
+      const raw = await analyzeMidi(bridge.baseUrl, buf);
+      setAnalysis(parseTonalityAnalysis(raw));
+    } catch (e) {
+      setAnalysisError(e instanceof Error ? e.message : "Engine analysis failed");
+    } finally {
+      setAnalyzing(false);
+    }
+  }, [bridge.baseUrl]);
+
+  // On a new file: drop the old analysis, then auto-analyze via the bridge if connected.
+  useEffect(() => {
+    setAnalysis(null);
+    setAnalysisError(null);
+    if (bridge.connected && midiBytesRef.current) analyzeViaBridge(midiBytesRef.current);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [playback.song]);
+
+  // If the bridge connects after a file is already loaded, analyze it then.
+  useEffect(() => {
+    if (bridge.connected && midiBytesRef.current && !analysis && !analyzing) {
+      analyzeViaBridge(midiBytesRef.current);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [bridge.connected]);
+
   const [engineNaming, setEngineNaming] = useState<ChordNaming | null>(null);
   useEffect(() => {
     if (!isLive || !bridge.connected || highlightSel.length < 2) {
@@ -236,6 +270,17 @@ export default function App() {
     if (interaction === "build") return chordOn ? chord.closePcs : [];
     return Array.from(new Set(highlightSel.map(pcOf)));
   }, [interaction, chordOn, chord, highlightSel]);
+
+  // Chord root for the diagrams: the explicit chord root (Build), else the bass
+  // (lowest sounding) pc (Analyze/Live). null = nothing to mark.
+  const diagramRootPc =
+    interaction === "build"
+      ? chordOn
+        ? chordRootPc
+        : null
+      : highlightSel.length
+        ? pcOf(Math.min(...highlightSel))
+        : null;
 
   /* ----- reference for degree labels ----- */
   const refPc =
@@ -464,7 +509,16 @@ export default function App() {
 
           <div className="px-stage-block">
             <div className="px-block-cap">Transport</div>
-            <TransportBar playback={playback} onLoadAnalysis={loadAnalysis} hasAnalysis={!!analysis} analysisError={analysisError} />
+            <TransportBar
+              playback={playback}
+              onLoadAnalysis={loadAnalysis}
+              onMidiLoaded={onMidiLoaded}
+              onAnalyzeViaBridge={() => midiBytesRef.current && analyzeViaBridge(midiBytesRef.current)}
+              bridgeConnected={bridge.connected}
+              analyzing={analyzing}
+              hasAnalysis={!!analysis}
+              analysisError={analysisError}
+            />
           </div>
 
           {views.grid && (
@@ -503,13 +557,13 @@ export default function App() {
                 {views.bracelet && (
                   <div className="px-diagram">
                     <div className="px-diagram-cap">Bracelet</div>
-                    <Bracelet rootPc={root} scalePcs={scalePcs} activePcs={activePcs} label={pcLabel} onPick={onPickPc} />
+                    <Bracelet rootPc={root} chordRootPc={diagramRootPc} scalePcs={scalePcs} activePcs={activePcs} label={pcLabel} onPick={onPickPc} />
                   </div>
                 )}
                 {views.tonnetz && (
                   <div className="px-diagram">
                     <div className="px-diagram-cap">Tonnetz · drag to pan</div>
-                    <Tonnetz rootPc={root} scalePcs={scalePcs} activePcs={activePcs} label={pcLabel} onPick={onPickPc} />
+                    <Tonnetz rootPc={root} chordRootPc={diagramRootPc} scalePcs={scalePcs} activePcs={activePcs} label={pcLabel} onPick={onPickPc} />
                   </div>
                 )}
               </div>

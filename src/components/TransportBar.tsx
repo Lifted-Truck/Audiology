@@ -14,11 +14,19 @@ const fmt = (sec: number): string => {
 export default function TransportBar({
   playback,
   onLoadAnalysis,
+  onMidiLoaded,
+  onAnalyzeViaBridge,
+  bridgeConnected,
+  analyzing,
   hasAnalysis,
   analysisError,
 }: {
   playback: Playback;
   onLoadAnalysis: (file: File) => void;
+  onMidiLoaded: (buf: ArrayBuffer) => void;
+  onAnalyzeViaBridge: () => void;
+  bridgeConnected: boolean;
+  analyzing: boolean;
   hasAnalysis: boolean;
   analysisError: string | null;
 }) {
@@ -28,6 +36,7 @@ export default function TransportBar({
     const file = e.target.files?.[0];
     if (!file) return;
     const buf = await file.arrayBuffer();
+    onMidiLoaded(buf); // hand the raw bytes up before load, for bridge analysis
     playback.load(buf, file.name.replace(/\.midi?$/i, ""));
     e.target.value = ""; // allow re-loading the same file
   };
@@ -50,13 +59,26 @@ export default function TransportBar({
         <span className="px-tp-name" title={song?.name}>
           {song ? song.name : "No file loaded"}
         </span>
-        <label
-          className={"px-tp-analysis" + (hasAnalysis ? " on" : "") + (hasSong ? "" : " dis")}
-          title="Load a Tonality analysis (.json) — see scripts/tonality-analyze.py"
-        >
-          <input type="file" accept=".json,application/json" onChange={onAnalysisFile} disabled={!hasSong} />
-          <span>{hasAnalysis ? "✓ Tonality" : "+ Tonality"}</span>
-        </label>
+        {bridgeConnected ? (
+          // Engine connected: analyze the loaded file on demand (auto-runs on load too).
+          <button
+            className={"px-tp-analysis" + (hasAnalysis ? " on" : "") + (hasSong ? "" : " dis")}
+            onClick={onAnalyzeViaBridge}
+            disabled={!hasSong || analyzing}
+            title="Analyze the loaded file with the Tonality engine"
+          >
+            <span>{analyzing ? "Analyzing…" : hasAnalysis ? "✓ Tonality" : "↻ Analyze"}</span>
+          </button>
+        ) : (
+          // Engine offline: load a pre-computed analysis JSON (scripts/tonality-analyze.py).
+          <label
+            className={"px-tp-analysis" + (hasAnalysis ? " on" : "") + (hasSong ? "" : " dis")}
+            title="Load a Tonality analysis (.json) — or start scripts/tonality-serve.py to analyze on demand"
+          >
+            <input type="file" accept=".json,application/json" onChange={onAnalysisFile} disabled={!hasSong} />
+            <span>{hasAnalysis ? "✓ Tonality" : "+ Tonality"}</span>
+          </label>
+        )}
       </div>
       {analysisError && <div className="px-tp-analysis-err">{analysisError}</div>}
 

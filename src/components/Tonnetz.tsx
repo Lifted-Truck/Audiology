@@ -17,12 +17,14 @@ const DRAG_THRESHOLD = 4; // px of movement before a press counts as a pan, not 
 
 export default function Tonnetz({
   rootPc,
+  chordRootPc,
   scalePcs,
   activePcs,
   label,
   onPick,
 }: {
   rootPc: number;
+  chordRootPc: number | null;
   scalePcs: Set<number>;
   activePcs: number[];
   label: (pc: number) => string;
@@ -109,18 +111,23 @@ export default function Tonnetz({
         const x = sx(c, r), y = sy(r);
         const active = activeSet.has(pc);
         const isTonic = pc === rootPc;
+        const isChordRoot = pc === chordRootPc;
         const inScale = scalePcs.has(pc);
         let fill = "#0b0e13", stroke = "#2a3340", txt = "#5b6675";
         if (inScale) { fill = "#0a2825"; stroke = "#2dd4bf"; txt = "#5eead4"; }
         if (isTonic) { fill = "#1d2540"; stroke = "#a5b4fc"; txt = "#eef2ff"; }
-        if (active) { fill = "#4a2f06"; stroke = "#fbbf24"; txt = "#fde68a"; }
+        if (active) {
+          if (inScale) { fill = "#4a2f06"; stroke = "#fbbf24"; txt = "#fde68a"; }
+          else { fill = "#3a0f12"; stroke = "#ef4444"; txt = "#fca5a5"; } // out-of-scale chord tone
+        }
         return (
           <g
             key={"n" + c + "_" + r}
             className="px-node"
             onClick={() => { if (!lastMoved.current) onPick(pc); }}
           >
-            {isTonic && <circle cx={x} cy={y} r={NR + 3} fill="none" stroke="#a5b4fc" strokeWidth={1.5} />}
+            {isTonic && <circle cx={x} cy={y} r={NR + (isChordRoot ? 5 : 3)} fill="none" stroke="#a5b4fc" strokeWidth={1.5} />}
+            {isChordRoot && <circle cx={x} cy={y} r={NR + 2.5} fill="none" stroke="#fde68a" strokeWidth={2} />}
             <circle cx={x} cy={y} r={NR} fill={fill} stroke={stroke} strokeWidth={active || isTonic ? 2 : 1.2} />
             <text
               x={x} y={y}
