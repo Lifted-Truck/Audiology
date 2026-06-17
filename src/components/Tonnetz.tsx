@@ -34,7 +34,7 @@ export default function Tonnetz({
   // fills the view in every direction.
   const [pan, setPan] = useState({ x: VW / 2 - W, y: VH / 2 });
   const svgRef = useRef<SVGSVGElement>(null);
-  const drag = useRef<{ x: number; y: number; px: number; py: number; moved: boolean } | null>(null);
+  const drag = useRef<{ x: number; y: number; px: number; py: number; moved: boolean; captured: boolean } | null>(null);
   const lastMoved = useRef(false);
   const activeSet = new Set(activePcs);
 
@@ -52,9 +52,12 @@ export default function Tonnetz({
   }
 
   const onDown = (e: React.PointerEvent) => {
-    drag.current = { x: e.clientX, y: e.clientY, px: pan.x, py: pan.y, moved: false };
+    drag.current = { x: e.clientX, y: e.clientY, px: pan.x, py: pan.y, moved: false, captured: false };
     lastMoved.current = false;
-    svgRef.current?.setPointerCapture(e.pointerId);
+    // Do NOT capture the pointer here: capturing on press routes the subsequent
+    // `click` to the <svg> instead of the node <g>, silently swallowing node
+    // clicks (you couldn't add/remove notes via the Tonnetz). Capture lazily —
+    // only once movement crosses the drag threshold and a real pan begins.
   };
   const onMove = (e: React.PointerEvent) => {
     const d = drag.current;
@@ -62,13 +65,20 @@ export default function Tonnetz({
     const rect = svgRef.current?.getBoundingClientRect();
     const scale = rect && rect.width ? VW / rect.width : 1;
     const ddx = e.clientX - d.x, ddy = e.clientY - d.y;
-    if (Math.abs(ddx) + Math.abs(ddy) > DRAG_THRESHOLD) d.moved = true;
-    setPan({ x: d.px + ddx * scale, y: d.py + ddy * scale });
+    if (!d.moved && Math.abs(ddx) + Math.abs(ddy) > DRAG_THRESHOLD) {
+      d.moved = true;
+      d.captured = true;
+      svgRef.current?.setPointerCapture(e.pointerId);
+    }
+    if (d.moved) setPan({ x: d.px + ddx * scale, y: d.py + ddy * scale });
   };
   const onUp = (e: React.PointerEvent) => {
-    if (drag.current) lastMoved.current = drag.current.moved;
+    const d = drag.current;
+    if (d) {
+      lastMoved.current = d.moved;
+      if (d.captured) svgRef.current?.releasePointerCapture?.(e.pointerId);
+    }
     drag.current = null;
-    svgRef.current?.releasePointerCapture?.(e.pointerId);
   };
 
   return (

@@ -37,10 +37,34 @@ export function analyzeSelection(
     return { none: true, pcs, bassPc, intervals };
   }
   raw.sort((a, b) => (b.isRoot ? 1 : 0) - (a.isRoot ? 1 : 0));
-  const candidates: ChordCandidate[] = raw.map((c) => ({
-    name: noteName(c.root) + c.suffix + (c.isRoot ? "" : "/" + noteName(bassPc)),
-    sub: c.isRoot ? "root position" : "slash / inversion",
-    primary: c.isRoot,
-  }));
-  return { candidates, pcs, bassPc };
+  const candidates: ChordCandidate[] = raw.map((c) => {
+    // Inversion = the bass note's position in this reading's stacked chord tones.
+    const ivs = pcs.map((p) => mod(p - c.root, 12)).sort((a, b) => a - b);
+    const inv = ivs.indexOf(mod(bassPc - c.root, 12));
+    return {
+      name: noteName(c.root) + c.suffix + (c.isRoot ? "" : "/" + noteName(bassPc)),
+      sub: INVERSION_NAMES[inv] ?? (c.isRoot ? "root position" : "inversion"),
+      primary: c.isRoot,
+    };
+  });
+  return { candidates, pcs, bassPc, voicing: describeVoicing(midis) };
+}
+
+const INVERSION_NAMES = [
+  "root position", "1st inversion", "2nd inversion", "3rd inversion", "4th inversion", "5th inversion",
+];
+
+/** Describe the *realized* voicing (register-aware) of a set of MIDI notes:
+ *  spacing (close/open/wide), voice count, doublings, and total span. The
+ *  identity/inversion above is pitch-class only — this reads the actual notes. */
+function describeVoicing(midis: number[]): string {
+  const sorted = [...midis].sort((a, b) => a - b);
+  const span = sorted[sorted.length - 1] - sorted[0];
+  const voices = midis.length;
+  const doublings = voices - new Set(midis.map(pcOf)).size;
+  const shape = span <= 12 ? "close" : span <= 24 ? "open" : "wide";
+  const parts = [shape, voices + " voices"];
+  if (doublings > 0) parts.push(doublings === 1 ? "1 doubling" : doublings + " doublings");
+  parts.push("span " + span + " st");
+  return parts.join(" · ");
 }

@@ -26,4 +26,4 @@ export type AnalysisResult =
   | { empty: true }
   | { single: true; text: string }
   | { none: true; pcs: PitchClass[]; bassPc: PitchClass; intervals: number[] }
-  | { candidates: ChordCandidate[]; pcs: PitchClass[]; bassPc: PitchClass };
+  | { candidates: ChordCandidate[]; pcs: PitchClass[]; bassPc: PitchClass; voicing?: string };

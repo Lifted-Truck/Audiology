@@ -7,6 +7,19 @@ export const SHARP = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#"
 export const FLAT = ["C", "Db", "D", "Eb", "E", "F", "Gb", "G", "Ab", "A", "Bb", "B"];
 export const FLAT_KEYS = [5, 10, 3, 8, 1, 6]; // F Bb Eb Ab Db Gb
 
+// Whether a given key's signature is flat-side — so a label can be spelled in
+// its *own* key (Tonality's Bb-major region reads "Bb maj", not "A# maj"),
+// independent of whatever root the user currently has selected.
+const FLAT_MAJOR_TONICS = new Set([5, 10, 3, 8, 1, 6]); // F Bb Eb Ab Db Gb
+const FLAT_MINOR_TONICS = new Set([0, 2, 3, 5, 7, 10]); // Cm Dm Ebm Fm Gm Bbm
+export function keyUsesFlats(tonicPc: number, mode: string): boolean {
+  return mode === "minor" ? FLAT_MINOR_TONICS.has(tonicPc) : FLAT_MAJOR_TONICS.has(tonicPc);
+}
+/** Spell a pitch class in a key context (flats for flat keys, else sharps). */
+export function spellInKey(pc: number, tonicPc: number, mode: string): string {
+  return (keyUsesFlats(tonicPc, mode) ? FLAT : SHARP)[pc];
+}
+
 export const SCALES = {
   Major: [0, 2, 4, 5, 7, 9, 11],
   Minor: [0, 2, 3, 5, 7, 8, 10],

@@ -7,7 +7,7 @@
 import { useEffect, useState } from "react";
 import { probeBridge } from "../lib/tonality/bridge";
 
-export const DEFAULT_BRIDGE_URL = "http://localhost:8765";
+export const DEFAULT_BRIDGE_URL = "http://localhost:8012";
 const PROBE_INTERVAL_MS = 5000;
 
 export interface Bridge {
