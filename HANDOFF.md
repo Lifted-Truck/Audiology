@@ -156,6 +156,16 @@ Fully `.tsx`, `strict`, `allowJs:false`. No monolith.
 2. **"Deeper analysis" mode:** opt-in toggle surfacing *everything* the engine returns
    (all key regions incl. low-confidence + margins, all naming alternatives,
    set-class/DFT). Default view stays simplified.
+   - **Structural anchor toggle (frame-weighted vs legacy):** the engine's
+     `structural_keys` now defaults to `anchor_method="frame_weighted"` (Tonality
+     response-8 — better tonic anchoring; e.g. it recovers a true tonic where the
+     default used to land on a repeatedly-tonicized dominant). We call it without the
+     param, so the key strip already inherits this. Expose a toggle here to pick
+     `frame_weighted` vs the retained legacy `most_prevalent_region`, because
+     frame-weighting has a *symmetric risk*: a file ending in a sustained, non-returning
+     modulation gets a closing-frame vote for that ending key (0 cases in SWD-24, but it
+     can mis-anchor a piece that ends on a long off-tonic pedal). Thread `anchor_method`
+     through `bridge.structuralKeys` + the `/__tonality/analyze_midi` adapter params.
 3. **Move more theory onto the bridge:** `catalog_*` (retire `scalesContaining`),
    `voicing_analysis`/`voicing_suggestions` (Build mode), and consume Tonality's coming
    **Representation layer** (keyboard descriptor first; bracelet/Tonnetz descriptor needs
