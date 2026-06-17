@@ -13,14 +13,27 @@ const LANES = PIANO_HI - PIANO_LO + 1; // semitone rows
 const LANE_H = 5; // px per semitone
 const NOTE_H = LANES * LANE_H; // note-area height (css px)
 const KEY_STRIP_H = 16; // local-key band strip height (0 when no key regions)
+const PIVOT_STRIP_H = 13; // tonicization / pivot lane height (0 when no pivots)
 const CHORD_STRIP_H = 17; // chord-label strip height (0 when no chord regions)
+const RULER_H = 20; // bar/time ruler band height (0 when no song)
 const PLAYHEAD_X = 0.28; // playhead screen position as a fraction of width
+
+const fmtTime = (s: number): string => {
+  if (!isFinite(s) || s < 0) s = 0;
+  return Math.floor(s / 60) + ":" + String(Math.floor(s % 60)).padStart(2, "0");
+};
 
 export interface Region {
   startSec: number;
   endSec: number;
   label: string;
+  /** Key context (key bands only) — lets the roll colour out-of-key notes. */
+  tonicPc?: number;
+  mode?: string;
 }
+
+const MAJOR_PCS = [0, 2, 4, 5, 7, 9, 11];
+const MINOR_PCS = [0, 2, 3, 5, 7, 8, 10];
 
 interface Props {
   song: Song | null;
@@ -35,6 +48,10 @@ interface Props {
   regions?: Region[];
   /** Tonality local-key regions, time-aligned (empty = no strip). */
   keyRegions?: Region[];
+  /** Tonicizations (brief pivots) to flag distinctly on the key strip. */
+  pivots?: Region[];
+  /** Playback tempo multiplier — the ruler's time labels reflect it. */
+  tempoScale?: number;
   /** Horizontal zoom, pixels per second. */
   pxPerSec?: number;
 }
@@ -83,6 +100,8 @@ export default function PianoRoll({
   onSeek,
   regions = [],
   keyRegions = [],
+  pivots = [],
+  tempoScale = 1,
   pxPerSec = 60,
 }: Props) {
   const wrapRef = useRef<HTMLDivElement>(null);
@@ -94,19 +113,31 @@ export default function PianoRoll({
   // Manual horizontal pan (px). null = follow the playhead. Set by the wheel,
   // cleared when playback starts so it resumes following.
   const [manualScroll, setManualScroll] = useState<number | null>(null);
+  // Whether the view tracks the playhead. On (default): the roll scrolls to keep
+  // the scrubber in view. Off: the view is frozen where you left it (wheel still
+  // pans, clicking still seeks) — useful for studying a fixed span while it plays.
+  const [follow, setFollow] = useState(true);
+  const toggleFollow = () => {
+    if (!follow) setManualScroll(null); // turning follow back on → recenter
+    setFollow((f) => !f);
+  };
+  // Hover tooltip showing a strip label in full (un-truncated). null = hidden.
+  const [tip, setTip] = useState<{ x: number; y: number; text: string } | null>(null);
   // Live values the (once-attached) wheel handler reads.
   const liveRef = useRef({ width, duration, manualScroll, time: currentTime });
   liveRef.current = { width, duration, manualScroll, time: currentTime };
 
+  const rulerH = song && song.barStarts?.length ? RULER_H : 0;
   const keyStripH = keyRegions.length ? KEY_STRIP_H : 0;
+  const pivotStripH = pivots.length ? PIVOT_STRIP_H : 0;
   const chordStripH = regions.length ? CHORD_STRIP_H : 0;
-  const topH = keyStripH + chordStripH;
+  const topH = rulerH + keyStripH + pivotStripH + chordStripH;
   const height = topH + NOTE_H;
 
-  // Resume following when playback starts.
+  // Resume following when playback starts (only if follow is on).
   useEffect(() => {
-    if (isPlaying) setManualScroll(null);
-  }, [isPlaying]);
+    if (isPlaying && follow) setManualScroll(null);
+  }, [isPlaying, follow]);
 
   /* measure the container width */
   useEffect(() => {
@@ -154,15 +185,42 @@ export default function PianoRoll({
     if (!ctx) return;
     ctx.scale(ratio, ratio);
 
+    // Bar/time ruler (Ableton-style): faint bar gridlines through the note area,
+    // and a top band with bar numbers + tempo-accurate time. Scrolls (static layer).
+    if (rulerH && song.barStarts.length) {
+      ctx.textBaseline = "middle";
+      let lastBar = -1e9, lastTime = -1e9;
+      const bars = song.barStarts;
+      for (let i = 0; i < bars.length; i++) {
+        const x = bars[i] * pxPerSec;
+        ctx.fillStyle = "rgba(255,255,255,0.04)";
+        ctx.fillRect(x, topH, 1, NOTE_H); // gridline through the notes
+        ctx.fillStyle = "rgba(255,255,255,0.13)";
+        ctx.fillRect(x, 0, 1, rulerH); // ruler tick
+        if (x - lastBar >= 26) {
+          ctx.font = "600 9px 'JetBrains Mono', ui-monospace, monospace";
+          ctx.fillStyle = "rgba(199,210,254,0.72)";
+          ctx.fillText(String(i + 1), x + 3, rulerH * 0.32);
+          lastBar = x;
+        }
+        if (x - lastTime >= 60) {
+          ctx.font = "500 8.5px 'JetBrains Mono', ui-monospace, monospace";
+          ctx.fillStyle = "rgba(136,147,164,0.85)";
+          ctx.fillText(fmtTime(bars[i] / tempoScale), x + 3, rulerH * 0.76);
+          lastTime = x;
+        }
+      }
+    }
+
     if (keyStripH) {
-      drawStrip(ctx, keyRegions, 0, keyStripH, height, pxPerSec, {
+      drawStrip(ctx, keyRegions, rulerH, keyStripH, height, pxPerSec, {
         band: "rgba(165,180,252,0.13)",
         divider: "rgba(165,180,252,0.35)",
         text: "#c7d2fe",
       });
     }
     if (chordStripH) {
-      drawStrip(ctx, regions, keyStripH, chordStripH, height, pxPerSec, {
+      drawStrip(ctx, regions, rulerH + keyStripH + pivotStripH, chordStripH, height, pxPerSec, {
         band: "rgba(251,191,36,0.07)",
         divider: "rgba(165,180,252,0.16)",
         text: "#fbbf24",
@@ -175,21 +233,64 @@ export default function PianoRoll({
       if (isC(m)) ctx.fillRect(0, topH + laneY(m), songW, LANE_H);
     }
 
-    // notes
+    // Key context at a time, for out-of-key colouring (key bands carry tonicPc/mode).
+    const bandAt = (t: number): Region | null => {
+      for (const r of keyRegions) if (t >= r.startSec && t < r.endSec) return r;
+      return null;
+    };
+    const inKey = (pc: number, band: Region | null): boolean => {
+      if (!band || band.tonicPc == null || !band.mode) return true; // no key ref → don't flag
+      const scale = band.mode === "minor" ? MINOR_PCS : MAJOR_PCS;
+      return scale.includes(((pc - band.tonicPc) % 12 + 12) % 12);
+    };
+
+    // notes — coloured by harmonic role: teal in-key, red out-of-key (chromatic),
+    // grey for drums (channel 10, unpitched). Surfaces breakouts on the roll.
     for (const n of song.notes) {
       if (n.midi < PIANO_LO || n.midi > PIANO_HI) continue;
       const x = n.time * pxPerSec;
       const w = Math.max(1.5, n.duration * pxPerSec);
       const y = topH + laneY(n.midi);
       const a = 0.45 + 0.45 * Math.max(0, Math.min(1, n.velocity));
-      ctx.fillStyle = `rgba(45,212,191,${a.toFixed(3)})`;
+      let body: string, edge: string;
+      if (n.drum) {
+        body = `rgba(148,163,184,${(a * 0.7).toFixed(3)})`; edge = "rgba(203,213,225,0.45)";
+      } else if (inKey(((n.midi % 12) + 12) % 12, bandAt(n.time))) {
+        body = `rgba(45,212,191,${a.toFixed(3)})`; edge = "rgba(126,255,233,0.5)";
+      } else {
+        body = `rgba(248,113,113,${a.toFixed(3)})`; edge = "rgba(252,165,165,0.6)"; // chromatic / out-of-key
+      }
+      ctx.fillStyle = body;
       ctx.fillRect(x, y + 0.5, w, LANE_H - 1);
-      ctx.fillStyle = "rgba(126,255,233,0.5)";
+      ctx.fillStyle = edge;
       ctx.fillRect(x, y + 0.5, Math.min(w, 1.5), LANE_H - 1);
     }
 
+    // Tonicization / pivot lane: orange spans + a roman numeral (relative to the
+    // parent key) for each brief key-breakout the structural reduction absorbed —
+    // acknowledged distinctly, below the structural key strip.
+    if (pivotStripH) {
+      const yTop = rulerH + keyStripH;
+      ctx.fillStyle = "rgba(251,146,60,0.06)";
+      ctx.fillRect(0, yTop, songW, pivotStripH); // lane background
+      ctx.font = "600 9px 'JetBrains Mono', ui-monospace, monospace";
+      ctx.textBaseline = "middle";
+      let lastLabel = -1e9;
+      for (const p of pivots) {
+        const x = p.startSec * pxPerSec;
+        const w = Math.max(2.5, (p.endSec - p.startSec) * pxPerSec);
+        ctx.fillStyle = "rgba(251,146,60,0.9)"; // orange — distinct from indigo keys / amber chords
+        ctx.fillRect(x, yTop + pivotStripH - 2.5, w, 2.5);
+        if (p.label && x - lastLabel >= 16) {
+          ctx.fillStyle = "#fdba74";
+          ctx.fillText(p.label, x + 2, yTop + (pivotStripH - 2.5) / 2);
+          lastLabel = x;
+        }
+      }
+    }
+
     staticRef.current = c;
-  }, [song, duration, pxPerSec, regions, keyRegions, keyStripH, chordStripH, topH, height]);
+  }, [song, duration, pxPerSec, regions, keyRegions, pivots, keyStripH, pivotStripH, chordStripH, rulerH, topH, height, tempoScale]);
 
   /* visible layer — playhead, blit, active glow; runs whenever position changes */
   useEffect(() => {
@@ -207,8 +308,13 @@ export default function PianoRoll({
 
     const playheadX = width * PLAYHEAD_X;
     if (!draggingRef.current) {
-      // manual pan (wheel) overrides the follow; otherwise track the playhead
-      scrollXRef.current = manualScroll !== null ? manualScroll : Math.max(0, currentTime * pxPerSec - playheadX);
+      // manual pan (wheel) wins; else track the playhead when following; else freeze
+      scrollXRef.current =
+        manualScroll !== null
+          ? manualScroll
+          : follow
+            ? Math.max(0, currentTime * pxPerSec - playheadX)
+            : scrollXRef.current;
     }
     const scrollX = scrollXRef.current;
 
@@ -239,7 +345,11 @@ export default function PianoRoll({
     ctx.fillRect(headX - 0.5, 0, 1.5, height);
 
     void activeNotes;
-  }, [song, currentTime, duration, width, pxPerSec, activeNotes, topH, height, manualScroll]);
+    // tempoScale + the strip inputs (regions/keyRegions/pivots) are deps so any
+    // change that rebuilds the static layer also re-blits it here — otherwise the
+    // screen keeps the stale blit until an unrelated repaint (the roman↔names /
+    // tempo "needs a scroll to refresh" bug).
+  }, [song, currentTime, duration, width, pxPerSec, activeNotes, topH, height, manualScroll, follow, tempoScale, regions, keyRegions, pivots]);
 
   /* click / drag to seek */
   const timeFromEvent = (clientX: number): number => {
@@ -248,17 +358,43 @@ export default function PianoRoll({
     const x = clientX - rect.left + scrollXRef.current;
     return Math.max(0, Math.min(duration, x / pxPerSec));
   };
+  // Full (un-truncated) strip label under a point — for the hover tooltip, so
+  // labels the bar clips (chord names, keys, pivots) can still be read.
+  const labelAt = (yLocal: number, clientX: number): string | null => {
+    const t = timeFromEvent(clientX);
+    const find = (rs: Region[]): string | null => {
+      const r = rs.find((r) => t >= r.startSec && t < r.endSec);
+      return r && r.label ? r.label : null;
+    };
+    const keyTop = rulerH, pivotTop = rulerH + keyStripH, chordTop = rulerH + keyStripH + pivotStripH;
+    if (keyStripH && yLocal >= keyTop && yLocal < keyTop + keyStripH) return find(keyRegions);
+    if (pivotStripH && yLocal >= pivotTop && yLocal < pivotTop + pivotStripH) return find(pivots);
+    if (chordStripH && yLocal >= chordTop && yLocal < chordTop + chordStripH) return find(regions);
+    return null;
+  };
   const onDown = (e: React.MouseEvent) => {
     if (!song) return;
     draggingRef.current = true;
+    setTip(null);
     onSeek(timeFromEvent(e.clientX));
   };
   const onMove = (e: React.MouseEvent) => {
-    if (!draggingRef.current) return;
-    onSeek(timeFromEvent(e.clientX));
+    if (draggingRef.current) {
+      onSeek(timeFromEvent(e.clientX));
+      return;
+    }
+    const rect = canvasRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    const yLocal = e.clientY - rect.top;
+    const text = labelAt(yLocal, e.clientX);
+    setTip(text ? { x: e.clientX - rect.left, y: yLocal, text } : null);
   };
-  const endDrag = () => {
+  const onUp = () => {
     draggingRef.current = false;
+  };
+  const onLeave = () => {
+    draggingRef.current = false;
+    setTip(null);
   };
 
   return (
@@ -269,9 +405,23 @@ export default function PianoRoll({
         style={{ width: "100%", height }}
         onMouseDown={onDown}
         onMouseMove={onMove}
-        onMouseUp={endDrag}
-        onMouseLeave={endDrag}
+        onMouseUp={onUp}
+        onMouseLeave={onLeave}
       />
+      {tip && (
+        <div className="px-roll-tip" style={{ left: tip.x, top: tip.y }}>
+          {tip.text}
+        </div>
+      )}
+      {song && (
+        <button
+          className={"px-roll-follow" + (follow ? " on" : "")}
+          onClick={toggleFollow}
+          title={follow ? "Following the scrubber — click to freeze the view" : "View frozen — click to follow the scrubber"}
+        >
+          {follow ? "⊙ Follow" : "⊘ Manual"}
+        </button>
+      )}
       {!song && <div className="px-roll-empty">Load a MIDI file to see the piano roll.</div>}
     </div>
   );

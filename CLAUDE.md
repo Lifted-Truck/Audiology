@@ -171,27 +171,35 @@ Tonnetz are recorded with Tonality as **Representation-layer descriptor needs**
   name (was an absolute corner element that overlapped the label at small sizes).
 - **Defaults:** Chromatic + Fixed (C) + scale colours On (the maintainer's preferred setup).
 
-### Done — path 2: interactive bridge (live engine naming over the wire)
-`scripts/tonality-serve.py` is a thin local HTTP server over `mts.mcp.tools` (CORS,
-`/health` + `POST /name_pcs`) — the sanctioned "web door" (gap 9). `src/lib/tonality/bridge.ts`
-is the typed client (`probeBridge`, `nameChord` → `ChordNaming`, `scaleToEngineKey`);
-`src/hooks/useBridge.ts` **auto-detects** the bridge (probe on mount + every 5s, so starting/
-stopping it flips connection live). In Live mode, App debounce-calls `nameChord` with the
-sounding pcs + tonic + scale + realization and shows the engine's **chosen reading + functional
-role + alternatives + `is_ambiguous`**; when the bridge is offline it **gracefully falls back**
-to the local `analyzeSelection`. A status chip in the Live panel shows connected/offline. Run:
-`PYTHONPATH=/path/to/Tonality python3 scripts/tonality-serve.py`. Verified in-browser both ways
-(engine "Cmaj7/tonic" connected; local "C/root position" offline).
+### Done — path 2: the OFFICIAL Tonality bridge (migrated off our shim)
+We use Tonality's **official** HTTP bridge — `python -m mts.mcp.bridge` (stdlib-only,
+loopback `:8012`; generic glue: `GET /` info, `GET /tools` discovery, `POST /call/<tool>`
+with a JSON kwargs body → `{ok, result}` / `{ok:false, error, error_type}`). Our bespoke
+`scripts/tonality-serve.py` shim is **retired/deleted**. `src/lib/tonality/bridge.ts` is the
+typed client (`probeBridge` → `GET /`, `nameChord` → `POST /call/name_pcs` unwrapping the
+envelope, `scaleToEngineKey`); `src/hooks/useBridge.ts` **auto-detects** the bridge (probe on
+mount + every 5s). **You don't run the bridge by hand** — the transport's **"⏻ Start engine"**
+button spawns it via the Vite dev-server middleware (`vite.config.ts` → `/__tonality/start|stop|status`),
+with `PYTHONPATH` set to the Tonality working tree (the `.venv`'s installed `mts` is stale).
+In Live mode, App debounce-calls `nameChord` (sounding pcs + tonic + scale + realization) and
+shows the engine's **chosen reading + functional role + alternatives + `is_ambiguous`**; offline
+it **falls back** to local `analyzeSelection`. Status chip in the Live panel.
 
-**File analysis over the bridge (no script step).** The bridge also serves
-`POST /analyze_midi` (raw .mid bytes → `midi_file_analysis` dict); `bridge.ts` `analyzeMidi`
-+ App `analyzeViaBridge` parse it into `FileAnalysis`. App keeps the loaded MIDI bytes
-(`midiBytesRef`) and **auto-analyzes on load when the bridge is connected** (and when the
-bridge connects after a file is already loaded). The transport's Tonality control adapts:
-connected → an **"↻ Analyze / ✓ Tonality"** button (auto-runs on load); offline → the manual
-`.json` loader (`scripts/tonality-analyze.py` output). So "path 1" file analysis no longer
-needs the out-of-band script when the bridge is up. Verified: loading a modulating .mid with
-the bridge connected auto-produced the inferred key + chord/key-region strips.
+**File analysis — the bytes→path adapter.** The bridge's `midi_file_analysis` takes a
+server-side *path*, but the browser only has the uploaded bytes. So `bridge.ts` `analyzeMidi`
+posts the bytes to our **same-origin `/__tonality/analyze_midi`** Vite middleware, which writes a
+temp file and calls `POST /call/midi_file_analysis` (with the coalesce window), then returns the
+result for `parseTonalityAnalysis` → `FileAnalysis`. App keeps the loaded bytes (`midiBytesRef`)
+and **auto-analyzes on load when connected**. A **Coalesce** control in the transport sets
+`coalesce_window_beats` (default **0.5** = an 8th; "Off" = exact) — heals performed-timing
+over-segmentation (Tonality response-3's recipe; a 7-min performed file drops 3032→691 segments
+at 0.5); changing it re-analyzes. Two further engine flags sit beside it as toggles — **Rel-key**
+(`disambiguate_relative_keys`, the relative major/minor tie-breaker — Finding B) and **Smooth**
+(`smooth_key_regions`, key-region hysteresis — Finding C); both default off, threaded through the
+adapter's query params. Region/chord/inferred-key labels are spelled **in their own
+key** (`spellInKey` — "Bb maj", not "A# maj"). Verified end-to-end in-browser: launcher spawns
+the official bridge, Bohemian Rhapsody analyzes through the adapter (inferred Bb major), the
+coalesce control reduces segmentation, and `name_pcs` works cross-origin to :8012.
 
 ### Key-region confidence (done)
 The key-region strip **merges low-confidence regions into the prevailing key**: `keyRegionBands`

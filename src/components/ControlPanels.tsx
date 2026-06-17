@@ -6,7 +6,7 @@
 import React, { useMemo } from "react";
 import {
   SCALES, QUALITIES, QUAL_CATS, DEG_NUM, DEG_ROM, DEG_SOL,
-  mod, pcOf, octOf, analyzeSelection,
+  mod, pcOf, octOf, analyzeSelection, spellInKey,
   pitchClassesOf, pcsFitScale, outOfScale, scalesContaining,
 } from "../lib/theory";
 import type { ScaleName, QualityKey } from "../lib/theory/constants";
@@ -49,6 +49,8 @@ export interface ControlPanelsProps {
   setChordOn: (b: boolean) => void;
   tapChord: boolean;
   setTapChord: (b: boolean) => void;
+  adaptToScale: boolean;
+  setAdaptToScale: (b: boolean) => void;
   chordRootPc: number;
   setChordRootPc: (n: number) => void;
   chordQuality: QualityKey;
@@ -183,6 +185,12 @@ export default function ControlPanels(p: ControlPanelsProps) {
           ))}
         </div>
       )}
+      {"candidates" in analysis && analysis.voicing && (
+        <div className="px-voicing">
+          <span className="px-voicing-lbl">Voicing</span>
+          {analysis.voicing}
+        </div>
+      )}
     </div>
   );
 
@@ -211,8 +219,10 @@ export default function ControlPanels(p: ControlPanelsProps) {
               const sn = modeToScaleName(mode);
               if (sn) p.setScaleName(sn);
             };
+            // Spell each candidate key in its OWN key (Bb major reads "Bb",
+            // not "A#") rather than the user's currently-selected root spelling.
             const label = (pc: number, mode: string) =>
-              noteName(pc) + " " + mode.charAt(0).toUpperCase() + mode.slice(1);
+              spellInKey(pc, pc, mode) + " " + mode.charAt(0).toUpperCase() + mode.slice(1);
             return (
               <div className="px-inferkey">
                 <div className="px-inferkey-top">
@@ -335,6 +345,17 @@ export default function ControlPanels(p: ControlPanelsProps) {
                 <span className="field-lbl">Tap pad plays chord</span>
                 <button className={"px-tog" + (p.tapChord ? " on" : "")} onClick={() => p.setTapChord(!p.tapChord)}>{p.tapChord ? "ON" : "OFF"}</button>
               </div>
+              {p.mode === "inkey" ? (
+                <div className="px-card-hrow tight px-dim">
+                  <span className="field-lbl">Adapt chord to scale</span>
+                  <button className="px-tog on" disabled title="In-Key mode always adapts the chord to the scale.">ON</button>
+                </div>
+              ) : (
+                <div className="px-card-hrow tight">
+                  <span className="field-lbl">Adapt chord to scale</span>
+                  <button className={"px-tog" + (p.adaptToScale ? " on" : "")} onClick={() => p.setAdaptToScale(!p.adaptToScale)} title="Snap the chord quality to one that fits the current scale, even in Chromatic mode.">{p.adaptToScale ? "ON" : "OFF"}</button>
+                </div>
+              )}
               <Field label="Root (or tap a pad)">
                 <PcChips
                   value={p.chordRootPc}
@@ -419,7 +440,7 @@ export default function ControlPanels(p: ControlPanelsProps) {
               Identifies whatever is sounding in real time — your computer keyboard, a connected MIDI controller, or the playing MIDI file. Notes light up the grid &amp; piano and are named below.
             </p>
 
-            <div className={"px-engine-chip" + (p.bridgeConnected ? " on" : "")} title="Tonality engine bridge — run scripts/tonality-serve.py">
+            <div className={"px-engine-chip" + (p.bridgeConnected ? " on" : "")} title="Tonality engine bridge (python -m mts.mcp.bridge) — start it from the transport">
               <span className="px-engine-dot" />
               {p.bridgeConnected ? "Tonality engine — naming live" : "Local analyzer (engine bridge offline)"}
             </div>

@@ -5,3 +5,4 @@ export * from "./pitch";
 export * from "./voicing";
 export * from "./analyze";
 export * from "./scale-detect";
+export * from "./roman";
