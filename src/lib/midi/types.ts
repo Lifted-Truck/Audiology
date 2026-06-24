@@ -22,6 +22,12 @@ export interface Note {
   durationBeats: number;
   /** GM percussion (channel 10) — unpitched; rendered in its own colour. */
   drum: boolean;
+  /** 0-indexed MIDI channel of the source track (for the note inspector). */
+  channel?: number;
+  /** Source track name, if the file names it (for the note inspector). */
+  track?: string;
+  /** Source track instrument name, if any (for the note inspector). */
+  instrument?: string;
 }
 
 /** A parsed song: notes sorted ascending by onset, plus total duration. */

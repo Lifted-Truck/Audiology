@@ -6,8 +6,13 @@
 // All pitch mapping goes through geometry/piano so it stays aligned with the Piano.
 
 import React, { useEffect, useRef, useState } from "react";
-import type { Song } from "../lib/midi/types";
+import type { Song, Note } from "../lib/midi/types";
 import { PIANO_LO, PIANO_HI, pitchToLane } from "../geometry/piano";
+import { scaleDegreeLabel } from "../lib/theory/roman";
+
+const NOTE_NAMES = ["C", "C♯", "D", "D♯", "E", "F", "F♯", "G", "G♯", "A", "A♯", "B"];
+/** MIDI number → note name + Ableton octave (C3 = 60 → octave 3). */
+const noteName = (midi: number): string => `${NOTE_NAMES[((midi % 12) + 12) % 12]}${Math.floor(midi / 12) - 2}`;
 
 const LANES = PIANO_HI - PIANO_LO + 1; // semitone rows
 const LANE_H = 5; // px per semitone
@@ -123,6 +128,8 @@ export default function PianoRoll({
   };
   // Hover tooltip showing a strip label in full (un-truncated). null = hidden.
   const [tip, setTip] = useState<{ x: number; y: number; text: string } | null>(null);
+  // Pinned note inspector (alt/option-click a note). null = hidden.
+  const [inspect, setInspect] = useState<{ note: Note; x: number; y: number } | null>(null);
   // Live values the (once-attached) wheel handler reads.
   const liveRef = useRef({ width, duration, manualScroll, time: currentTime });
   liveRef.current = { width, duration, manualScroll, time: currentTime };
@@ -372,10 +379,41 @@ export default function PianoRoll({
     if (chordStripH && yLocal >= chordTop && yLocal < chordTop + chordStripH) return find(regions);
     return null;
   };
+  // The note whose rendered rectangle contains a point — for the inspector.
+  // Honors the same geometry the draw loop uses (incl. the 1.5px min width).
+  const noteAt = (clientX: number, yLocal: number): Note | null => {
+    if (!song) return null;
+    const rect = canvasRef.current?.getBoundingClientRect();
+    if (!rect) return null;
+    const staticX = clientX - rect.left + scrollXRef.current;
+    let hit: Note | null = null;
+    for (const n of song.notes) {
+      if (n.midi < PIANO_LO || n.midi > PIANO_HI) continue;
+      const y = topH + laneY(n.midi);
+      if (yLocal < y || yLocal >= y + LANE_H) continue;
+      const x = n.time * pxPerSec;
+      const w = Math.max(1.5, n.duration * pxPerSec);
+      if (staticX >= x && staticX <= x + w) hit = n; // last match = topmost drawn
+    }
+    return hit;
+  };
+  // Local key at a time (structural key band), and a note's degree/in-key in it.
+  const keyBandAt = (t: number): Region | null =>
+    keyRegions.find((r) => t >= r.startSec && t < r.endSec && r.tonicPc != null && r.mode) ?? null;
+
   const onDown = (e: React.MouseEvent) => {
     if (!song) return;
+    const rect = canvasRef.current?.getBoundingClientRect();
+    if ((e.altKey || e.metaKey) && rect) {
+      // Inspect a note instead of seeking — don't fight click-to-seek.
+      const note = noteAt(e.clientX, e.clientY - rect.top);
+      setInspect(note ? { note, x: e.clientX - rect.left, y: e.clientY - rect.top } : null);
+      setTip(null);
+      return;
+    }
     draggingRef.current = true;
     setTip(null);
+    setInspect(null); // a plain seek dismisses the inspector
     onSeek(timeFromEvent(e.clientX));
   };
   const onMove = (e: React.MouseEvent) => {
@@ -413,6 +451,45 @@ export default function PianoRoll({
           {tip.text}
         </div>
       )}
+      {inspect && song && (() => {
+        const n = inspect.note;
+        const pc = ((n.midi % 12) + 12) % 12;
+        const { bar, beat } = song.timeToBarBeat(n.time);
+        const band = keyBandAt(n.time);
+        let harmonic: string;
+        if (n.drum) {
+          harmonic = "unpitched (drums)";
+        } else if (band && band.tonicPc != null && band.mode) {
+          const scale = band.mode === "minor" ? MINOR_PCS : MAJOR_PCS;
+          const fits = scale.includes(((pc - band.tonicPc) % 12 + 12) % 12);
+          const deg = scaleDegreeLabel(pc, band.tonicPc, band.mode);
+          harmonic = `${fits ? "in key" : "chromatic"} · ${deg} of ${NOTE_NAMES[band.tonicPc]} ${band.mode}`;
+        } else {
+          harmonic = "—";
+        }
+        const rows: [string, string][] = [
+          ["position", `bar ${bar}, beat ${beat.toFixed(2)}`],
+          ["duration", `${n.durationBeats.toFixed(2)} beat${n.durationBeats === 1 ? "" : "s"} · ${Math.round(n.duration * 1000)} ms`],
+          ["velocity", `${Math.round(n.velocity * 127)} (${n.velocity.toFixed(2)})`],
+          ["harmony", harmonic],
+          ["source", `ch ${n.channel ?? "—"}${n.instrument ? ` · ${n.instrument}` : n.track ? ` · ${n.track}` : ""}`],
+        ];
+        const left = Math.min(inspect.x + 8, width - 196);
+        return (
+          <div className="px-roll-inspect" style={{ left: Math.max(4, left), top: Math.min(inspect.y + 8, height - 132) }}>
+            <div className="px-roll-inspect-head">
+              <span>{noteName(n.midi)}<span className="px-roll-inspect-midi"> · MIDI {n.midi}</span></span>
+              <button className="px-roll-inspect-x" onClick={() => setInspect(null)} title="Close">×</button>
+            </div>
+            {rows.map(([k, v]) => (
+              <div className="px-roll-inspect-row" key={k}>
+                <span className="px-roll-inspect-k">{k}</span>
+                <span className="px-roll-inspect-v">{v}</span>
+              </div>
+            ))}
+          </div>
+        );
+      })()}
       {song && (
         <button
           className={"px-roll-follow" + (follow ? " on" : "")}
@@ -422,6 +499,7 @@ export default function PianoRoll({
           {follow ? "⊙ Follow" : "⊘ Manual"}
         </button>
       )}
+      {song && !inspect && <div className="px-roll-hint">⌥-click a note to inspect</div>}
       {!song && <div className="px-roll-empty">Load a MIDI file to see the piano roll.</div>}
     </div>
   );

@@ -13,6 +13,8 @@ export function parseMidi(data: ArrayBuffer, fallbackName = "Untitled"): Song {
     // GM convention: channel 10 (0-indexed 9) is percussion — @tonejs also sets
     // instrument.percussion. These notes are unpitched (drum map), not harmony.
     const drum = track.instrument?.percussion === true || track.channel === 9;
+    const trackName = track.name || undefined;
+    const instrument = track.instrument?.name || undefined;
     for (const n of track.notes) {
       notes.push({
         midi: n.midi,
@@ -23,6 +25,9 @@ export function parseMidi(data: ArrayBuffer, fallbackName = "Untitled"): Song {
         beats: n.ticks / ppq,
         durationBeats: n.durationTicks / ppq,
         drum,
+        channel: track.channel,
+        track: trackName,
+        instrument,
       });
     }
   }
