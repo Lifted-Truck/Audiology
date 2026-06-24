@@ -137,16 +137,17 @@ export default function App() {
     [inScalePc]
   );
 
-  // Snap the chord quality into the scale when adapting (always in In-Key mode;
-  // opt-in via adaptToScale in Chromatic). Backstops root/scale changes made
-  // outside tap-to-play (PcChips, scale switch).
-  useEffect(() => {
-    if (mode !== "inkey" && !adaptToScale) return;
-    const q = fitQuality(chordRootPc, chordQuality);
-    if (q !== chordQuality) setChordQuality(q);
-  }, [mode, adaptToScale, chordRootPc, scaleName, root, chordQuality, fitQuality]); // eslint-disable-line
+  // The quality actually shown/played: when adapting (always in In-Key mode; opt-in
+  // via adaptToScale in Chromatic) the user's picked quality is fit to the scale for
+  // the current root. This is *derived*, not stored-then-patched — so the displayed
+  // chord is correct on the very first render (no stale-quality blink), for every
+  // path that changes the root or scale (tap, PcChips, scale switch).
+  const effQuality = useMemo<QualityKey>(
+    () => (mode === "inkey" || adaptToScale ? fitQuality(chordRootPc, chordQuality) : chordQuality),
+    [mode, adaptToScale, chordRootPc, chordQuality, fitQuality]
+  );
 
-  const ivCount = QUALITIES[chordQuality].iv.length;
+  const ivCount = QUALITIES[effQuality].iv.length;
   useEffect(() => {
     if (inversion > ivCount - 1) setInversion(ivCount - 1);
   }, [ivCount, inversion]);
@@ -412,15 +413,15 @@ export default function App() {
 
   /* ----- build chord ----- */
   const voiceChord = useCallback(
-    (rootMidi: number) => buildVoicing(rootMidi, chordQuality, inversion, voicing),
-    [chordQuality, inversion, voicing]
+    (rootMidi: number) => buildVoicing(rootMidi, effQuality, inversion, voicing),
+    [effQuality, inversion, voicing]
   );
 
   const chord = useMemo<BuiltChord>(() => {
-    const iv = QUALITIES[chordQuality].iv;
+    const iv = QUALITIES[effQuality].iv;
     const closePcs = Array.from(new Set(iv.map((i) => pcOf(48 + chordRootPc + i))));
-    return { closePcs, voicing: voiceChord(48 + chordRootPc), symbol: noteName(chordRootPc) + SYM[chordQuality] };
-  }, [chordQuality, chordRootPc, voiceChord, noteName]);
+    return { closePcs, voicing: voiceChord(48 + chordRootPc), symbol: noteName(chordRootPc) + SYM[effQuality] };
+  }, [effQuality, chordRootPc, voiceChord, noteName]);
 
   // Active pitch classes for the diagrams: the built chord (Build) or the
   // selected/sounding notes (Analyze/Live).
@@ -610,11 +611,10 @@ export default function App() {
       return;
     }
     if (chordOn && tapChord) {
-      // Adapt the quality to the new root *before* playing, so the chord that
-      // sounds is already in-scale (no one-tap lag where the old quality plays).
+      // Play the scale-fit quality for the new root (matches what effQuality will
+      // derive once setChordRootPc lands — so sound and display never disagree).
       const q = mode === "inkey" || adaptToScale ? fitQuality(p.pc, chordQuality) : chordQuality;
       buildVoicing(p.midi, q, inversion, voicing).forEach((m, i) => playMidi(m, 1.0, i * 0.03, 0.85));
-      if (q !== chordQuality) setChordQuality(q);
     } else {
       playMidi(p.midi);
     }
@@ -644,7 +644,6 @@ export default function App() {
     if (chordOn && tapChord) {
       const q = mode === "inkey" || adaptToScale ? fitQuality(pc, chordQuality) : chordQuality;
       buildVoicing(midi, q, inversion, voicing).forEach((m, i) => playMidi(m, 1.0, i * 0.03, 0.85));
-      if (q !== chordQuality) setChordQuality(q);
     } else {
       playMidi(midi);
     }
@@ -817,7 +816,7 @@ export default function App() {
           tapChord={tapChord} setTapChord={setTapChord}
           adaptToScale={adaptToScale} setAdaptToScale={setAdaptToScale}
           chordRootPc={chordRootPc} setChordRootPc={setChordRootPc}
-          chordQuality={chordQuality} setChordQuality={setChordQuality}
+          chordQuality={effQuality} setChordQuality={setChordQuality}
           inversion={inversion} setInversion={setInversion}
           voicing={voicing} setVoicing={setVoicing}
           chordDisplay={chordDisplay} setChordDisplay={setChordDisplay}

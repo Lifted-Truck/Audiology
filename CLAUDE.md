@@ -9,9 +9,15 @@ chords and for playing/analyzing MIDI files in real time. It began as a one-file
 Ableton-Push-style scale explorer and is now a modular, strictly-typed app whose
 north star is to become **a GUI for the Tonality music-theory engine**.
 
-> **Fresh thread? Start with [HANDOFF.md](HANDOFF.md)** — a one-page snapshot of the
-> current state, how to run, the Tonality integration, the roadmap, and workflow
-> gotchas. The detailed history is the "Handoff — current status" section below.
+> **Sources of truth: this file + [README.md](README.md).** README is the project-facing
+> overview (what it is, features, architecture, the vision roadmap); CLAUDE.md is the
+> agent-facing operating guide (invariants, conventions, gotchas, current status, the
+> Tonality bridge mechanics, and the open engineering threads). Start here in a fresh thread.
+>
+> **Handoffs are ephemeral.** There is no permanent `HANDOFF.md` source of truth. When a
+> point in the dev process needs an explicit pass-off between agents, spawn a transient
+> `HANDOFF*.md` for that purpose and **delete it once consumed** — never let durable truth
+> accumulate there; fold anything lasting back into README/CLAUDE instead.
 
 ## Run & verify
 
@@ -57,12 +63,24 @@ north star is to become **a GUI for the Tonality music-theory engine**.
 - **Scrubbing while paused is silent by design** — it only moves the cursor and repaints.
 - **Canvas DPR.** The PianoRoll is a canvas; scale by `devicePixelRatio` for crispness
   and cache the static note layer (redraw only on song/zoom/viewport change).
+- **The recurring stale-blit bug.** PianoRoll is two layers — a rasterized static layer and a
+  visible layer that blits it + draws the playhead/glow. When you add a prop that changes what
+  the *visible* layer draws (a region/label/`tempoScale`), you **must** add it to the visible-
+  layer effect's dep array, or the change won't show until the user scrolls. This bit us for
+  `tempoScale` (per-bar ruler times) and `regions/keyRegions/pivots` (the Roman↔names toggle).
+- **HMR + new `Song`/`Note` fields.** An HMR'd PianoRoll can blit against an old `Song` shape
+  (e.g. before `barStarts` existed) and throw until a fresh server restart — guard new fields
+  defensively (`song.barStarts?.length`). The errors are transient; a clean restart clears them.
+- **Open bug — `manualScroll` not cleared on seek.** A wheel-pan sets `manualScroll` to park the
+  view; an explicit seek doesn't clear it, so the roll sometimes won't track the playhead after a
+  wheel-pan. Programmatic page-scrolling also dispatches wheel events on the canvas, which can
+  re-trigger it. (Tracked in "Open engineering threads.")
 
-## Handoff — current status (read this first)
+## Current status
 
-This is a phased migration from a one-file prototype to a modular app. **The session
-task list and the original plan file do not travel between machines — this section is
-the source of truth.** Keep the app runnable (typecheck + build pass) after every phase.
+This was a phased migration from a one-file prototype to a modular app; all phases are
+done (see below). **This section is the source of truth for what's built** — keep the app
+runnable (typecheck + build pass) after every change.
 
 ### Done
 - **Phase 0 — Repo + TS setup.** Vite + TypeScript toolchain (`tsconfig.json`,
@@ -158,8 +176,9 @@ Tonnetz are recorded with Tonality as **Representation-layer descriptor needs**
 (`integrations/audiology/brief-2.md`) for when that engine layer can describe them.
 
 ### Done — playback visibility + transport QoL
-- **Sounding notes (MIDI playback `isLit`) are now bright white** on the grid + piano — was a
-  teal glow that collided with the teal scale tint and read as "passive."
+- **Sounding notes (MIDI playback `isLit`) are yellow** (`#fde047`) on the grid + piano — was a
+  teal glow that collided with the teal scale tint and read as "passive" (and briefly white,
+  which hid notes under the MIDI-played highlight).
 - **Scale-colours toggle** (Labels card, `showScaleColors`): off → grid/piano drop the scale
   tint to a neutral surface; only played / selected / chord notes highlight ("blank piano").
 - **Restart** button (⇤, seek 0) in the transport.
@@ -224,6 +243,39 @@ confidence is the consumer's job. So a C→G→(ambiguous Bm) file reads simply 
 - **Coalescing (Tonality #50):** the engine coalesces server-side; when the Live analyzer's
   inputs come from the engine path we can drop `src/hooks/useCoalescedNotes.ts`. Today the
   bridge call is debounced client-side and we still coalesce the local fallback, so keep it.
+
+## Open engineering threads
+
+Tactical, code-specific work (the vision/feature direction is in [README.md](README.md)'s
+Roadmap; the remaining Tonality-engine upgrades are in the section above).
+
+- **`manualScroll` not cleared on seek (open bug).** Clear the roll's `manualScroll` on an
+  explicit seek so seeking resumes follow after a wheel-pan. See the Gotchas note.
+- **Piano-roll note inspector.** Click a note to inspect it (popout near the cursor: pitch/octave,
+  bar·beat, duration, velocity, channel/instrument, in-key vs chromatic, scale degree in the local
+  key). Clicking the roll currently *seeks*, so note-pick needs a modifier/mode — design it, don't
+  fight click-to-seek. First of a batch of roll ideas; gather the rest before building.
+- **Beat-based ("musical") roll axis.** The roll is second-based (x = seconds), so a file with real
+  tempo changes (Bohemian: 35–176 bpm) renders bars at *uneven* widths — faithful but reads oddly.
+  Offer an even-bar beat-based x-axis (Ableton default; notes already carry `.beats`) as a toggle;
+  time labels go uneven instead.
+- **Independent scroll for the two desktop columns.** The stage (`.px-stage`) and the options panel
+  (`.px-panel`) should scroll independently on wide screens. **Caveat:** `.px-panel` is CSS
+  *multi-column* (`column-width:240px`) — a height-constrained multicol overflows *horizontally*,
+  so this needs a single scrolling column or an inner scroll wrapper. A `min-width` gate keeps
+  mobile (stacked, ≤~760px) on normal page scroll.
+- **Tempo / time-signature *induction* + a verification test.** For files *with* embedded
+  tempo/meter we read it faithfully (no detector); the gap is *inferring* tempo+meter for files
+  lacking reliable data — Tonality-engine territory, testable via the validation harness
+  (When-in-Rome/SWD ship ground-truth meter). Needs a brief + a harness meter-test.
+- **Custom-scale analysis section** (impl side of the README roadmap item). The engine already
+  returns interval vector, `set_class_info`, symmetry, DFT magnitudes, `find_containers`/catalog —
+  wire a scale/pc-set editor to them; flag which results are Push-3-available scales.
+- **Confirm the drum grey reads distinctly** from the in-key/out-of-key note colours on the roll.
+- **Validation-harness PR (Tonality repo).** The `--ab-profile` / `--ab-profile-regions` harness
+  modes depend on the engine's `profile_version` kwarg (#85). Open the harness PR once #85 + the
+  CBMS-flip + brief-blip-fix PRs are all on Tonality `main`; regenerate the diff fresh against the
+  then-current `validation/validate_corpus.py` (the working patch is transient).
 
 ### Phase 2 transport design (get this right first)
 Two clocks — **song-time** `s` (`Note.time`, sec) and **audio-time** `a`
