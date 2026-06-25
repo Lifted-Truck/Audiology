@@ -832,7 +832,7 @@ export default function App() {
                       tonicPc={root}
                       isMinor={scaleName === "Minor"}
                       visited={visitedKeys}
-                      label={noteName}
+                      noteNot={noteNot}
                       onPick={(pc, minor) => { setFollowKey(false); setRoot(pc); setScaleName(minor ? "Minor" : "Major"); }}
                     />
                   </div>
