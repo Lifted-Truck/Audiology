@@ -126,13 +126,17 @@ export default function App() {
   }, [mode, scaleName, root]); // eslint-disable-line
 
   // The scale-fitting quality for a root: keep the current one if its tones are
-  // all in-scale, else the first quality that fits. Shared by the adapt effect
-  // and tap-to-play, so what plays matches what's shown (no stale-quality lag).
+  // all in-scale, else the first quality that fits — preferring one with the SAME
+  // number of voices, so a 7th/extended chord doesn't collapse to a triad (only
+  // falling to a different size if nothing of the same size fits). Shared by the
+  // adapt effect and tap-to-play, so what plays matches what's shown (no lag).
   const fitQuality = useCallback(
     (rootPc: number, current: QualityKey): QualityKey => {
       const fits = (k: QualityKey) => QUALITIES[k].iv.every((i) => inScalePc(mod(rootPc + i, 12)));
       if (fits(current)) return current;
-      return (Object.keys(QUALITIES) as QualityKey[]).find(fits) ?? current;
+      const keys = Object.keys(QUALITIES) as QualityKey[];
+      const voices = QUALITIES[current].iv.length;
+      return keys.find((k) => QUALITIES[k].iv.length === voices && fits(k)) ?? keys.find(fits) ?? current;
     },
     [inScalePc]
   );
