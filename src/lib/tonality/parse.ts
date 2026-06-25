@@ -55,6 +55,19 @@ export interface FileAnalysis {
 
 export class TonalityParseError extends Error {}
 
+/** Shift every time-extent in an analysis by `dt` seconds (clamped at 0). Used to
+ *  re-align engine *file* analysis — which runs on the original bytes — onto a
+ *  Song whose leading silence was trimmed (`dt = -song.trimSec`). */
+export function shiftAnalysis(fa: FileAnalysis, dt: number): FileAnalysis {
+  if (!dt) return fa;
+  const s = (t: number) => Math.max(0, t + dt);
+  return {
+    key: fa.key,
+    segments: fa.segments.map((g) => ({ ...g, startSec: s(g.startSec), endSec: s(g.endSec) })),
+    keyRegions: fa.keyRegions.map((r) => ({ ...r, startSec: s(r.startSec), endSec: s(r.endSec) })),
+  };
+}
+
 function req<T>(v: T | undefined | null, what: string): T {
   if (v === undefined || v === null) throw new TonalityParseError(`Tonality analysis: missing ${what}`);
   return v;

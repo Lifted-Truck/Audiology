@@ -35,8 +35,12 @@ export interface Song {
   name: string;
   /** All notes from all tracks, flattened and sorted by `time` ascending. */
   notes: Note[];
-  /** Total length in seconds. */
+  /** Total length in seconds (after any leading-silence trim). */
   duration: number;
+  /** Seconds of leading empty bars trimmed off the original file (0 = none).
+   *  Note times are already re-based by this; engine *file* analysis (which runs
+   *  on the original bytes) must be shifted by `-trimSec` to stay aligned. */
+  trimSec: number;
   /** Exact (tempo-map-aware) beats → seconds, for placing engine beat-extents
    *  on the second-aligned roll (e.g. structural_keys areas). */
   beatsToSeconds: (beats: number) => number;

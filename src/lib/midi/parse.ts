@@ -50,31 +50,54 @@ export function parseMidi(data: ArrayBuffer, fallbackName = "Untitled"): Song {
   const segs = [...sigs].sort((a, b) => a.ticks - b.ticks);
   if (segs.length === 0) segs.push({ ticks: 0, timeSignature: [4, 4], measures: 0 });
   const totalTicks = midi.durationTicks;
-  const barStarts: number[] = [];
+  const barTicks: number[] = [];
   for (let i = 0; i < segs.length; i++) {
     const [num, den] = segs[i].timeSignature;
     const ticksPerBar = ppq * (4 / den) * num;
     const end = i + 1 < segs.length ? segs[i + 1].ticks : totalTicks;
-    for (let t = segs[i].ticks; ticksPerBar > 0 && t < end; t += ticksPerBar) {
-      barStarts.push(midi.header.ticksToSeconds(t));
+    for (let t = segs[i].ticks; ticksPerBar > 0 && t < end; t += ticksPerBar) barTicks.push(t);
+  }
+
+  // Trim leading empty bars: messy files often open on several silent bars, so
+  // re-base the timeline on the bar that *contains* the first note (keeping its
+  // downbeat/meter). Whole empty bars before that are dropped; a partial rest in
+  // the first sounding bar is kept. No-op if the first note is already in bar 1.
+  const firstNoteTicks = notes.length ? notes[0].beats * ppq : 0;
+  let trimTicks = 0;
+  for (const bt of barTicks) {
+    if (bt <= firstNoteTicks + 1e-6) trimTicks = bt;
+    else break;
+  }
+  const trimSec = midi.header.ticksToSeconds(trimTicks);
+  const trimBeats = trimTicks / ppq;
+  const M0 = trimTicks > 0 ? Math.round(midi.header.ticksToMeasures(trimTicks)) : 0;
+  if (trimTicks > 0) {
+    for (const n of notes) {
+      n.time -= trimSec;
+      n.endTime -= trimSec;
+      n.beats -= trimBeats;
     }
   }
+  const barStarts = barTicks
+    .filter((bt) => bt >= trimTicks - 1e-6)
+    .map((bt) => midi.header.ticksToSeconds(bt) - trimSec);
 
   return {
     name: midi.name || fallbackName,
     notes,
-    duration: midi.duration,
+    duration: Math.max(0, midi.duration - trimSec),
+    trimSec,
     // Exact tempo-map-aware conversion (handles tempo changes), so engine
-    // beat-extents land at the right x on the second-aligned roll.
-    beatsToSeconds: (beats: number) => midi.header.ticksToSeconds(beats * ppq),
-    // Musical position via @tonejs's tempo+meter maps. ticksToMeasures returns a
-    // 0-indexed fractional measure across tempo/meter changes; we render it as a
-    // 1-indexed bar + beat-in-bar (beat scaled by the active numerator).
+    // beat-extents land at the right x on the (trim-rebased) second-aligned roll.
+    beatsToSeconds: (beats: number) => midi.header.ticksToSeconds((beats + trimBeats) * ppq) - trimSec,
+    // Musical position via @tonejs's tempo+meter maps, re-based on the trim so the
+    // first sounding bar reads as bar 1. ticksToMeasures returns a 0-indexed
+    // fractional measure; we render a 1-indexed bar + beat-in-bar.
     timeToBarBeat: (seconds: number) => {
-      const measure = midi.header.ticksToMeasures(midi.header.secondsToTicks(Math.max(0, seconds)));
+      const measure = midi.header.ticksToMeasures(midi.header.secondsToTicks(Math.max(0, seconds) + trimSec));
       const whole = Math.floor(measure);
       const beat = Math.floor((measure - whole) * numeratorAt(whole)) + 1;
-      return { bar: whole + 1, beat };
+      return { bar: whole - M0 + 1, beat };
     },
     barStarts,
   };
