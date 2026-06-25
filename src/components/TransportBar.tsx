@@ -30,6 +30,9 @@ export default function TransportBar({
   onDisambigChange,
   smoothRegions,
   onSmoothChange,
+  followKey,
+  onFollowKeyChange,
+  canFollowKey,
 }: {
   playback: Playback;
   onLoadAnalysis: (file: File) => void;
@@ -49,6 +52,9 @@ export default function TransportBar({
   onDisambigChange: (v: boolean) => void;
   smoothRegions: boolean;
   onSmoothChange: (v: boolean) => void;
+  followKey: boolean;
+  onFollowKeyChange: (v: boolean) => void;
+  canFollowKey: boolean;
 }) {
   const { song, isPlaying, currentTime, duration, tempoScale, loop } = playback;
 
@@ -147,6 +153,18 @@ export default function TransportBar({
             Smooth
           </button>
           {analyzing && <span className="px-tp-dim">re-analyzing…</span>}
+        </div>
+      )}
+      {canFollowKey && (
+        <div className="px-tp-row px-tp-subrow">
+          <button
+            className={"px-tp-opt" + (followKey ? " on" : "")}
+            onClick={() => onFollowKeyChange(!followKey)}
+            title="Follow the key — auto-switch the explorer's root + scale to the playing segment's local key as the playhead moves. See the Circle of 5ths view."
+          >
+            ⟳ Follow key
+          </button>
+          <span className="px-tp-dim">{followKey ? "root + scale track the playing key" : "root + scale follow the playing key"}</span>
         </div>
       )}
       {analysisError && <div className="px-tp-analysis-err">{analysisError}</div>}

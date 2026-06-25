@@ -23,8 +23,9 @@ import Grid from "./components/Grid";
 import Piano from "./components/Piano";
 import Bracelet from "./components/Bracelet";
 import Tonnetz from "./components/Tonnetz";
+import CircleOfFifths from "./components/CircleOfFifths";
 import ControlPanels from "./components/ControlPanels";
-import { parseTonalityAnalysis, shiftAnalysis, qualitySymbol, nameChord, analyzeMidi, scaleToEngineKey, structuralKeys, type FileAnalysis, type ChordNaming, type StructuralArea, type Tonicization } from "./lib/tonality";
+import { parseTonalityAnalysis, shiftAnalysis, qualitySymbol, nameChord, analyzeMidi, scaleToEngineKey, structuralKeys, modeToScaleName, type FileAnalysis, type ChordNaming, type StructuralArea, type Tonicization } from "./lib/tonality";
 import { useBridge } from "./hooks/useBridge";
 import { useEngineProcess } from "./hooks/useEngineProcess";
 import { Dot } from "./ui/primitives";
@@ -33,7 +34,7 @@ import type {
   DegNotation, DegRef, ChordDisplay, Cell, GridCell, WhiteKey, BlackKey, KeyAccent, BuiltChord,
 } from "./ui/types";
 
-type ViewKey = "transport" | "grid" | "pianoRoll" | "piano" | "bracelet" | "tonnetz";
+type ViewKey = "transport" | "grid" | "pianoRoll" | "piano" | "bracelet" | "tonnetz" | "circle";
 const VIEW_DEFS: { key: ViewKey; label: string }[] = [
   { key: "transport", label: "Transport" },
   { key: "pianoRoll", label: "Piano roll" },
@@ -41,6 +42,7 @@ const VIEW_DEFS: { key: ViewKey; label: string }[] = [
   { key: "piano", label: "Piano" },
   { key: "bracelet", label: "Bracelet" },
   { key: "tonnetz", label: "Tonnetz" },
+  { key: "circle", label: "Circle of 5ths" },
 ];
 
 export default function App() {
@@ -99,8 +101,12 @@ export default function App() {
 
   // Optional visual modules — each surface can be shown or hidden.
   const [views, setViews] = useState<Record<ViewKey, boolean>>({
-    transport: true, grid: true, pianoRoll: true, piano: true, bracelet: true, tonnetz: true,
+    transport: true, grid: true, pianoRoll: true, piano: true, bracelet: true, tonnetz: true, circle: false,
   });
+  // Follow-the-key: auto-switch the explorer's root+scale to the current playback
+  // segment's local key as the playhead moves. Off by default; only meaningful
+  // with engine key analysis (key bands) loaded.
+  const [followKey, setFollowKey] = useState(false);
   const toggleView = (k: ViewKey) => setViews((v) => ({ ...v, [k]: !v[k] }));
   // When off, the grid/piano drop the scale tint — a "blank" surface where only
   // played / selected / chord notes are highlighted.
@@ -347,6 +353,34 @@ export default function App() {
   // when no structural areas (offline / not yet fetched).
   const hasStructural = structuralKeyBands.length > 0;
   const keyBands = keyStripMode === "structural" && hasStructural ? structuralKeyBands : keyRegionBands;
+
+  // Follow-the-key: the local key under the playhead (from the key bands), plus the
+  // distinct keys the piece visits (for the circle-of-fifths journey trace).
+  const segmentKey = useMemo(() => {
+    const t = playback.currentTime;
+    const b = keyBands.find((band) => t >= band.startSec && t < band.endSec);
+    return b && b.tonicPc != null && b.mode ? { tonicPc: b.tonicPc, mode: b.mode } : null;
+  }, [keyBands, playback.currentTime]);
+  const visitedKeys = useMemo(() => {
+    const out: { tonicPc: number; mode: string }[] = [];
+    for (const b of keyBands) {
+      if (b.tonicPc == null || !b.mode) continue;
+      const last = out[out.length - 1];
+      if (!last || last.tonicPc !== b.tonicPc || last.mode !== b.mode) out.push({ tonicPc: b.tonicPc, mode: b.mode });
+    }
+    return out;
+  }, [keyBands]);
+  const canFollowKey = keyBands.length > 0;
+  // When following, snap root+scale to the segment key (only major/minor map onto a
+  // selectable scale). Keyed on the segment key's identity so it fires at key-area
+  // boundaries, not every frame; setRoot/setScaleName to an unchanged value no-op.
+  useEffect(() => {
+    if (!followKey || !segmentKey) return;
+    const sn = modeToScaleName(segmentKey.mode);
+    if (!sn) return;
+    setRoot(segmentKey.tonicPc);
+    setScaleName(sn);
+  }, [followKey, segmentKey?.tonicPc, segmentKey?.mode]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Tonicizations (brief pivots the structural reduction absorbed) → spans in
   // seconds, carrying the tonicized key + its roman relative to the parent. Used
@@ -710,6 +744,9 @@ export default function App() {
                 onDisambigChange={setDisambigRelKeys}
                 smoothRegions={smoothRegions}
                 onSmoothChange={setSmoothRegions}
+                followKey={followKey}
+                onFollowKeyChange={setFollowKey}
+                canFollowKey={canFollowKey}
               />
             </div>
           )}
@@ -772,7 +809,7 @@ export default function App() {
             </div>
           )}
 
-          {(views.bracelet || views.tonnetz) && (
+          {(views.bracelet || views.tonnetz || views.circle) && (
             <div className="px-stage-block">
               <div className="px-block-cap">Diagrams</div>
               <div className="px-diagrams">
@@ -786,6 +823,18 @@ export default function App() {
                   <div className="px-diagram">
                     <div className="px-diagram-cap">Tonnetz · drag to pan</div>
                     <Tonnetz rootPc={root} chordRootPc={diagramRootPc} scalePcs={scalePcs} activePcs={activePcs} label={pcLabel} onPick={onPickPc} />
+                  </div>
+                )}
+                {views.circle && (
+                  <div className="px-diagram">
+                    <div className="px-diagram-cap">Circle of 5ths{followKey ? " · following" : ""}</div>
+                    <CircleOfFifths
+                      tonicPc={root}
+                      isMinor={scaleName === "Minor"}
+                      visited={visitedKeys}
+                      label={noteName}
+                      onPick={(pc, minor) => { setFollowKey(false); setRoot(pc); setScaleName(minor ? "Minor" : "Major"); }}
+                    />
                   </div>
                 )}
               </div>
