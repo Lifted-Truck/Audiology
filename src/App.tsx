@@ -24,7 +24,7 @@ import Piano from "./components/Piano";
 import Bracelet from "./components/Bracelet";
 import Tonnetz from "./components/Tonnetz";
 import ControlPanels from "./components/ControlPanels";
-import { parseTonalityAnalysis, qualitySymbol, nameChord, analyzeMidi, scaleToEngineKey, structuralKeys, type FileAnalysis, type ChordNaming, type StructuralArea, type Tonicization } from "./lib/tonality";
+import { parseTonalityAnalysis, shiftAnalysis, qualitySymbol, nameChord, analyzeMidi, scaleToEngineKey, structuralKeys, type FileAnalysis, type ChordNaming, type StructuralArea, type Tonicization } from "./lib/tonality";
 import { useBridge } from "./hooks/useBridge";
 import { useEngineProcess } from "./hooks/useEngineProcess";
 import { Dot } from "./ui/primitives";
@@ -164,13 +164,13 @@ export default function App() {
   const loadAnalysis = useCallback(async (file: File) => {
     try {
       const fa = parseTonalityAnalysis(JSON.parse(await file.text()));
-      setAnalysis(fa);
+      setAnalysis(shiftAnalysis(fa, -(playback.song?.trimSec ?? 0)));
       setAnalysisError(null);
     } catch (e) {
       setAnalysis(null);
       setAnalysisError(e instanceof Error ? e.message : "Failed to parse analysis");
     }
-  }, []);
+  }, [playback.song]);
   const playMidi = useCallback(
     (m: number, dur = 0.55, when = 0, gMul = 1) => {
       if (!sound) return;
@@ -215,13 +215,14 @@ export default function App() {
         disambiguateRelativeKeys: disambigRelKeys,
         smoothKeyRegions: smoothRegions,
       });
-      setAnalysis(parseTonalityAnalysis(raw));
+      // The engine analyzes the original bytes; re-align onto the trim-rebased song.
+      setAnalysis(shiftAnalysis(parseTonalityAnalysis(raw), -(playback.song?.trimSec ?? 0)));
     } catch (e) {
       setAnalysisError(e instanceof Error ? e.message : "Engine analysis failed");
     } finally {
       setAnalyzing(false);
     }
-  }, [coalesceWindow, disambigRelKeys, smoothRegions]);
+  }, [coalesceWindow, disambigRelKeys, smoothRegions, playback.song]);
 
   // Re-analyze when any engine analysis option changes (if a file is loaded + bridge up).
   useEffect(() => {

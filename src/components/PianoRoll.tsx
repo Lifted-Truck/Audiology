@@ -15,8 +15,8 @@ const NOTE_NAMES = ["C", "C♯", "D", "D♯", "E", "F", "F♯", "G", "G♯", "A"
 const noteName = (midi: number): string => `${NOTE_NAMES[((midi % 12) + 12) % 12]}${Math.floor(midi / 12) - 2}`;
 
 const LANES = PIANO_HI - PIANO_LO + 1; // semitone rows
-const LANE_H = 5; // px per semitone
-const NOTE_H = LANES * LANE_H; // note-area height (css px)
+const LANE_H_COMPACT = 5; // px per semitone (default / compact)
+const LANE_H_EXPANDED = 9; // taller rows when the roll is expanded
 const KEY_STRIP_H = 16; // local-key band strip height (0 when no key regions)
 const PIVOT_STRIP_H = 13; // tonicization / pivot lane height (0 when no pivots)
 const CHORD_STRIP_H = 17; // chord-label strip height (0 when no chord regions)
@@ -62,7 +62,6 @@ interface Props {
 }
 
 const dpr = (): number => (typeof window !== "undefined" ? window.devicePixelRatio || 1 : 1);
-const laneY = (midi: number): number => pitchToLane(midi) * LANE_H;
 const isC = (midi: number): boolean => midi % 12 === 0;
 
 /** Draw a horizontal strip of time-aligned regions (band + left divider + label). */
@@ -130,6 +129,11 @@ export default function PianoRoll({
   const [tip, setTip] = useState<{ x: number; y: number; text: string } | null>(null);
   // Pinned note inspector (alt/option-click a note). null = hidden.
   const [inspect, setInspect] = useState<{ note: Note; x: number; y: number } | null>(null);
+  // Expandable row height — taller lanes are easier to read and click.
+  const [expanded, setExpanded] = useState(false);
+  const laneH = expanded ? LANE_H_EXPANDED : LANE_H_COMPACT;
+  const laneY = (midi: number): number => pitchToLane(midi) * laneH;
+  const noteH = LANES * laneH;
   // Live values the (once-attached) wheel handler reads.
   const liveRef = useRef({ width, duration, manualScroll, time: currentTime });
   liveRef.current = { width, duration, manualScroll, time: currentTime };
@@ -139,7 +143,7 @@ export default function PianoRoll({
   const pivotStripH = pivots.length ? PIVOT_STRIP_H : 0;
   const chordStripH = regions.length ? CHORD_STRIP_H : 0;
   const topH = rulerH + keyStripH + pivotStripH + chordStripH;
-  const height = topH + NOTE_H;
+  const height = topH + noteH;
 
   // Resume following when playback starts (only if follow is on).
   useEffect(() => {
@@ -201,7 +205,7 @@ export default function PianoRoll({
       for (let i = 0; i < bars.length; i++) {
         const x = bars[i] * pxPerSec;
         ctx.fillStyle = "rgba(255,255,255,0.04)";
-        ctx.fillRect(x, topH, 1, NOTE_H); // gridline through the notes
+        ctx.fillRect(x, topH, 1, noteH); // gridline through the notes
         ctx.fillStyle = "rgba(255,255,255,0.13)";
         ctx.fillRect(x, 0, 1, rulerH); // ruler tick
         if (x - lastBar >= 26) {
@@ -237,7 +241,7 @@ export default function PianoRoll({
     // faint C-row guide lines
     ctx.fillStyle = "rgba(255,255,255,0.04)";
     for (let m = PIANO_LO; m <= PIANO_HI; m++) {
-      if (isC(m)) ctx.fillRect(0, topH + laneY(m), songW, LANE_H);
+      if (isC(m)) ctx.fillRect(0, topH + laneY(m), songW, laneH);
     }
 
     // Key context at a time, for out-of-key colouring (key bands carry tonicPc/mode).
@@ -268,9 +272,9 @@ export default function PianoRoll({
         body = `rgba(248,113,113,${a.toFixed(3)})`; edge = "rgba(252,165,165,0.6)"; // chromatic / out-of-key
       }
       ctx.fillStyle = body;
-      ctx.fillRect(x, y + 0.5, w, LANE_H - 1);
+      ctx.fillRect(x, y + 0.5, w, laneH - 1);
       ctx.fillStyle = edge;
-      ctx.fillRect(x, y + 0.5, Math.min(w, 1.5), LANE_H - 1);
+      ctx.fillRect(x, y + 0.5, Math.min(w, 1.5), laneH - 1);
     }
 
     // Tonicization / pivot lane: orange spans + a roman numeral (relative to the
@@ -297,7 +301,7 @@ export default function PianoRoll({
     }
 
     staticRef.current = c;
-  }, [song, duration, pxPerSec, regions, keyRegions, pivots, keyStripH, pivotStripH, chordStripH, rulerH, topH, height, tempoScale]);
+  }, [song, duration, pxPerSec, regions, keyRegions, pivots, keyStripH, pivotStripH, chordStripH, rulerH, topH, height, tempoScale, laneH]);
 
   /* visible layer — playhead, blit, active glow; runs whenever position changes */
   useEffect(() => {
@@ -341,7 +345,7 @@ export default function PianoRoll({
         if (n.time <= currentTime && currentTime < n.endTime && n.midi >= PIANO_LO && n.midi <= PIANO_HI) {
           const x = n.time * pxPerSec - scrollX;
           const w = Math.max(1.5, n.duration * pxPerSec);
-          ctx.fillRect(x, topH + laneY(n.midi) + 0.5, w, LANE_H - 1);
+          ctx.fillRect(x, topH + laneY(n.midi) + 0.5, w, laneH - 1);
         }
       }
       ctx.restore();
@@ -356,7 +360,7 @@ export default function PianoRoll({
     // change that rebuilds the static layer also re-blits it here — otherwise the
     // screen keeps the stale blit until an unrelated repaint (the roman↔names /
     // tempo "needs a scroll to refresh" bug).
-  }, [song, currentTime, duration, width, pxPerSec, activeNotes, topH, height, manualScroll, follow, tempoScale, regions, keyRegions, pivots]);
+  }, [song, currentTime, duration, width, pxPerSec, activeNotes, topH, height, manualScroll, follow, tempoScale, regions, keyRegions, pivots, laneH]);
 
   /* click / drag to seek */
   const timeFromEvent = (clientX: number): number => {
@@ -390,7 +394,7 @@ export default function PianoRoll({
     for (const n of song.notes) {
       if (n.midi < PIANO_LO || n.midi > PIANO_HI) continue;
       const y = topH + laneY(n.midi);
-      if (yLocal < y || yLocal >= y + LANE_H) continue;
+      if (yLocal < y || yLocal >= y + laneH) continue;
       const x = n.time * pxPerSec;
       const w = Math.max(1.5, n.duration * pxPerSec);
       if (staticX >= x && staticX <= x + w) hit = n; // last match = topmost drawn
@@ -404,9 +408,9 @@ export default function PianoRoll({
   const onDown = (e: React.MouseEvent) => {
     if (!song) return;
     const rect = canvasRef.current?.getBoundingClientRect();
+    const note = rect ? noteAt(e.clientX, e.clientY - rect.top) : null;
     if ((e.altKey || e.metaKey) && rect) {
       // Inspect a note instead of seeking — don't fight click-to-seek.
-      const note = noteAt(e.clientX, e.clientY - rect.top);
       setInspect(note ? { note, x: e.clientX - rect.left, y: e.clientY - rect.top } : null);
       setTip(null);
       return;
@@ -414,7 +418,9 @@ export default function PianoRoll({
     draggingRef.current = true;
     setTip(null);
     setInspect(null); // a plain seek dismisses the inspector
-    onSeek(timeFromEvent(e.clientX));
+    // Clicking a note (or any note of a chord) snaps the scrubber to its onset;
+    // clicking empty space seeks to the cursor time. Dragging then scrubs freely.
+    onSeek(note ? note.time : timeFromEvent(e.clientX));
   };
   const onMove = (e: React.MouseEvent) => {
     if (draggingRef.current) {
@@ -474,9 +480,14 @@ export default function PianoRoll({
           ["harmony", harmonic],
           ["source", `ch ${n.channel ?? "—"}${n.instrument ? ` · ${n.instrument}` : n.track ? ` · ${n.track}` : ""}`],
         ];
-        const left = Math.min(inspect.x + 8, width - 196);
+        // Keep the popout fully in view: flip left/above the cursor when it would
+        // overflow the roll, then clamp. (~206×150 incl. padding/border.)
+        const PW = 206, PH = 150, GAP = 10;
+        const left = inspect.x + GAP + PW <= width ? inspect.x + GAP : inspect.x - PW - GAP;
+        const top = inspect.y + GAP + PH <= height ? inspect.y + GAP : inspect.y - PH - GAP;
+        const clamp = (v: number, max: number) => Math.max(4, Math.min(v, Math.max(4, max)));
         return (
-          <div className="px-roll-inspect" style={{ left: Math.max(4, left), top: Math.min(inspect.y + 8, height - 132) }}>
+          <div className="px-roll-inspect" style={{ left: clamp(left, width - PW - 4), top: clamp(top, height - PH - 4) }}>
             <div className="px-roll-inspect-head">
               <span>{noteName(n.midi)}<span className="px-roll-inspect-midi"> · MIDI {n.midi}</span></span>
               <button className="px-roll-inspect-x" onClick={() => setInspect(null)} title="Close">×</button>
@@ -497,6 +508,15 @@ export default function PianoRoll({
           title={follow ? "Following the scrubber — click to freeze the view" : "View frozen — click to follow the scrubber"}
         >
           {follow ? "⊙ Follow" : "⊘ Manual"}
+        </button>
+      )}
+      {song && (
+        <button
+          className={"px-roll-follow px-roll-expand" + (expanded ? " on" : "")}
+          onClick={() => setExpanded((x) => !x)}
+          title={expanded ? "Compact rows" : "Expand rows — taller lanes, easier to read & click"}
+        >
+          {expanded ? "⤡ Compact" : "⤢ Expand"}
         </button>
       )}
       {song && !inspect && <div className="px-roll-hint">⌥-click a note to inspect</div>}
