@@ -832,6 +832,7 @@ export default function App() {
                       tonicPc={root}
                       isMinor={scaleName === "Minor"}
                       visited={visitedKeys}
+                      homeKey={analysis ? { tonicPc: analysis.key.tonicPc, mode: analysis.key.mode } : null}
                       noteNot={noteNot}
                       onPick={(pc, minor) => { setFollowKey(false); setRoot(pc); setScaleName(minor ? "Minor" : "Major"); }}
                     />
