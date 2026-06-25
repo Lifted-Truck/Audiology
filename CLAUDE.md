@@ -251,10 +251,17 @@ Roadmap; the remaining Tonality-engine upgrades are in the section above).
 
 - **`manualScroll` not cleared on seek (open bug).** Clear the roll's `manualScroll` on an
   explicit seek so seeking resumes follow after a wheel-pan. See the Gotchas note.
-- **Piano-roll note inspector.** Click a note to inspect it (popout near the cursor: pitch/octave,
-  bar·beat, duration, velocity, channel/instrument, in-key vs chromatic, scale degree in the local
-  key). Clicking the roll currently *seeks*, so note-pick needs a modifier/mode — design it, don't
-  fight click-to-seek. First of a batch of roll ideas; gather the rest before building.
+- **Piano-roll feature batch.** *Shipped:* note inspector (⌥-click a note → popout with
+  pitch/octave, bar·beat, duration, velocity, channel/instrument, in-key vs chromatic, scale
+  degree), click-snaps-to-onset, expandable rows, and trim-leading-silence. *Next ideas:*
+  - **Per-channel / per-track roll split (view option).** A toggle to render each MIDI channel
+    (or track) as its own **stacked** piano roll instead of one merged roll — so multi-instrument
+    files read clearly. Notes already carry `channel`/`track`/`instrument` (added for the
+    inspector), so the data's there. Design: stacked sub-rolls sharing **one** time axis + ruler +
+    playhead + horizontal scroll, each labelled by channel/track/instrument; the global strips
+    (key/chord/pivot) and the active-note glow stay shared (drawn once, not per lane). Surface as a
+    Views option or a roll-local merged↔split toggle. **Watch perf:** N canvases × the 2-layer
+    raster — reuse the static-layer caching per sub-roll, redraw only on song/zoom/viewport change.
 - **Beat-based ("musical") roll axis.** The roll is second-based (x = seconds), so a file with real
   tempo changes (Bohemian: 35–176 bpm) renders bars at *uneven* widths — faithful but reads oddly.
   Offer an even-bar beat-based x-axis (Ableton default; notes already carry `.beats`) as a toggle;
