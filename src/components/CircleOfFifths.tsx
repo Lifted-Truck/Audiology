@@ -1,14 +1,15 @@
 // Circle of fifths: the 12 major keys around the outer ring (C at top, clockwise
 // by fifths), their relative minors on the inner ring. Highlights the current key
-// (root + major/minor); when a file is analyzed it traces the keys the piece
-// visits as a path (arrowed in expanded mode), so modulations read as motion.
+// (indigo ring), marks the file's overall/home key (gold dashed ring), and traces
+// the keys the piece visits as a numbered, arrowed path so the order and direction
+// of modulations are clear.
 //
 // Spelling: by default each key uses its **canonical** circle-of-fifths name
 // (sharp side sharp, flat side flat) — stable, so selecting a key never flips the
 // chart. The global Notation selector overrides to force all-sharp / all-flat.
 //
-// Expanded mode adds each key's signature (count of sharps/flats) and directional
-// arrows on the modulation path. SVG, driven by props + a local expand toggle.
+// Expanded mode adds each key's signature (count of sharps/flats). SVG, driven by
+// props + a local expand toggle.
 
 import React, { useState } from "react";
 
@@ -30,16 +31,20 @@ const sigLabel = (majorPc: number): string => {
 // 7 is its own inverse mod 12, so the fifths-position of a major pc P is (P*7)%12.
 const majorPos = (pc: number): number => ((pc * 7) % 12 + 12) % 12;
 
+type Key = { tonicPc: number; mode: string };
+
 export default function CircleOfFifths({
   tonicPc,
   isMinor,
   visited = [],
+  homeKey = null,
   noteNot = "auto",
   onPick,
 }: {
   tonicPc: number;
   isMinor: boolean;
-  visited?: { tonicPc: number; mode: string }[];
+  visited?: Key[];
+  homeKey?: Key | null;
   noteNot?: "auto" | "sharp" | "flat";
   onPick: (tonicPc: number, isMinor: boolean) => void;
 }) {
@@ -52,19 +57,33 @@ export default function CircleOfFifths({
     const a = ((i * 30 - 90) * Math.PI) / 180;
     return [G.cx + r * Math.cos(a), G.cy + r * Math.sin(a)];
   };
-  const keyCenter = (tPc: number, minor: boolean): [number, number] =>
-    minor ? pos(majorPos((tPc + 3) % 12), G.rMin) : pos(majorPos(tPc), G.rMaj);
+  const minorOf = (k: Key) => k.mode === "minor";
+  const keyCenter = (k: Key): [number, number] =>
+    minorOf(k) ? pos(majorPos((k.tonicPc + 3) % 12), G.rMin) : pos(majorPos(k.tonicPc), G.rMaj);
+  const nodeR = (k: Key) => (minorOf(k) ? G.nrMin : G.nrMaj);
 
   const keyName = (pc: number, minor: boolean): string => {
     const base = noteNot === "sharp" ? SHARP_PC[pc] : noteNot === "flat" ? FLAT_PC[pc] : (minor ? CANON_MINOR : CANON_MAJOR)[pc];
     return base + (minor ? "m" : "");
   };
 
-  const visitedSet = new Set(visited.map((v) => `${v.mode === "minor" ? "m" : "M"}:${v.tonicPc}`));
-  const journey = visited.map((v) => keyCenter(v.tonicPc, v.mode === "minor"));
+  const visitedSet = new Set(visited.map((v) => `${minorOf(v) ? "m" : "M"}:${v.tonicPc}`));
+  const sameKey = (a: Key | null, pc: number, minor: boolean) => !!a && a.tonicPc === pc && minorOf(a) === minor;
+
+  // Modulation path: shorten each segment to the node edges so the arrowhead lands
+  // in the gap between keys (not hidden under a circle), and number the moves.
+  const segs = visited.slice(1).map((to, k) => {
+    const from = visited[k];
+    const [ax, ay] = keyCenter(from), [bx, by] = keyCenter(to);
+    const dx = bx - ax, dy = by - ay, L = Math.hypot(dx, dy) || 1, ux = dx / L, uy = dy / L;
+    const x1 = ax + ux * (nodeR(from) + 3), y1 = ay + uy * (nodeR(from) + 3);
+    const x2 = bx - ux * (nodeR(to) + 6), y2 = by - uy * (nodeR(to) + 6);
+    return { x1, y1, x2, y2, mx: (x1 + x2) / 2, my: (y1 + y2) / 2, n: k + 1 };
+  });
 
   const node = (pc: number, minor: boolean, [x, y]: [number, number]) => {
     const isCurrent = pc === tonicPc && minor === isMinor;
+    const isHome = sameKey(homeKey, pc, minor);
     const isVisited = visitedSet.has(`${minor ? "m" : "M"}:${pc}`);
     let fill = "#0d1016", stroke = "#2a3340", txt = "#5b6675", sw = 1.2;
     if (isVisited) { fill = "#0a2825"; stroke = "#2dd4bf"; txt = "#5eead4"; sw = 1.5; }
@@ -73,6 +92,7 @@ export default function CircleOfFifths({
     const showSig = expanded && !minor; // signature on majors (minors share the relative)
     return (
       <g key={`${minor ? "m" : "M"}${pc}`} className="px-node" onClick={() => onPick(pc, minor)}>
+        {isHome && <circle cx={x} cy={y} r={r + (isCurrent ? 6 : 3)} fill="none" stroke="#fcd34d" strokeWidth={2} strokeDasharray="3 2.5" />}
         {isCurrent && <circle cx={x} cy={y} r={r + 3} fill="none" stroke="#a5b4fc" strokeWidth={1.5} />}
         <circle cx={x} cy={y} r={r} fill={fill} stroke={stroke} strokeWidth={sw} />
         <text x={x} y={showSig ? y - 3.5 : y} textAnchor="middle" dominantBaseline="central"
@@ -94,27 +114,17 @@ export default function CircleOfFifths({
   return (
     <div className="px-cof-wrap">
       <button className={"px-cof-expand" + (expanded ? " on" : "")} onClick={() => setExpanded((e) => !e)}
-        title={expanded ? "Less detail" : "Expand — key signatures + directional path"}>
+        title={expanded ? "Less detail" : "Expand — key signatures"}>
         {expanded ? "⤡" : "⤢"}
       </button>
       <svg viewBox={`0 0 ${G.vb} ${G.vb}`} className="px-bracelet-svg" role="img" aria-label="circle of fifths">
         <defs>
-          <marker id="cof-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+          <marker id="cof-arrow" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse">
             <path d="M0,0 L10,5 L0,10 z" fill="#fbbf24" />
           </marker>
         </defs>
         <circle cx={G.cx} cy={G.cy} r={G.rMaj} fill="none" stroke="#1c2129" strokeWidth={1} />
         <circle cx={G.cx} cy={G.cy} r={G.rMin} fill="none" stroke="#161b22" strokeWidth={1} />
-        {/* modulation path: arrowed segments when expanded, plain polyline otherwise */}
-        {journey.length >= 2 && (expanded
-          ? journey.slice(1).map(([x2, y2], k) => {
-              const [x1, y1] = journey[k];
-              return <line key={k} x1={x1} y1={y1} x2={x2} y2={y2} stroke="rgba(251,191,36,.6)" strokeWidth={1.8}
-                strokeLinecap="round" markerEnd="url(#cof-arrow)" />;
-            })
-          : <polyline points={journey.map(([x, y]) => `${x.toFixed(1)},${y.toFixed(1)}`).join(" ")} fill="none"
-              stroke="rgba(251,191,36,.45)" strokeWidth={1.5} strokeLinejoin="round" strokeLinecap="round" />
-        )}
         {positions.map((i) => {
           const majorPc = ((i * 7) % 12 + 12) % 12;
           const minorPc = (majorPc + 9) % 12;
@@ -125,6 +135,16 @@ export default function CircleOfFifths({
             </React.Fragment>
           );
         })}
+        {/* the modulation path is drawn ON TOP so its arrowheads + move numbers stay visible */}
+        {segs.map((s) => (
+          <g key={s.n}>
+            <line x1={s.x1} y1={s.y1} x2={s.x2} y2={s.y2} stroke="#fbbf24" strokeWidth={1.8}
+              strokeLinecap="round" markerEnd="url(#cof-arrow)" opacity={0.85} />
+            <circle cx={s.mx} cy={s.my} r={6.5} fill="#1a1205" stroke="#fbbf24" strokeWidth={1} />
+            <text x={s.mx} y={s.my} textAnchor="middle" dominantBaseline="central" fontSize="8" fontWeight="800"
+              fontFamily="'JetBrains Mono', monospace" fill="#fde68a">{s.n}</text>
+          </g>
+        ))}
       </svg>
     </div>
   );
