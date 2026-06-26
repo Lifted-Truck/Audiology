@@ -285,10 +285,17 @@ export default function App() {
     setTonicizations([]);
     const song = playback.song;
     if (!song || !bridge.connected) return;
-    const events = song.notes.map((n) => [n.beats, n.durationBeats, n.midi]);
+    // Feed the engine the ORIGINAL (untrimmed) beats: the leading-silence trim is a
+    // display/playback offset, and re-basing the beats shifts structural_keys' window
+    // grid and corrupts the reduction (e.g. a spurious minor blip at the very start).
+    // Shift the returned areas/tonicizations back by trimBeats onto the trimmed axis.
+    const tb = song.trimBeats;
+    const events = song.notes.map((n) => [n.beats + tb, n.durationBeats, n.midi]);
+    const unshift = <T extends { startBeats: number; endBeats: number }>(x: T): T =>
+      ({ ...x, startBeats: x.startBeats - tb, endBeats: x.endBeats - tb });
     const ctrl = new AbortController();
     structuralKeys(bridge.baseUrl, events, {}, ctrl.signal)
-      .then((r) => { setStructuralAreas(r.areas); setTonicizations(r.tonicizations); })
+      .then((r) => { setStructuralAreas(r.areas.map(unshift)); setTonicizations(r.tonicizations.map(unshift)); })
       .catch(() => { setStructuralAreas(null); setTonicizations([]); });
     return () => ctrl.abort();
   }, [playback.song, bridge.connected, bridge.baseUrl]);
