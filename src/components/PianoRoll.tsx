@@ -253,35 +253,38 @@ export default function PianoRoll({
       if (isC(m)) ctx.fillRect(0, topH + laneY(m), songW, laneH);
     }
 
-    // Key context at a time, for out-of-key colouring (key bands carry tonicPc/mode).
-    // A note inside a tonicization span is judged against that LOCAL key, so a
-    // legitimate secondary-key detour within a section doesn't read as out-of-key.
-    const bandAt = (t: number): Region | null => {
-      for (const r of tonicizations) if (t >= r.startSec && t < r.endSec && r.tonicPc != null && r.mode) return r;
-      for (const r of keyRegions) if (t >= r.startSec && t < r.endSec) return r;
+    // Key context at a time. The note's colour is a 3-way harmonic role: diatonic
+    // to the section (structural) key, diatonic to a LOCAL tonicization (secondary
+    // key) but not the section, or genuinely chromatic to both.
+    const spanAt = (spans: Region[], t: number): Region | null => {
+      for (const r of spans) if (t >= r.startSec && t < r.endSec && r.tonicPc != null && r.mode) return r;
       return null;
     };
     const inKey = (pc: number, band: Region | null): boolean => {
-      if (!band || band.tonicPc == null || !band.mode) return true; // no key ref → don't flag
+      if (!band || band.tonicPc == null || !band.mode) return false;
       const scale = band.mode === "minor" ? MINOR_PCS : MAJOR_PCS;
       return scale.includes(((pc - band.tonicPc) % 12 + 12) % 12);
     };
 
-    // notes — coloured by harmonic role: teal in-key, red out-of-key (chromatic),
-    // grey for drums (channel 10, unpitched). Surfaces breakouts on the roll.
+    // notes — teal: in the section key; violet: in a local tonicization (but out of
+    // the section key); red: chromatic to both; grey: drums (unpitched).
     for (const n of song.notes) {
       if (n.midi < PIANO_LO || n.midi > PIANO_HI) continue;
       const x = n.time * pxPerSec;
       const w = Math.max(1.5, n.duration * pxPerSec);
       const y = topH + laneY(n.midi);
       const a = 0.45 + 0.45 * Math.max(0, Math.min(1, n.velocity));
+      const pc = ((n.midi % 12) + 12) % 12;
+      const section = spanAt(keyRegions, n.time);
       let body: string, edge: string;
       if (n.drum) {
         body = `rgba(148,163,184,${(a * 0.7).toFixed(3)})`; edge = "rgba(203,213,225,0.45)";
-      } else if (inKey(((n.midi % 12) + 12) % 12, bandAt(n.time))) {
-        body = `rgba(45,212,191,${a.toFixed(3)})`; edge = "rgba(126,255,233,0.5)";
+      } else if (!section || inKey(pc, section)) {
+        body = `rgba(45,212,191,${a.toFixed(3)})`; edge = "rgba(126,255,233,0.5)"; // in section key (or no key ref)
+      } else if (inKey(pc, spanAt(tonicizations, n.time))) {
+        body = `rgba(167,139,250,${a.toFixed(3)})`; edge = "rgba(196,181,253,0.6)"; // in a local tonicization
       } else {
-        body = `rgba(248,113,113,${a.toFixed(3)})`; edge = "rgba(252,165,165,0.6)"; // chromatic / out-of-key
+        body = `rgba(248,113,113,${a.toFixed(3)})`; edge = "rgba(252,165,165,0.6)"; // chromatic to both
       }
       ctx.fillStyle = body;
       ctx.fillRect(x, y + 0.5, w, laneH - 1);

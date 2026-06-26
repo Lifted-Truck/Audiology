@@ -94,6 +94,9 @@ export default function App() {
   // display when available; the windowed key_regions are the "evidence" toggle.
   const [structuralAreas, setStructuralAreas] = useState<StructuralArea[] | null>(null);
   const [tonicizations, setTonicizations] = useState<Tonicization[]>([]);
+  // The frame-weighted structural "home" key — preferred over the windowed global
+  // key for the circle's home ring (robust on near-ties, e.g. Bohemian Bb-vs-Eb).
+  const [structuralHome, setStructuralHome] = useState<{ tonicPc: number; mode: string } | null>(null);
   const [keyStripMode, setKeyStripMode] = useState<"structural" | "windowed">("structural");
   // Chord strip label mode: chord names, roman numerals (relative to the local
   // key), or both. Roman is often shorter, so it fits tight bars better.
@@ -283,6 +286,7 @@ export default function App() {
   useEffect(() => {
     setStructuralAreas(null);
     setTonicizations([]);
+    setStructuralHome(null);
     const song = playback.song;
     if (!song || !bridge.connected) return;
     // Feed the engine the ORIGINAL (untrimmed) beats: the leading-silence trim is a
@@ -295,8 +299,12 @@ export default function App() {
       ({ ...x, startBeats: x.startBeats - tb, endBeats: x.endBeats - tb });
     const ctrl = new AbortController();
     structuralKeys(bridge.baseUrl, events, {}, ctrl.signal)
-      .then((r) => { setStructuralAreas(r.areas.map(unshift)); setTonicizations(r.tonicizations.map(unshift)); })
-      .catch(() => { setStructuralAreas(null); setTonicizations([]); });
+      .then((r) => {
+        setStructuralAreas(r.areas.map(unshift));
+        setTonicizations(r.tonicizations.map(unshift));
+        setStructuralHome(r.homeTonicPc != null && r.homeMode ? { tonicPc: r.homeTonicPc, mode: r.homeMode } : null);
+      })
+      .catch(() => { setStructuralAreas(null); setTonicizations([]); setStructuralHome(null); });
     return () => ctrl.abort();
   }, [playback.song, bridge.connected, bridge.baseUrl]);
 
@@ -840,7 +848,7 @@ export default function App() {
                       tonicPc={root}
                       isMinor={scaleName === "Minor"}
                       visited={visitedKeys}
-                      homeKey={analysis ? { tonicPc: analysis.key.tonicPc, mode: analysis.key.mode } : null}
+                      homeKey={structuralHome ?? (analysis ? { tonicPc: analysis.key.tonicPc, mode: analysis.key.mode } : null)}
                       noteNot={noteNot}
                       onPick={(pc, minor) => { setFollowKey(false); setRoot(pc); setScaleName(minor ? "Minor" : "Major"); }}
                     />
@@ -856,6 +864,7 @@ export default function App() {
             {mode === "chromatic" && <Dot c="#f87171" t="out of scale" />}
             <Dot c="#fbbf24" t={isLive ? "playing live" : interaction === "analyze" ? "selected" : chordDisplay === "voicing" ? "voicing note" : "chord tone"} />
             {playback.song && <Dot c="#fde047" t="sounding (file)" />}
+            {playback.song && views.pianoRoll && <Dot c="#a78bfa" t="in tonicized key (roll)" />}
             {playback.song && views.pianoRoll && <Dot c="#f87171" t="out of key (roll)" />}
             {playback.song && views.pianoRoll && <Dot c="#94a3b8" t="drums (roll)" />}
             {pivotBands.length > 0 && views.pianoRoll && <Dot c="#fb923c" t="pivot / tonicization" />}
