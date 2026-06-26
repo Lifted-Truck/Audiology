@@ -790,6 +790,7 @@ export default function App() {
                 regions={chordRegions}
                 keyRegions={keyBands}
                 pivots={pivotBands}
+                tonicizations={tonicizationSpans}
                 tempoScale={playback.tempoScale}
               />
             </div>
