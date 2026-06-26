@@ -154,6 +154,13 @@ export interface Tonicization {
 export interface StructuralResult {
   areas: StructuralArea[];
   tonicizations: Tonicization[];
+  /** The structural reduction's overall key — its own whole-file induction, more
+   *  reliable for "the song's key" than `midi_file_analysis`'s global (which the
+   *  coalesce window can tip on near-ties, e.g. Bohemian's Bb↔Eb coin-flip). NB the
+   *  frame-weighted `home_*` anchor is a different thing — it can absorb a divergent
+   *  ending (Bohemian's Bb-minor outro), so it's not the right "overall key". */
+  homeTonicPc?: number;
+  homeMode?: string;
 }
 
 /**
@@ -181,9 +188,11 @@ export async function structuralKeys(
       smoothing: opts.smoothing ?? false,
     },
     signal
-  )) as { areas?: RawArea[] };
+  )) as { areas?: RawArea[]; global_tonic_pc?: number; global_mode?: string };
   const raw = res.areas ?? [];
   return {
+    homeTonicPc: res.global_tonic_pc,
+    homeMode: res.global_mode,
     areas: raw.map((a) => ({ startBeats: a.start_beats, endBeats: a.end_beats, tonicPc: a.tonic_pc, mode: a.mode })),
     tonicizations: raw.flatMap((a) =>
       (a.tonicizations ?? []).map((t) => ({
