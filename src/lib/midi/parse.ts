@@ -87,6 +87,7 @@ export function parseMidi(data: ArrayBuffer, fallbackName = "Untitled"): Song {
     notes,
     duration: Math.max(0, midi.duration - trimSec),
     trimSec,
+    trimBeats,
     // Exact tempo-map-aware conversion (handles tempo changes), so engine
     // beat-extents land at the right x on the (trim-rebased) second-aligned roll.
     beatsToSeconds: (beats: number) => midi.header.ticksToSeconds((beats + trimBeats) * ppq) - trimSec,

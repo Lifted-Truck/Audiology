@@ -41,6 +41,10 @@ export interface Song {
    *  Note times are already re-based by this; engine *file* analysis (which runs
    *  on the original bytes) must be shifted by `-trimSec` to stay aligned. */
   trimSec: number;
+  /** Same trim as `trimSec`, in beats — for re-aligning engine analysis run on the
+   *  ORIGINAL (untrimmed) beats (e.g. `structural_keys`, which we feed untrimmed so
+   *  the trim can't shift its window grid). */
+  trimBeats: number;
   /** Exact (tempo-map-aware) beats → seconds, for placing engine beat-extents
    *  on the second-aligned roll (e.g. structural_keys areas). */
   beatsToSeconds: (beats: number) => number;
