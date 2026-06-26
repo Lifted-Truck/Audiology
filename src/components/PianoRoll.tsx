@@ -31,14 +31,19 @@ const fmtTime = (s: number): string => {
 export interface Region {
   startSec: number;
   endSec: number;
-  label: string;
+  /** Display label (omitted for spans used only for colouring, e.g. tonicizations). */
+  label?: string;
   /** Key context (key bands only) — lets the roll colour out-of-key notes. */
   tonicPc?: number;
   mode?: string;
 }
 
 const MAJOR_PCS = [0, 2, 4, 5, 7, 9, 11];
-const MINOR_PCS = [0, 2, 3, 5, 7, 8, 10];
+// Minor "in key" = natural minor + the raised 6th & 7th. Harmonic/melodic minor are
+// part of the minor key system, so the leading tone (used in nearly every minor
+// cadence) and the melodic raised-6 shouldn't read as out-of-key. Leaves ♭2, ♮3, ♯4
+// (the genuinely chromatic degrees) flagged.
+const MINOR_PCS = [0, 2, 3, 5, 7, 8, 9, 10, 11];
 
 interface Props {
   song: Song | null;
@@ -55,6 +60,9 @@ interface Props {
   keyRegions?: Region[];
   /** Tonicizations (brief pivots) to flag distinctly on the key strip. */
   pivots?: Region[];
+  /** Tonicization spans carrying their local key (tonicPc/mode) — notes inside one
+   *  are coloured against that local key, not the coarse structural area. */
+  tonicizations?: Region[];
   /** Playback tempo multiplier — the ruler's time labels reflect it. */
   tempoScale?: number;
   /** Horizontal zoom, pixels per second. */
@@ -105,6 +113,7 @@ export default function PianoRoll({
   regions = [],
   keyRegions = [],
   pivots = [],
+  tonicizations = [],
   tempoScale = 1,
   pxPerSec = 60,
 }: Props) {
@@ -245,7 +254,10 @@ export default function PianoRoll({
     }
 
     // Key context at a time, for out-of-key colouring (key bands carry tonicPc/mode).
+    // A note inside a tonicization span is judged against that LOCAL key, so a
+    // legitimate secondary-key detour within a section doesn't read as out-of-key.
     const bandAt = (t: number): Region | null => {
+      for (const r of tonicizations) if (t >= r.startSec && t < r.endSec && r.tonicPc != null && r.mode) return r;
       for (const r of keyRegions) if (t >= r.startSec && t < r.endSec) return r;
       return null;
     };
@@ -301,7 +313,7 @@ export default function PianoRoll({
     }
 
     staticRef.current = c;
-  }, [song, duration, pxPerSec, regions, keyRegions, pivots, keyStripH, pivotStripH, chordStripH, rulerH, topH, height, tempoScale, laneH]);
+  }, [song, duration, pxPerSec, regions, keyRegions, pivots, tonicizations, keyStripH, pivotStripH, chordStripH, rulerH, topH, height, tempoScale, laneH]);
 
   /* visible layer — playhead, blit, active glow; runs whenever position changes */
   useEffect(() => {
