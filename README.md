@@ -24,6 +24,11 @@ music-theory engine**.
   notes are coloured in-key / out-of-key / drums.
 - **Live analyzer** — the analyzer names the chord currently sounding (engine-backed when
   connected, local fallback otherwise), with functional role and alternatives.
+- **Chord Anatomy** — a view that demystifies the current chord across three panels: **Colour**
+  (root-aware circle-of-fifths and root-blind interval-content colour wheels, each showing the
+  resultant-vector construction), **Intervals** (interval-vector histogram, stacked-interval
+  ladder, set-class / prime-form / bitmask), and a **Harmony map** (consonance × major/minor
+  chirality, plotting the chord over the trichord landscape).
 
 ## Getting started
 
@@ -120,8 +125,10 @@ engineering threads"). The longer-horizon direction:
 - **Custom-scale analysis** — an Ian-Ring-style scale/pc-set editor surfacing interval vector,
   set-class, symmetry, modes, DFT "harmonic colour", and named matches (with Push-3 availability
   flagged).
-- **Chord interval-content view** — demystify *why* chords sound related or different by showing
-  their interval content two ways, built around the inversion-invariant / voicing-sensitive split.
+- **Chord interval-content view** *(shipped as the Chord Anatomy view — see Features; this entry
+  records the design and the remaining engine integration)* — demystify *why* chords sound related
+  or different by showing their interval content two ways, built around the inversion-invariant /
+  voicing-sensitive split.
   *Clinical:* the interval vector (the inversion-invariant "fingerprint"), stacked intervals
   bottom-up (which rotate under inversion), set-class, and the pc-set bitmask. *Somatic:* a
   per-chord **colour** — pitch classes mapped to hue via the circle of fifths and blended (a

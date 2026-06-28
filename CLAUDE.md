@@ -278,15 +278,18 @@ Roadmap; the remaining Tonality-engine upgrades are in the section above).
 - **Custom-scale analysis section** (impl side of the README roadmap item). The engine already
   returns interval vector, `set_class_info`, symmetry, DFT magnitudes, `find_containers`/catalog —
   wire a scale/pc-set editor to them; flag which results are Push-3-available scales.
-- **Chord interval-content view** (impl side of the README roadmap item). Same Tonality data as
-  above (interval vector / `set_class_info` / DFT) — *consume*, don't recompute. Build around the
-  inversion-invariant identity (interval vector, set-class, DFT/colour) vs the voicing-sensitive
-  realization (stacked intervals, bass, register). Colour = circle-of-fifths phase blend (DFT
-  phase → hue, register → value). Drive value off a **perceptually-uniform** lightness (`oklch()`
-  L / CIE L*, not HSL L — HSL L isn't perceptual, so register steps clump and read unevenly);
-  **check the bridge exposes DFT phase**, not just magnitude
-  (`name_pcs`/set-class call). A renderer-agnostic descriptor is a Representation-layer ask to
-  file when scoped (cf. `brief-2`).
+- **Chord Anatomy view (SHIPPED).** The chord interval-content idea is built as the **`anatomy`**
+  view (`src/components/ChordAnatomy.tsx`, maths in `src/lib/theory/chord-anatomy.ts`, both
+  React-free in the lib). Driven by `activePcs` + `chordRealizationMidi` like Bracelet/Tonnetz; a
+  segmented control switches three panels: **Colour** (root-aware circle-of-fifths wheel +
+  root-blind interval-content wheel, both showing the resultant-vector construction, with swatches),
+  **Intervals** (interval-vector histogram, stacked-interval ladder, set-class line: prime form /
+  bitmask / vector), **Harmony map** (consonance |f5| × chirality, the current chord ringed over the
+  full trichord landscape). Colour rides OKLCH lightness with a sub-linear focus→chroma stretch
+  (decompresses the grey centre). All maths is currently computed **client-side** — the standing
+  Tonality ask is to *consume* the engine's interval vector / `set_class_info` / **DFT magnitude+phase**
+  once the bridge exposes phase, rather than recompute (see `integrations/audiology/brief-15.md`).
+  *Remaining:* a generalized (4+ note) chirality for the harmony map, and a reachable-domain "atlas".
 - **Confirm the drum grey reads distinctly** from the in-key/out-of-key note colours on the roll.
 - **Validation-harness PR (Tonality repo).** The `--ab-profile` / `--ab-profile-regions` harness
   modes depend on the engine's `profile_version` kwarg (#85). Open the harness PR once #85 + the
