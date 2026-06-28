@@ -129,7 +129,11 @@ engineering threads"). The longer-horizon direction:
   with register → brightness. Brightness rides a **perceptually-uniform** lightness axis (OKLCH
   L / CIE L*, not HSL's L — HSL 50% reads far lighter than middle gray and equal L steps clump
   toward the light end), so register differences read as even, legible steps and inversions share
-  a hue but shift in value. Inversions are a
+  a hue but shift in value. A **colour-wheel** rendering makes the blend legible: each note is a
+  pure hue on the rim (circle-of-fifths spacing) and the chord's colour is the **resultant
+  vector** of those points — its angle = hue, its length = "focus"/saturation — so symmetric
+  chords (aug, dim7) land at the dead center and go grey, visibly showing their tonal ambiguity.
+  Inversions are a
   first-class axis (same identity, different realization). **Tonality dependency:** *consume*
   Tonality's `set_class_info` / interval vector / DFT (incl. **phase**, which drives hue) — the
   determination is the engine's, the colour encoding is ours (the division-of-labor line). A
