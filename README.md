@@ -144,7 +144,14 @@ engineering threads"). The longer-horizon direction:
   the augmented triad reach full saturation, since richness and saturation are in tension. So
   colour discriminates the extremes well and the muddy centre poorly; apply a **nonlinear
   focus→saturation stretch** to decompress the centre, and never rely on colour alone (pair with
-  the clinical views). Inversions are a
+  the clinical views). A further candidate view is a **harmony map** (Tymoczko's trichord
+  geometry): consonance (perfect-fifth content `|f5|`) on the vertical, chirality
+  `(a−b)(b−c)(c−a)` on the three step-gaps on the horizontal — the latter flips sign under
+  inversion, so major and minor fall on opposite sides of a symmetric spine while clusters/aug/
+  dim sit on it. It demonstrates that concord-vs-discord and major-vs-minor are *orthogonal*
+  axes, not one scale. Trichord-native (chirality lives in the gaps); the consonance axis
+  generalizes to any chord via DFT, the handedness only partially (it can hide in other Fourier
+  components for richer chords). Inversions are a
   first-class axis (same identity, different realization). **Tonality dependency:** *consume*
   Tonality's `set_class_info` / interval vector / DFT (incl. **phase**, which drives hue) — the
   determination is the engine's, the colour encoding is ours (the division-of-labor line). A
