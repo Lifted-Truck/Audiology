@@ -138,7 +138,13 @@ engineering threads"). The longer-horizon direction:
   center, and the resultant is a **transposition-invariant** "interval colour" — so inversional
   pairs collapse (maj = min, dom7 = m7♭5) and the symmetric chords that grey out on the pitch
   wheel turn vivid (aug = pure M3 stack). The two wheels are complementary coordinates: one says
-  *what intervals* (root-blind), the other *how it's rooted*. Inversions are a
+  *what intervals* (root-blind), the other *how it's rooted*. **Known constraint** (from
+  enumerating all 4083 pc-sets): the interval-wheel's reachable domain is a *sparse finite cloud*
+  of 185 points heavily clustered near grey (109 at focus < 0.15) — only the five pure dyads and
+  the augmented triad reach full saturation, since richness and saturation are in tension. So
+  colour discriminates the extremes well and the muddy centre poorly; apply a **nonlinear
+  focus→saturation stretch** to decompress the centre, and never rely on colour alone (pair with
+  the clinical views). Inversions are a
   first-class axis (same identity, different realization). **Tonality dependency:** *consume*
   Tonality's `set_class_info` / interval vector / DFT (incl. **phase**, which drives hue) — the
   determination is the engine's, the colour encoding is ours (the division-of-labor line). A
