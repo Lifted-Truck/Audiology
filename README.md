@@ -120,6 +120,21 @@ engineering threads"). The longer-horizon direction:
 - **Custom-scale analysis** — an Ian-Ring-style scale/pc-set editor surfacing interval vector,
   set-class, symmetry, modes, DFT "harmonic colour", and named matches (with Push-3 availability
   flagged).
+- **Chord interval-content view** — demystify *why* chords sound related or different by showing
+  their interval content two ways, built around the inversion-invariant / voicing-sensitive split.
+  *Clinical:* the interval vector (the inversion-invariant "fingerprint"), stacked intervals
+  bottom-up (which rotate under inversion), set-class, and the pc-set bitmask. *Somatic:* a
+  per-chord **colour** — pitch classes mapped to hue via the circle of fifths and blended (a
+  circular mean / DFT-phase, so similar chords resolve to similar colours rather than muddying),
+  with register → brightness. Brightness rides a **perceptually-uniform** lightness axis (OKLCH
+  L / CIE L*, not HSL's L — HSL 50% reads far lighter than middle gray and equal L steps clump
+  toward the light end), so register differences read as even, legible steps and inversions share
+  a hue but shift in value. Inversions are a
+  first-class axis (same identity, different realization). **Tonality dependency:** *consume*
+  Tonality's `set_class_info` / interval vector / DFT (incl. **phase**, which drives hue) — the
+  determination is the engine's, the colour encoding is ours (the division-of-labor line). A
+  renderer-agnostic "interval/colour content" descriptor is a future Representation-layer need
+  (cf. the bracelet/Tonnetz descriptors in `brief-2`) — file a brief when the view is scoped.
 
 ## License
 
