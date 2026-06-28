@@ -282,7 +282,9 @@ Roadmap; the remaining Tonality-engine upgrades are in the section above).
   above (interval vector / `set_class_info` / DFT) — *consume*, don't recompute. Build around the
   inversion-invariant identity (interval vector, set-class, DFT/colour) vs the voicing-sensitive
   realization (stacked intervals, bass, register). Colour = circle-of-fifths phase blend (DFT
-  phase → hue, register → value); **check the bridge exposes DFT phase**, not just magnitude
+  phase → hue, register → value). Drive value off a **perceptually-uniform** lightness (`oklch()`
+  L / CIE L*, not HSL L — HSL L isn't perceptual, so register steps clump and read unevenly);
+  **check the bridge exposes DFT phase**, not just magnitude
   (`name_pcs`/set-class call). A renderer-agnostic descriptor is a Representation-layer ask to
   file when scoped (cf. `brief-2`).
 - **Confirm the drum grey reads distinctly** from the in-key/out-of-key note colours on the roll.

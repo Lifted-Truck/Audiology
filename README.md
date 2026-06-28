@@ -126,7 +126,10 @@ engineering threads"). The longer-horizon direction:
   bottom-up (which rotate under inversion), set-class, and the pc-set bitmask. *Somatic:* a
   per-chord **colour** — pitch classes mapped to hue via the circle of fifths and blended (a
   circular mean / DFT-phase, so similar chords resolve to similar colours rather than muddying),
-  with register → brightness, so inversions share a hue but shift in value. Inversions are a
+  with register → brightness. Brightness rides a **perceptually-uniform** lightness axis (OKLCH
+  L / CIE L*, not HSL's L — HSL 50% reads far lighter than middle gray and equal L steps clump
+  toward the light end), so register differences read as even, legible steps and inversions share
+  a hue but shift in value. Inversions are a
   first-class axis (same identity, different realization). **Tonality dependency:** *consume*
   Tonality's `set_class_info` / interval vector / DFT (incl. **phase**, which drives hue) — the
   determination is the engine's, the colour encoding is ours (the division-of-labor line). A
