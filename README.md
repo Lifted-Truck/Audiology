@@ -133,7 +133,12 @@ engineering threads"). The longer-horizon direction:
   pure hue on the rim (circle-of-fifths spacing) and the chord's colour is the **resultant
   vector** of those points — its angle = hue, its length = "focus"/saturation — so symmetric
   chords (aug, dim7) land at the dead center and go grey, visibly showing their tonal ambiguity.
-  Inversions are a
+  A second, **root-blind** wheel complements it: the rim is the five inversion-paired interval
+  classes (m2/M7 … P4/P5) weighted by the interval vector, the tritone (self-inverse) sits at
+  center, and the resultant is a **transposition-invariant** "interval colour" — so inversional
+  pairs collapse (maj = min, dom7 = m7♭5) and the symmetric chords that grey out on the pitch
+  wheel turn vivid (aug = pure M3 stack). The two wheels are complementary coordinates: one says
+  *what intervals* (root-blind), the other *how it's rooted*. Inversions are a
   first-class axis (same identity, different realization). **Tonality dependency:** *consume*
   Tonality's `set_class_info` / interval vector / DFT (incl. **phase**, which drives hue) — the
   determination is the engine's, the colour encoding is ours (the division-of-labor line). A
