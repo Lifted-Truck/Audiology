@@ -286,10 +286,15 @@ Roadmap; the remaining Tonality-engine upgrades are in the section above).
   **Intervals** (interval-vector histogram, stacked-interval ladder, set-class line: prime form /
   bitmask / vector), **Harmony map** (consonance |f5| × chirality, the current chord ringed over the
   full trichord landscape). Colour rides OKLCH lightness with a sub-linear focus→chroma stretch
-  (decompresses the grey centre). All maths is currently computed **client-side** — the standing
-  Tonality ask is to *consume* the engine's interval vector / `set_class_info` / **DFT magnitude+phase**
-  once the bridge exposes phase, rather than recompute (see `integrations/audiology/brief-15.md`).
-  *Remaining:* a generalized (4+ note) chirality for the harmony map, and a reachable-domain "atlas".
+  (decompresses the grey centre). The harmony map's handedness axis is **generalized to any chord
+  size**: `chirality(pcs)` is the bispectrum slice `Im(f1·f2·conj(f3))` (transposition-invariant,
+  inversion-odd, major<0/minor>0, separates dom7↔m7♭5); `stepGapChirality` keeps the exact
+  trichord `(a−b)(b−c)(c−a)`. The single slice false-zeros on 28 exotic 5–7-note set classes
+  (none musical); the **complete** signed invariant (full bispectrum) is Tonality's open research
+  item. All maths is currently computed **client-side** — the standing Tonality ask is to *consume*
+  the engine's interval vector / `set_class_info` / **DFT magnitude+phase** once the bridge exposes
+  phase, rather than recompute (see `integrations/audiology/brief-15.md`).
+  *Remaining:* a reachable-domain "atlas" view, and interactive note-picking on the wheels/map.
 - **Confirm the drum grey reads distinctly** from the in-key/out-of-key note colours on the roll.
 - **Validation-harness PR (Tonality repo).** The `--ab-profile` / `--ab-profile-regions` harness
   modes depend on the engine's `profile_version` kwarg (#85). Open the harness PR once #85 + the

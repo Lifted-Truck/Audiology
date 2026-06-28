@@ -125,23 +125,49 @@ engineering threads"). The longer-horizon direction:
 - **Custom-scale analysis** — an Ian-Ring-style scale/pc-set editor surfacing interval vector,
   set-class, symmetry, modes, DFT "harmonic colour", and named matches (with Push-3 availability
   flagged).
-- **Chord interval-content view** *(shipped as the Chord Anatomy view — see Features; this entry
-  records the design and the remaining engine integration)* — demystify *why* chords sound related
-  or different by showing their interval content two ways, built around the inversion-invariant /
-  voicing-sensitive split.
-  *Clinical:* the interval vector (the inversion-invariant "fingerprint"), stacked intervals
-  bottom-up (which rotate under inversion), set-class, and the pc-set bitmask. *Somatic:* a
-  per-chord **colour** — pitch classes mapped to hue via the circle of fifths and blended (a
-  circular mean / DFT-phase, so similar chords resolve to similar colours rather than muddying),
-  with register → brightness. Brightness rides a **perceptually-uniform** lightness axis (OKLCH
-  L / CIE L*, not HSL's L — HSL 50% reads far lighter than middle gray and equal L steps clump
-  toward the light end), so register differences read as even, legible steps and inversions share
-  a hue but shift in value. Inversions are a
-  first-class axis (same identity, different realization). **Tonality dependency:** *consume*
-  Tonality's `set_class_info` / interval vector / DFT (incl. **phase**, which drives hue) — the
-  determination is the engine's, the colour encoding is ours (the division-of-labor line). A
-  renderer-agnostic "interval/colour content" descriptor is a future Representation-layer need
-  (cf. the bracelet/Tonnetz descriptors in `brief-2`) — file a brief when the view is scoped.
+### Chord Anatomy & harmonic geometry *(shipped — this records the foundations + open threads)*
+
+The **Chord Anatomy** view (see Features) demystifies *why* chords sound related or different,
+organized around one idea: a chord has an inversion-invariant **identity** and a voicing-sensitive
+**realization**. Maths is React-free in `src/lib/theory/chord-anatomy.ts`. The design, the
+findings worth preserving, and the engine integration:
+
+- **Clinical surfaces.** Interval vector (the inversion-invariant fingerprint), stacked intervals
+  bottom-up (which rotate under inversion), set-class prime form, and the 12-bit pc bitmask.
+- **Somatic colour — two complementary wheels.** Both build the colour as a **resultant vector**
+  (a circular mean of points on a wheel), the principled form of "add the hues":
+  - *Root-aware* (circle-of-fifths): each pitch class is a hue on the fifths circle; the resultant's
+    angle = hue, length = "focus"/saturation. Transposition rotates it; symmetric chords cancel to grey.
+  - *Root-blind* (interval-content): rim = the five inversion-paired interval classes weighted by the
+    interval vector, the self-inverse tritone at the centre; **transposition-invariant**, so inversional
+    pairs collapse (maj = min, dom7 = m7♭5) and symmetric chords that grey out on the pitch wheel turn
+    vivid (aug = pure M3). The two wheels are complementary coordinates: *what intervals* vs *how rooted*.
+  - *Encoding.* Register → **perceptually-uniform** OKLCH lightness (not HSL L, which clumps), plus a
+    sub-linear focus→chroma stretch to decompress the crowded grey centre.
+  - *Known domain constraint* (from enumerating all 4083 pc-sets): the interval-colour reaches only a
+    sparse finite cloud of 185 points, heavily massed near grey (109 < 0.15 focus); only the five pure
+    dyads + the augmented triad reach full saturation (richness vs saturation are in tension). So colour
+    discriminates extremes well, the muddy centre poorly — never rely on it alone.
+- **Harmony map — discord vs concord geometry** (Tymoczko trichord geometry, DFT/Quinn-Amiot-Yust).
+  Vertical = **consonance** (perfect-fifth content `|f5|`); horizontal = **chirality** (inversional
+  handedness): major and minor fall on opposite sides of a symmetric spine, clusters/aug/dim sit on it.
+  Key insight it makes visible: **consonance and major/minor are orthogonal axes, not one scale.**
+  - *Trichords:* the exact step-gap `(a−b)(b−c)(c−a)`. *Any cardinality:* the bispectrum slice
+    `Im(f1·f2·conj(f3))` — transposition-invariant, inversion-odd, separates dom7 ↔ m7♭5. A single
+    slice false-zeros on 28 exotic 5–7-note set classes; the **complete signed invariant (full
+    bispectrum)** is an open theory problem owned by Tonality.
+
+**Tonality integration** (`integrations/audiology/brief-15.md`): the maths is currently client-side;
+the engine should *expose* and Audiology should *consume* — interval vector / `set_class_info` /
+**DFT magnitude + phase** (phase drives both hue and chirality; the standing ask is to surface phase
+over the bridge). The colour *encoding* stays Audiology's (division of labor). Two engine-side research
+items: the complete general chirality, and a renderer-agnostic "interval/colour-content" descriptor for
+the Representation layer (cf. the bracelet/Tonnetz descriptors in `brief-2`).
+
+**Future view work:** a reachable-domain "**atlas**" (the 185-point cloud / harmony-map landscape as a
+browsable reference), and **interactive note-picking** on the wheels and map (build a chord by clicking
+and watch the resultant vector and harmony-map position move) — the point where these stop being
+illustrations and become a teaching surface.
 
 ## License
 
