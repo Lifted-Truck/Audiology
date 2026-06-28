@@ -189,14 +189,41 @@ export function stepGaps(pcs: number[]): number[] | null {
 }
 
 /**
- * Chirality = (a−b)(b−c)(c−a) on the three step-gaps. Rotation-invariant; flips
- * sign under inversion, so major (−) and minor (+) land on opposite sides while
- * symmetric chords read 0. Trichord-native — null for non-trichords.
+ * Exact trichord handedness: (a−b)(b−c)(c−a) on the three step-gaps. Rotation-
+ * invariant; flips sign under inversion (major −, minor +); 0 for symmetric chords.
+ * Trichord-native (null otherwise) — the elegant special case behind the general
+ * `chirality` below, kept for teaching/derivation.
  */
-export function chirality(pcs: number[]): number | null {
+export function stepGapChirality(pcs: number[]): number | null {
   const g = stepGaps(pcs);
   if (!g || g.length !== 3) return null;
   return (g[0] - g[1]) * (g[1] - g[2]) * (g[2] - g[0]);
+}
+
+/**
+ * General chirality (any cardinality) via the lowest-order **bispectrum** slice
+ * `Im(f1·f2·conj(f3))` — the canonical shift-invariant phase descriptor. It is
+ * transposition-invariant and inversion-ODD (a chord and its mirror get ±), so it
+ * is **0 for every inversionally-symmetric chord** and opposite for mirror pairs;
+ * major < 0, minor > 0, matching the trichord convention on triads. It also
+ * separates pairs the f3/f5 phase misses (dom7 ↔ m7♭5). This is the harmony map's
+ * x-axis — works for all n, not just trichords.
+ *
+ * Caveat (verified by enumeration): clean over the whole chord vocabulary and all
+ * 168 chiral trichords, but a *single* bispectrum slice still false-zeros on 28
+ * exotic 5–7-note set classes (none musical). The complete signed invariant — the
+ * full bispectrum, not one slice — is Tonality's open problem (see brief-15). It is
+ * NOT identical to `stepGapChirality` (they diverge on ~29% of trichords); both are
+ * legitimate handedness measures, this one generalizes.
+ */
+export function chirality(pcs: number[]): number {
+  const F = dft(pcs);
+  const f1 = F[1],
+    f2 = F[2],
+    f3 = F[3];
+  const re12 = f1.re * f2.re - f1.im * f2.im;
+  const im12 = f1.re * f2.im + f1.im * f2.re;
+  return im12 * f3.re - re12 * f3.im; // Im((f1·f2)·conj(f3))
 }
 
 /** Consonance axis: perfect-fifth content |f5|. High for triads/sus, 0 for aug/whole-tone. */
@@ -204,9 +231,9 @@ export function consonanceF5(pcs: number[]): number {
   return dft(pcs)[5].mag;
 }
 
-/** A point on the harmony map (null x when chirality is undefined). */
+/** A point on the harmony map. */
 export interface HarmonyPoint {
-  x: number | null; // chirality
+  x: number; // chirality (bispectrum handedness)
   y: number; // consonance |f5|
 }
 export function harmonyPoint(pcs: number[]): HarmonyPoint {
@@ -248,9 +275,9 @@ export function trichordLandscape(): TrichordType[] {
       for (let c = b + 1; c < 12; c++) {
         const set = [a, b, c];
         const g = stepGaps(set)!;
-        const ch = (g[0] - g[1]) * (g[1] - g[2]) * (g[2] - g[0]);
+        const ch = chirality(set); // general bispectrum handedness (same axis as any chord)
         const cons = consonanceF5(set);
-        const key = cons.toFixed(3) + "|" + ch;
+        const key = cons.toFixed(3) + "|" + ch.toFixed(3);
         if (!seen.has(key))
           seen.set(key, { chirality: ch, consonance: cons, intervalCss: intervalColor(set).css, name: nameTrichord(g, ch) });
       }

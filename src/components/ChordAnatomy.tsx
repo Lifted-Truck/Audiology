@@ -310,14 +310,18 @@ function MapPanel({ uniq }: { uniq: number[] }) {
     T = 16,
     B = 214,
     cxAxis = (L + Rr) / 2;
-  const F5MAX = 2.85,
-    CHMAX = 4.5;
-  const X = (ch: number) => cxAxis + (cbrt(ch) / CHMAX) * ((Rr - L) / 2);
-  const Y = (f5: number) => B - (f5 / F5MAX) * (B - T);
+  const F5MAX = 2.85;
   const land = trichordLandscape();
   const myCh = chirality(uniq);
   const myF5 = consonanceF5(uniq);
-  const isTri = myCh != null;
+  // Signed cube-root scale (compresses range, keeps triads visible), auto-fit to
+  // whatever's shown so 4+ note chords with larger handedness don't fly off.
+  const maxAbs = Math.max(0.5, Math.abs(myCh), ...land.map((t) => Math.abs(t.chirality)));
+  const CHN = cbrt(maxAbs);
+  const halfW = (Rr - L) / 2;
+  const clampX = (x: number) => Math.max(L, Math.min(Rr, x));
+  const X = (ch: number) => clampX(cxAxis + (cbrt(ch) / CHN) * halfW);
+  const Y = (f5: number) => B - (f5 / F5MAX) * (B - T);
   return (
     <div>
       <svg viewBox={`0 0 ${W} ${H}`} style={{ width: "100%" }}>
@@ -348,16 +352,11 @@ function MapPanel({ uniq }: { uniq: number[] }) {
             </g>
           );
         })}
-        {isTri && (
-          <circle cx={X(myCh!)} cy={Y(myF5)} r={9} fill="none" stroke={C.accent} strokeWidth={2.5} />
-        )}
+        <circle cx={X(myCh)} cy={Y(myF5)} r={9} fill="none" stroke={C.accent} strokeWidth={2.5} />
       </svg>
       <div style={{ fontSize: 10.5, color: C.faint, marginTop: 4, lineHeight: 1.5 }}>
-        {isTri ? (
-          <>Highlighted ring = this chord. Consonance (fifth content) ↑, major/minor handedness ←→.</>
-        ) : (
-          <>Harmony map is trichord-native — this chord has {uniq.length} notes; its consonance |f5| is {myF5.toFixed(2)}.</>
-        )}
+        Ring = this chord (|f5| {myF5.toFixed(2)}, handedness {myCh >= 0 ? "+" : ""}{myCh.toFixed(2)}). Dots = common
+        trichords for reference. Consonance ↑, inversional handedness ←→ (major/minor on triads, bispectrum for any size).
       </div>
     </div>
   );
