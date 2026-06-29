@@ -357,11 +357,17 @@ export default function App() {
     const MIN_AREA_BEATS = 24;
     const bands: { startSec: number; endSec: number; tonicPc: number; mode: string; label: string }[] = [];
     for (const a of structuralAreas) {
+      const endSec = song.beatsToSeconds(a.endBeats);
+      if (endSec <= 0) continue; // area lies entirely in the trimmed-away leading silence
+      // Clamp the start to 0 — the trim unshift can push the FIRST area negative (the
+      // engine's window grid begins before the trimmed first note), which would draw its
+      // label at a negative x, off the static canvas, losing the first section's key.
+      const startSec = Math.max(0, song.beatsToSeconds(a.startBeats));
       const label = spellInKey(a.tonicPc, a.tonicPc, a.mode) + keyModeWord(a.mode);
       const prev = bands[bands.length - 1];
       const tooShort = a.endBeats - a.startBeats < MIN_AREA_BEATS;
-      if (prev && (prev.label === label || tooShort)) prev.endSec = song.beatsToSeconds(a.endBeats);
-      else bands.push({ startSec: song.beatsToSeconds(a.startBeats), endSec: song.beatsToSeconds(a.endBeats), tonicPc: a.tonicPc, mode: a.mode, label });
+      if (prev && (prev.label === label || tooShort)) prev.endSec = endSec;
+      else bands.push({ startSec, endSec, tonicPc: a.tonicPc, mode: a.mode, label });
     }
     return bands;
   }, [playback.song, structuralAreas]);
