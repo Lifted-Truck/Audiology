@@ -90,6 +90,48 @@ export async function nameChord(baseUrl: string, input: NameChordInput, signal?:
   };
 }
 
+/** Normalized `set_class_info` — the engine's set-class determinations Audiology can
+ *  consume instead of recomputing locally (Tonality brief-15/-16, response-15/-16).
+ *  `dftMagnitudes`/`dftPhases` are |f1..f6| / arg(f1..f6); `consonanceF5` = |f5|;
+ *  `chiralitySign` is the COMPLETE handedness (-1/0/+1, 0 iff achiral). */
+export interface SetClassInfo {
+  primeForm: number[];
+  mask: number;
+  dftMagnitudes: number[];
+  dftPhases: number[];
+  consonanceF5: number;
+  generalChirality: number;
+  chiralitySign: number;
+  trichordChirality: number | null;
+  source: "engine";
+}
+
+/** POST /call/set_class_info — set-class identity + DFT + chirality for a pc set.
+ *  Throws on HTTP/engine error (caller falls back to local computation). */
+export async function setClassInfo(baseUrl: string, pcs: number[], signal?: AbortSignal): Promise<SetClassInfo> {
+  const r = (await callTool(baseUrl, "set_class_info", { pcs }, signal)) as {
+    prime_form?: number[];
+    mask?: number;
+    dft_magnitudes?: number[];
+    dft_phases?: number[];
+    general_chirality?: number;
+    chirality_sign?: number;
+    trichord_chirality?: number | null;
+  };
+  const mags = Array.isArray(r.dft_magnitudes) ? r.dft_magnitudes : [];
+  return {
+    primeForm: Array.isArray(r.prime_form) ? r.prime_form : [],
+    mask: r.mask ?? 0,
+    dftMagnitudes: mags,
+    dftPhases: Array.isArray(r.dft_phases) ? r.dft_phases : [],
+    consonanceF5: mags[4] ?? 0,
+    generalChirality: r.general_chirality ?? 0,
+    chiralitySign: r.chirality_sign ?? 0,
+    trichordChirality: r.trichord_chirality ?? null,
+    source: "engine",
+  };
+}
+
 /**
  * Analyze a whole MIDI file (raw bytes) via the engine. The bridge's
  * `midi_file_analysis` takes a server-side *path*, so this posts the bytes to

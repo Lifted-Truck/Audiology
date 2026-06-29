@@ -30,6 +30,7 @@ import {
   IC_HUES,
   icRimAngle,
 } from "../lib/theory";
+import type { SetClassInfo } from "../lib/tonality/bridge";
 
 const C = {
   bg: "#0d1117",
@@ -56,12 +57,14 @@ export default function ChordAnatomy({
   realizationMidi,
   label,
   symbol,
+  facts,
 }: {
   pcs: number[];
   rootPc: number | null;
   realizationMidi: number[];
   label: (pc: number) => string;
   symbol?: string | null;
+  facts?: SetClassInfo | null;
 }) {
   const [panel, setPanel] = useState<Panel>("colour");
   const uniq = [...new Set(pcs.map((p) => ((p % 12) + 12) % 12))].sort((a, b) => a - b);
@@ -72,6 +75,8 @@ export default function ChordAnatomy({
   // dots, bars, the map ring) come and go with the current selection. Nothing is
   // latched: when fewer than 2 notes sound, the marks simply clear.
   const active = uniq.length >= 2;
+  // Engine facts only when they describe the currently-shown chord (and it's active).
+  const eng = active && facts ? facts : null;
   const realization = realizationMidi.length >= 2 ? realizationMidi : uniq.map((p) => 60 + p);
   const name = active ? identify(uniq, realization, symbol) : uniq.length === 1 ? NOTE[uniq[0]] : "—";
   const sub = active
@@ -85,6 +90,22 @@ export default function ChordAnatomy({
       <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginBottom: 8 }}>
         <span style={{ fontSize: 17, fontWeight: 600, color: active ? C.text : C.faint }}>{name}</span>
         <span style={{ fontSize: 11, color: C.faint, fontFamily: "'JetBrains Mono', monospace" }}>{sub}</span>
+        {active && (
+          <span
+            title={eng ? "set-class facts from the Tonality engine" : "computed locally (engine not connected)"}
+            style={{
+              marginLeft: "auto",
+              fontSize: 9.5,
+              letterSpacing: "0.05em",
+              padding: "1px 6px",
+              borderRadius: 5,
+              border: `1px solid ${eng ? C.teal : C.border2}`,
+              color: eng ? C.teal : C.faint,
+            }}
+          >
+            {eng ? "engine" : "local"}
+          </span>
+        )}
       </div>
       <div style={{ display: "flex", gap: 4, marginBottom: 12 }}>
         {(["colour", "intervals", "map"] as Panel[]).map((p) => (
@@ -109,8 +130,8 @@ export default function ChordAnatomy({
       </div>
 
       {panel === "colour" && <ColourPanel uniq={uniq} realizationMidi={realization} active={active} label={label} />}
-      {panel === "intervals" && <IntervalsPanel uniq={uniq} rootPc={rootPc} active={active} />}
-      {panel === "map" && <MapPanel uniq={uniq} name={active ? name : null} active={active} />}
+      {panel === "intervals" && <IntervalsPanel uniq={uniq} rootPc={rootPc} active={active} eng={eng} />}
+      {panel === "map" && <MapPanel uniq={uniq} name={active ? name : null} active={active} eng={eng} />}
     </div>
   );
 }
@@ -271,17 +292,20 @@ function IntervalsPanel({
   uniq,
   rootPc,
   active,
+  eng,
 }: {
   uniq: number[];
   rootPc: number | null;
   active: boolean;
+  eng: SetClassInfo | null;
 }) {
   const v = intervalVector(uniq);
   const maxic = Math.max(1, ...v);
   const heights = stackAboveRoot(uniq, rootPc);
   const rootAbs = rootPc != null ? ((rootPc % 12) + 12) % 12 : uniq.length ? uniq[0] : 0;
-  const pf = primeForm(uniq);
-  const mask = pcBitmask(uniq);
+  // Prefer the engine's set-class identity when connected (Rahn prime form is authoritative).
+  const pf = eng ? eng.primeForm : primeForm(uniq);
+  const mask = eng ? eng.mask : pcBitmask(uniq);
   return (
     <div>
       <div style={{ fontSize: 11, color: C.dim, marginBottom: 5 }}>
@@ -386,7 +410,7 @@ function IntervalBrackets({ heights, rootAbs }: { heights: number[]; rootAbs: nu
 
 // ----- Harmony map -------------------------------------------------------------
 
-function MapPanel({ uniq, name, active }: { uniq: number[]; name: string | null; active: boolean }) {
+function MapPanel({ uniq, name, active, eng }: { uniq: number[]; name: string | null; active: boolean; eng: SetClassInfo | null }) {
   const W = 300,
     H = 260,
     L = 30,
@@ -400,8 +424,16 @@ function MapPanel({ uniq, name, active }: { uniq: number[]; name: string | null;
   const F5MAX = MAX_CONSONANCE_F5 * 1.04;
   const CHN = cbrt(MAX_CHIRALITY * 1.02);
   const land = trichordLandscape();
-  const myCh = chirality(uniq);
-  const myF5 = consonanceF5(uniq);
+  // Consume the engine's determinations when connected: |f5| consonance, and the
+  // COMPLETE chirality_sign (handles the exotic classes the local bispectrum slice
+  // blind-spots) — the sign picks the side, |general_chirality| the magnitude (with a
+  // small floor so blind-spot chords still leave the spine on the correct side).
+  const myF5 = eng ? eng.consonanceF5 : consonanceF5(uniq);
+  const myCh = eng
+    ? eng.chiralitySign === 0
+      ? 0
+      : eng.chiralitySign * Math.max(Math.abs(eng.generalChirality), 0.6)
+    : chirality(uniq);
   const halfW = (Rr - L) / 2;
   const clampX = (x: number) => Math.max(L + 6, Math.min(Rr - 6, x));
   const X = (ch: number) => clampX(cxAxis + (cbrt(ch) / CHN) * halfW);

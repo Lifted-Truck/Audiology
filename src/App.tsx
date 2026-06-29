@@ -28,6 +28,7 @@ import CircleOfFifths from "./components/CircleOfFifths";
 import ControlPanels from "./components/ControlPanels";
 import { parseTonalityAnalysis, shiftAnalysis, qualitySymbol, nameChord, analyzeMidi, scaleToEngineKey, structuralKeys, modeToScaleName, type FileAnalysis, type ChordNaming, type StructuralArea, type Tonicization } from "./lib/tonality";
 import { useBridge } from "./hooks/useBridge";
+import { useChordFacts } from "./hooks/useChordFacts";
 import { useEngineProcess } from "./hooks/useEngineProcess";
 import { Dot } from "./ui/primitives";
 import type {
@@ -486,6 +487,9 @@ export default function App() {
     return Array.from(new Set(highlightSel.map(pcOf)));
   }, [interaction, chordOn, chord, highlightSel]);
 
+  // Consume-when-connected: engine set-class facts for the active chord (null = use local).
+  const chordFacts = useChordFacts(bridge.baseUrl, bridge.connected, activePcs);
+
   // Chord root for the diagrams: the explicit chord root (Build), else the bass
   // (lowest sounding) pc (Analyze/Live). null = nothing to mark.
   const diagramRootPc =
@@ -876,6 +880,7 @@ export default function App() {
                   realizationMidi={chordRealizationMidi}
                   label={pcLabel}
                   symbol={chordSymbol}
+                  facts={chordFacts}
                 />
               </div>
             </div>
