@@ -129,6 +129,19 @@ bytes→path file-analysis adapter.
 Near-term feature work and known bugs are tracked in [CLAUDE.md](CLAUDE.md) ("Open
 engineering threads"). The longer-horizon direction:
 
+- **Tonality at the core (north star).** Today the app duplicates a lot of theory locally
+  (interval vector, DFT, set-class, chirality, chord naming, scale detection) so it can run
+  standalone, with the engine as an optional sidecar. The end state is the inverse: **Tonality
+  is the single source of truth**, and that duplicated client-side math is *removed* — one
+  implementation, no drift. The blocker is runtime: Tonality is Python, so "baked in" means the
+  engine **travels with the app** rather than being a separately-cloned sidecar — via an
+  in-browser Python (Pyodide/WASM), a bundled engine binary, a desktop shell (Tauri/Electron)
+  that ships Python, or porting the hot core to WASM. The migration path is already open: (1)
+  **consume-when-connected** — prefer engine outputs wherever the bridge is up, keep local as a
+  fallback (the `set_class_info` outputs Tonality just shipped — `dft_phases`, both chiralities,
+  `prime_form` — make the Chord Anatomy surfaces the first candidate); (2) pick a packaging
+  strategy so the engine is always present; (3) delete the now-redundant local math. Until step 2
+  lands, the standalone-friendly local core stays — this is the destination, not a near-term flip.
 - **Learning mode** — flashcards + structured lessons over the explorer (identify a
   chord/scale/interval, spell a Roman numeral, name a key), eventually driven by **progress
   reports imported from a separate learning app** so sequencing and spaced-repetition reflect

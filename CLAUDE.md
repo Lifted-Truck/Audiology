@@ -146,6 +146,15 @@ data-contract boundaries — `src/lib/tonality/` is the only module that knows t
 wire format; everything downstream consumes the normalized `FileAnalysis`. The brief +
 triage response of record live in the Tonality repo at `integrations/audiology/`.
 
+> **End state — Tonality at the core (see README Roadmap).** The duplicated client-side theory
+> (`lib/theory/*`: interval vector, DFT, set-class, chirality, chord naming, scale detection) is a
+> *standalone-fallback*, not the destination. The plan is to make the engine the single source of
+> truth and **delete the redundant local math** — gated only on a packaging strategy that ships the
+> Python engine *with* the app (Pyodide/WASM, bundled binary, Tauri/Electron, or a WASM port).
+> Migration: consume-when-connected first (engine outputs preferred, local fallback), then package,
+> then remove the duplicate. Until packaging lands, keep `lib/theory/*` pure and standalone — do
+> **not** rip out the local core prematurely; the app must still `npm run dev` with no Python.
+
 ### Done — path 1: offline file analysis import
 - `src/lib/tonality/{types,parse}.ts` — schema-pinned (`DatasetRecord` v1.0) parse of
   `midi_file_analysis` JSON → `FileAnalysis` (inferred key + ranked candidates, per-segment
