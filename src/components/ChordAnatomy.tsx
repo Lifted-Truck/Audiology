@@ -129,9 +129,13 @@ export default function ChordAnatomy({
         ))}
       </div>
 
-      {panel === "colour" && <ColourPanel uniq={uniq} realizationMidi={realization} active={active} label={label} />}
-      {panel === "intervals" && <IntervalsPanel uniq={uniq} rootPc={rootPc} active={active} eng={eng} />}
-      {panel === "map" && <MapPanel uniq={uniq} name={active ? name : null} active={active} eng={eng} />}
+      {/* Fixed-height panel area so switching panels / changing chord size never resizes
+          the section. Sized to the tallest panel; shorter panels keep the headroom. */}
+      <div style={{ minHeight: 392 }}>
+        {panel === "colour" && <ColourPanel uniq={uniq} realizationMidi={realization} active={active} label={label} />}
+        {panel === "intervals" && <IntervalsPanel uniq={uniq} rootPc={rootPc} active={active} eng={eng} />}
+        {panel === "map" && <MapPanel uniq={uniq} name={active ? name : null} active={active} eng={eng} />}
+      </div>
     </div>
   );
 }
@@ -337,11 +341,11 @@ function IntervalsPanel({
       <div style={{ fontSize: 11, color: C.dim, marginBottom: 3 }}>
         intervals above the root · every pair, stacked by span
       </div>
-      <div style={{ marginBottom: 14 }}>
+      <div style={{ height: 168, display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 14 }}>
         {active && heights.length >= 2 ? (
           <IntervalBrackets heights={heights} rootAbs={rootAbs} />
         ) : (
-          <div style={{ fontSize: 11, color: C.faint, padding: "6px 0" }}>—</div>
+          <div style={{ fontSize: 11, color: C.faint }}>—</div>
         )}
       </div>
 
@@ -396,8 +400,10 @@ function IntervalBrackets({ heights, rootAbs }: { heights: number[]; rootAbs: nu
       );
     }
   }
+  // Fills a fixed-height parent (xMidYMid meet) so adding notes scales the diagram to
+  // fit instead of growing the panel — the box height stays static.
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} style={{ width: "100%", maxWidth: W + 16, display: "block" }}>
+    <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="xMidYMid meet" style={{ width: "100%", height: "100%", display: "block" }}>
       {brackets}
       {heights.map((h, i) => (
         <text key={i} x={noteX(i)} y={noteY} textAnchor="middle" fontSize={11} fontWeight={700} fontFamily="'JetBrains Mono', monospace" fill={C.dim}>
@@ -442,7 +448,7 @@ function MapPanel({ uniq, name, active, eng }: { uniq: number[]; name: string | 
     myY = Y(myF5);
   return (
     <div>
-      <svg viewBox={`0 0 ${W} ${H}`} style={{ width: "100%" }}>
+      <svg viewBox={`0 0 ${W} ${H}`} style={{ width: "100%", maxWidth: 380, display: "block", margin: "0 auto" }}>
         <line x1={cxAxis} y1={T} x2={cxAxis} y2={B + 4} stroke={C.border2} strokeWidth={1} strokeDasharray="3 3" />
         <line x1={L} y1={B + 4} x2={Rr} y2={B + 4} stroke={C.border} strokeWidth={1} />
         <text x={L} y={B + 18} textAnchor="start" fontSize={9.5} fill={C.dim}>
