@@ -63,29 +63,25 @@ export default function ChordAnatomy({
   const [panel, setPanel] = useState<Panel>("colour");
   const uniq = [...new Set(pcs.map((p) => ((p % 12) + 12) % 12))].sort((a, b) => a - b);
 
-  // Reflect the CURRENT selection — never latch a stale chord. Below 2 notes the
-  // surfaces aren't defined, so show the note(s) plainly or stay blank. The section's
-  // box stays mounted (this returns a placeholder, not null), so nothing jumps.
-  if (uniq.length < 2) {
-    return (
-      <div style={{ padding: "22px 14px", color: C.faint, fontSize: 13, textAlign: "center", lineHeight: 1.5 }}>
-        {uniq.length === 1
-          ? `${NOTE[uniq[0]]} — single note · add a note for intervals, two for the full anatomy`
-          : "Play, select, or build a chord (2+ notes) to see its anatomy."}
-      </div>
-    );
-  }
-
+  // The graphs are ALWAYS rendered — the scaffolding (wheel rings, IC rim, histogram
+  // axis, harmony-map landscape) persists so the section never resizes or blinks out
+  // during MIDI playback / live performance. Only the chord-specific marks (resultant
+  // dots, bars, the map ring) come and go with the current selection. Nothing is
+  // latched: when fewer than 2 notes sound, the marks simply clear.
+  const active = uniq.length >= 2;
   const realization = realizationMidi.length >= 2 ? realizationMidi : uniq.map((p) => 60 + p);
-  const name = identify(uniq, realization, symbol);
+  const name = active ? identify(uniq, realization, symbol) : uniq.length === 1 ? NOTE[uniq[0]] : "—";
+  const sub = active
+    ? uniq.map((p) => NOTE[p]).join(" ")
+    : uniq.length === 1
+      ? "single note · play 2+ notes for the full anatomy"
+      : "waiting for notes";
 
   return (
     <div style={{ color: C.text }}>
       <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginBottom: 8 }}>
-        <span style={{ fontSize: 17, fontWeight: 600 }}>{name}</span>
-        <span style={{ fontSize: 11, color: C.faint, fontFamily: "'JetBrains Mono', monospace" }}>
-          {uniq.map((p) => NOTE[p]).join(" ")}
-        </span>
+        <span style={{ fontSize: 17, fontWeight: 600, color: active ? C.text : C.faint }}>{name}</span>
+        <span style={{ fontSize: 11, color: C.faint, fontFamily: "'JetBrains Mono', monospace" }}>{sub}</span>
       </div>
       <div style={{ display: "flex", gap: 4, marginBottom: 12 }}>
         {(["colour", "intervals", "map"] as Panel[]).map((p) => (
@@ -109,9 +105,11 @@ export default function ChordAnatomy({
         ))}
       </div>
 
-      {panel === "colour" && <ColourPanel uniq={uniq} realizationMidi={realization} label={label} />}
-      {panel === "intervals" && <IntervalsPanel uniq={uniq} rootPc={rootPc} realizationMidi={realization} />}
-      {panel === "map" && <MapPanel uniq={uniq} name={name} />}
+      {panel === "colour" && <ColourPanel uniq={uniq} realizationMidi={realization} active={active} label={label} />}
+      {panel === "intervals" && (
+        <IntervalsPanel uniq={uniq} rootPc={rootPc} realizationMidi={realization} active={active} />
+      )}
+      {panel === "map" && <MapPanel uniq={uniq} name={active ? name : null} active={active} />}
     </div>
   );
 }
@@ -127,13 +125,13 @@ function identify(pcs: number[], midis: number[], symbol?: string | null): strin
 
 // ----- Colour ------------------------------------------------------------------
 
-function Swatch({ title, css, focus, sub }: { title: string; css: string; focus: number; sub: string }) {
+function Swatch({ title, css, focus, sub, active }: { title: string; css: string; focus: number; sub: string; active: boolean }) {
   return (
     <div style={{ flex: 1 }}>
       <div style={{ fontSize: 11, color: C.dim, marginBottom: 4 }}>{title}</div>
-      <div style={{ height: 40, borderRadius: 8, background: css, border: `1px solid ${C.border2}` }} />
+      <div style={{ height: 40, borderRadius: 8, background: active ? css : "#161b22", border: `1px solid ${C.border2}` }} />
       <div style={{ fontSize: 10, color: C.faint, marginTop: 4 }}>
-        {sub} · focus {focus.toFixed(2)}
+        {active ? `${sub} · focus ${focus.toFixed(2)}` : "—"}
       </div>
     </div>
   );
@@ -142,10 +140,12 @@ function Swatch({ title, css, focus, sub }: { title: string; css: string; focus:
 function ColourPanel({
   uniq,
   realizationMidi,
+  active,
   label,
 }: {
   uniq: number[];
   realizationMidi: number[];
+  active: boolean;
   label: (pc: number) => string;
 }) {
   const tc = tonalColor(uniq, realizationMidi);
@@ -153,23 +153,22 @@ function ColourPanel({
   return (
     <div>
       <div style={{ display: "flex", gap: 12, marginBottom: 14 }}>
-        <Swatch title="Tonal colour (root-aware)" css={tc.css} focus={tc.focus} sub={`hue ${Math.round(tc.hue)}°`} />
-        <Swatch title="Interval colour (root-blind)" css={ic.css} focus={ic.focus} sub={`hue ${Math.round(ic.hue)}°`} />
+        <Swatch title="Tonal colour (root-aware)" css={tc.css} focus={tc.focus} sub={`hue ${Math.round(tc.hue)}°`} active={active} />
+        <Swatch title="Interval colour (root-blind)" css={ic.css} focus={ic.focus} sub={`hue ${Math.round(ic.hue)}°`} active={active} />
       </div>
       <div style={{ display: "flex", gap: 12 }}>
-        <PitchWheel uniq={uniq} css={tc.css} label={label} />
-        <IntervalWheel uniq={uniq} css={ic.css} />
+        <PitchWheel uniq={uniq} css={tc.css} active={active} label={label} />
+        <IntervalWheel uniq={uniq} css={ic.css} active={active} />
       </div>
     </div>
   );
 }
 
-function PitchWheel({ uniq, css, label }: { uniq: number[]; css: string; label: (pc: number) => string }) {
+function PitchWheel({ uniq, css, active, label }: { uniq: number[]; css: string; active: boolean; label: (pc: number) => string }) {
   const S = 188,
     cx = 94,
     cy = 94,
     R = 64;
-  const memb = new Set(uniq);
   const screenAng = (pc: number) => (cofPos(pc) * 30 - 90) * D2R;
   let sx = 0,
     sy = 0;
@@ -177,8 +176,8 @@ function PitchWheel({ uniq, css, label }: { uniq: number[]; css: string; label: 
     sx += Math.cos(screenAng(pc));
     sy += Math.sin(screenAng(pc));
   }
-  const rx = cx + (sx / uniq.length) * R,
-    ry = cy + (sy / uniq.length) * R;
+  const rx = cx + (uniq.length ? sx / uniq.length : 0) * R,
+    ry = cy + (uniq.length ? sy / uniq.length : 0) * R;
   return (
     <div style={{ flex: 1, textAlign: "center" }}>
       <div style={{ fontSize: 10.5, color: C.dim, marginBottom: 2 }}>circle of fifths</div>
@@ -206,15 +205,19 @@ function PitchWheel({ uniq, css, label }: { uniq: number[]; css: string; label: 
             </g>
           );
         })}
-        <line x1={cx} y1={cy} x2={rx} y2={ry} stroke={C.dim} strokeWidth={1.2} strokeDasharray="3 2" />
-        <circle cx={rx} cy={ry} r={7.5} fill={css} stroke={C.text} strokeWidth={1.4} />
+        {active && (
+          <>
+            <line x1={cx} y1={cy} x2={rx} y2={ry} stroke={C.dim} strokeWidth={1.2} strokeDasharray="3 2" />
+            <circle cx={rx} cy={ry} r={7.5} fill={css} stroke={C.text} strokeWidth={1.4} />
+          </>
+        )}
         <circle cx={cx} cy={cy} r={1.6} fill={C.faint} />
       </svg>
     </div>
   );
 }
 
-function IntervalWheel({ uniq, css }: { uniq: number[]; css: string }) {
+function IntervalWheel({ uniq, css, active }: { uniq: number[]; css: string; active: boolean }) {
   const S = 188,
     cx = 94,
     cy = 94,
@@ -229,8 +232,8 @@ function IntervalWheel({ uniq, css }: { uniq: number[]; css: string }) {
     ux += w[k] * Math.cos(icRimAngle(k));
     uy += w[k] * Math.sin(icRimAngle(k));
   }
-  const rx = cx + (ux / tot) * R,
-    ry = cy + (uy / tot) * R;
+  const rx = cx + (tot ? ux / tot : 0) * R,
+    ry = cy + (tot ? uy / tot : 0) * R;
   return (
     <div style={{ flex: 1, textAlign: "center" }}>
       <div style={{ fontSize: 10.5, color: C.dim, marginBottom: 2 }}>interval content</div>
@@ -249,8 +252,13 @@ function IntervalWheel({ uniq, css }: { uniq: number[]; css: string }) {
           );
         })}
         {tt > 0 && <circle cx={cx} cy={cy} r={3 + tt * 2.4} fill="none" stroke={C.faint} strokeWidth={1.1} strokeDasharray="2.5 2" />}
-        <line x1={cx} y1={cy} x2={rx} y2={ry} stroke={C.dim} strokeWidth={1.2} strokeDasharray="3 2" />
-        <circle cx={rx} cy={ry} r={7.5} fill={css} stroke={C.text} strokeWidth={1.4} />
+        {active && (
+          <>
+            <line x1={cx} y1={cy} x2={rx} y2={ry} stroke={C.dim} strokeWidth={1.2} strokeDasharray="3 2" />
+            <circle cx={rx} cy={ry} r={7.5} fill={css} stroke={C.text} strokeWidth={1.4} />
+          </>
+        )}
+        <circle cx={cx} cy={cy} r={1.6} fill={C.faint} />
       </svg>
     </div>
   );
@@ -262,10 +270,12 @@ function IntervalsPanel({
   uniq,
   rootPc,
   realizationMidi,
+  active,
 }: {
   uniq: number[];
   rootPc: number | null;
   realizationMidi: number[];
+  active: boolean;
 }) {
   const v = intervalVector(uniq);
   const maxic = Math.max(1, ...v);
@@ -313,8 +323,8 @@ function IntervalsPanel({
 
       <div style={{ fontSize: 11, color: C.dim, lineHeight: 1.7, fontFamily: "'JetBrains Mono', monospace" }}>
         <div>
-          notes&nbsp;&nbsp;{uniq.map((p) => NOTE[p]).join(" ")}
-          {rootPc != null ? <span style={{ color: C.faint }}> · bass {NOTE[((rootPc % 12) + 12) % 12]}</span> : null}
+          notes&nbsp;&nbsp;{uniq.length ? uniq.map((p) => NOTE[p]).join(" ") : "—"}
+          {active && rootPc != null ? <span style={{ color: C.faint }}> · bass {NOTE[((rootPc % 12) + 12) % 12]}</span> : null}
         </div>
         <div>prime&nbsp;&nbsp;[{pf.join(" ")}]</div>
         <div>vector&nbsp;[{v.join(" ")}]</div>
@@ -326,7 +336,7 @@ function IntervalsPanel({
 
 // ----- Harmony map -------------------------------------------------------------
 
-function MapPanel({ uniq, name }: { uniq: number[]; name: string }) {
+function MapPanel({ uniq, name, active }: { uniq: number[]; name: string | null; active: boolean }) {
   const W = 300,
     H = 260,
     L = 30,
@@ -378,21 +388,33 @@ function MapPanel({ uniq, name }: { uniq: number[]; name: string }) {
             </g>
           );
         })}
-        <circle cx={myX} cy={myY} r={9} fill="none" stroke={C.accent} strokeWidth={2.5} />
-        <text
-          x={clampX(myX)}
-          y={myY - 13 < T + 4 ? myY + 22 : myY - 13}
-          textAnchor="middle"
-          fontSize={11}
-          fontWeight={600}
-          fill={C.accent}
-        >
-          {name}
-        </text>
+        {active && (
+          <>
+            <circle cx={myX} cy={myY} r={9} fill="none" stroke={C.accent} strokeWidth={2.5} />
+            <text
+              x={clampX(myX)}
+              y={myY - 13 < T + 4 ? myY + 22 : myY - 13}
+              textAnchor="middle"
+              fontSize={11}
+              fontWeight={600}
+              fill={C.accent}
+            >
+              {name}
+            </text>
+          </>
+        )}
       </svg>
       <div style={{ fontSize: 10.5, color: C.faint, marginTop: 4, lineHeight: 1.5 }}>
-        Ring = {name} (|f5| {myF5.toFixed(2)}, handedness {myCh >= 0 ? "+" : ""}{myCh.toFixed(2)}). Dots = common
-        trichords for reference. Consonance ↑, inversional handedness ←→ (major/minor on triads, bispectrum for any size).
+        {active ? (
+          <>
+            Ring = {name} (|f5| {myF5.toFixed(2)}, handedness {myCh >= 0 ? "+" : ""}
+            {myCh.toFixed(2)}).{" "}
+          </>
+        ) : (
+          <>Play a chord to plot it. </>
+        )}
+        Dots = common trichords for reference. Consonance ↑, inversional handedness ←→ (major/minor on triads,
+        bispectrum for any size).
       </div>
     </div>
   );
