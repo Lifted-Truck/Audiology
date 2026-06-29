@@ -430,15 +430,16 @@ function MapPanel({ uniq, name, active, eng }: { uniq: number[]; name: string | 
   const F5MAX = MAX_CONSONANCE_F5 * 1.04;
   const CHN = cbrt(MAX_CHIRALITY * 1.02);
   const land = trichordLandscape();
-  // Consume the engine's determinations when connected: |f5| consonance, and the
-  // COMPLETE chirality_sign (handles the exotic classes the local bispectrum slice
-  // blind-spots) — the sign picks the side, |general_chirality| the magnitude (with a
-  // small floor so blind-spot chords still leave the spine on the correct side).
+  // Consume the engine's determinations when connected. `general_chirality` is the same
+  // bispectrum slice the landscape dots use, so use it directly — the ring then lands
+  // exactly on its landscape dot (maj on "maj", etc.). Only for true bispectrum
+  // blind-spots (general ≈ 0 but the complete `chirality_sign` is ±) do we nudge off the
+  // spine so the chord still shows its correct side.
   const myF5 = eng ? eng.consonanceF5 : consonanceF5(uniq);
   const myCh = eng
-    ? eng.chiralitySign === 0
-      ? 0
-      : eng.chiralitySign * Math.max(Math.abs(eng.generalChirality), 0.6)
+    ? Math.abs(eng.generalChirality) > 0.01
+      ? eng.generalChirality
+      : eng.chiralitySign * 0.4
     : chirality(uniq);
   const halfW = (Rr - L) / 2;
   const clampX = (x: number) => Math.max(L + 6, Math.min(Rr - 6, x));
@@ -464,12 +465,15 @@ function MapPanel({ uniq, name, active, eng }: { uniq: number[]; name: string | 
           consonance |f5| →
         </text>
         {land.map((t, i) => {
-          const big = /maj|min|aug|dim|sus|cluster/.test(t.name);
+          const big = /^(maj|min|aug|dim|sus|cluster)$/.test(t.name);
           return (
             <g key={i}>
-              <circle cx={X(t.chirality)} cy={Y(t.consonance)} r={big ? 5.5 : 4} fill={t.intervalCss} stroke={C.text} strokeWidth={big ? 1.1 : 0.4} opacity={0.9} />
+              {/* hover anything for its name; the named anchors also show a visible label */}
+              <circle cx={X(t.chirality)} cy={Y(t.consonance)} r={big ? 5.5 : 4} fill={t.intervalCss} stroke={C.text} strokeWidth={big ? 1.1 : 0.4} opacity={0.9} style={{ cursor: "default" }}>
+                <title>{t.name}</title>
+              </circle>
               {big && (
-                <text x={X(t.chirality) + (t.chirality < 0 ? -7 : 7)} y={Y(t.consonance) + 3} textAnchor={t.chirality < 0 ? "end" : "start"} fontSize={9} fill={C.dim}>
+                <text x={X(t.chirality) + (t.chirality < 0 ? -7 : 7)} y={Y(t.consonance) + 3} textAnchor={t.chirality < 0 ? "end" : "start"} fontSize={9} fill={C.dim} pointerEvents="none">
                   {t.name}
                 </text>
               )}
@@ -478,7 +482,9 @@ function MapPanel({ uniq, name, active, eng }: { uniq: number[]; name: string | 
         })}
         {active && (
           <>
-            <circle cx={myX} cy={myY} r={9} fill="none" stroke={C.accent} strokeWidth={2.5} />
+            <circle cx={myX} cy={myY} r={9} fill="none" stroke={C.accent} strokeWidth={2.5}>
+              <title>{name ?? ""}</title>
+            </circle>
             <text
               x={clampX(myX)}
               y={myY - 13 < T + 4 ? myY + 22 : myY - 13}
@@ -486,6 +492,7 @@ function MapPanel({ uniq, name, active, eng }: { uniq: number[]; name: string | 
               fontSize={11}
               fontWeight={600}
               fill={C.accent}
+              pointerEvents="none"
             >
               {name}
             </text>

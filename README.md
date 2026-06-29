@@ -162,6 +162,15 @@ engineering threads"). The longer-horizon direction:
   `prime_form` — make the Chord Anatomy surfaces the first candidate); (2) pick a packaging
   strategy so the engine is always present; (3) delete the now-redundant local math. Until step 2
   lands, the standalone-friendly local core stays — this is the destination, not a near-term flip.
+- **Native desktop app (off the browser).** Eventually Audiology should ship as its own
+  application rather than a browser tab — for lower-latency audio/MIDI, real file access, OS MIDI
+  I/O, and an installable artifact. A desktop shell (**Tauri** or Electron) is also the natural
+  vehicle for *Tonality at the core* above: it can bundle the Python engine (or a packaged binary)
+  so "baked in" and "native" are one move. It's a big port, so the discipline to protect now is
+  **modularity** — keep the pure core React-free and platform-agnostic, keep all browser-specific
+  surfaces (Web Audio, Web MIDI, File API, the Vite dev-server bridge launcher) behind narrow,
+  swappable seams, so the shell can replace them one at a time. Every new feature should respect
+  that boundary so the port stays painless rather than a rewrite.
 - **Learning mode** — flashcards + structured lessons over the explorer (identify a
   chord/scale/interval, spell a Roman numeral, name a key), eventually driven by **progress
   reports imported from a separate learning app** so sequencing and spaced-repetition reflect

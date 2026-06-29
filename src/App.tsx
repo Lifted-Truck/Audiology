@@ -663,6 +663,9 @@ export default function App() {
     if (p.isTone) return { c: "#f59e0b" };
     if (showScaleColors && p.isRoot) return { c: "#a5b4fc", strong: true };
     if (showScaleColors && p.inScale) return { c: "#2dd4bf" };
+    // Out-of-scale keys read red (outlined, not filled — distinct from the teal in-scale
+    // fill and the amber chord/played fills). Matches the grid + the legend.
+    if (showScaleColors && !p.inScale) return { c: "#f87171", dashed: true };
     return null;
   };
 
@@ -889,7 +892,7 @@ export default function App() {
           <div className="px-legend">
             <Dot c="#a5b4fc" t="root / tonic" />
             <Dot c="#2dd4bf" t="in scale" />
-            {mode === "chromatic" && <Dot c="#f87171" t="out of scale" />}
+            {showScaleColors && <Dot c="#f87171" t="out of scale" />}
             <Dot c="#fbbf24" t={isLive ? "playing live" : interaction === "analyze" ? "selected" : chordDisplay === "voicing" ? "voicing note" : "chord tone"} />
             {playback.song && <Dot c="#fde047" t="sounding (file)" />}
             {playback.song && views.pianoRoll && <Dot c="#a78bfa" t="in tonicized key (roll)" />}

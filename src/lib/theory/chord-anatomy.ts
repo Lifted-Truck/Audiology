@@ -291,13 +291,15 @@ function nameTrichord(gapsSorted: number[], ch: number): string {
   if (achiral[a]) return achiral[a];
   const chiral: Record<string, [string, string]> = {
     "3,4,5": ["maj", "min"],
+    "2,3,7": ["(0 2 5)", "(0 3 5)"],
     "2,4,6": ["(0 2 6)", "(0 4 6)"],
-    "1,5,6": ["cl+TT", "cl+TT"],
+    "1,5,6": ["(0 1 6)", "(0 5 6)"],
     "1,4,7": ["(0 1 5)", "(0 4 5)"],
     "1,3,8": ["(0 1 4)", "(0 3 4)"],
     "1,2,9": ["(0 1 3)", "(0 2 3)"],
   };
-  return chiral[a] ? (ch < 0 ? chiral[a][0] : chiral[a][1]) : "";
+  if (chiral[a]) return ch < 0 ? chiral[a][0] : chiral[a][1];
+  return "(" + a.replace(/,/g, " ") + ")"; // never empty — fallback to the gap signature
 }
 let _landscape: TrichordType[] | null = null;
 export function trichordLandscape(): TrichordType[] {
