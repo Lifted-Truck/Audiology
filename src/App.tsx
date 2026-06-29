@@ -457,7 +457,16 @@ export default function App() {
       const inKey = chordRoman(rootPc, quality, ton.tonicPc, ton.mode);
       return isDominantRoman(inKey) ? inKey + "/" + ton.parentRoman : null;
     };
-    return analysis.segments.map((s) => {
+    // The chord strip is a harmonic summary, so absorb articulation noise: at a low/off
+    // coalesce, a held chord's notes release a few ms apart, leaving sub-perceptual
+    // fragments (a single ringing note, an incomplete subset) that would otherwise show
+    // as spurious one-note "chords" (e.g. an "F" between two Gm7 strikes). Fold any
+    // fragment that is blank-labelled, very short, or a re-strike of the same chord into
+    // the surrounding band — only genuine chord *changes* start a new region. (The
+    // Coalesce control still governs the engine-side segmentation; this is the display gate.)
+    const MIN_SEG_SEC = 0.12;
+    const out: { startSec: number; endSec: number; label: string }[] = [];
+    for (const s of analysis.segments) {
       const mid = (s.startSec + s.endSec) / 2;
       const isChord = s.rootPc != null && s.quality != null;
       const single = !isChord && s.pcs.length === 1;
@@ -470,8 +479,14 @@ export default function App() {
           ? degree(s.pcs[0], mid)
           : "";
       const label = chordLabelMode === "roman" ? rn || name : chordLabelMode === "both" && rn ? name + " · " + rn : name;
-      return { startSec: s.startSec, endSec: s.endSec, label };
-    });
+      const prev = out[out.length - 1];
+      if (prev && (!label || s.endSec - s.startSec < MIN_SEG_SEC || prev.label === label)) {
+        prev.endSec = s.endSec; // extend the surrounding chord over the fragment / re-strike
+      } else {
+        out.push({ startSec: s.startSec, endSec: s.endSec, label });
+      }
+    }
+    return out;
   }, [analysis, noteName, keyBands, chordLabelMode, tonicizationSpans]);
 
   /* ----- build chord ----- */
