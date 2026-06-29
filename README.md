@@ -30,7 +30,16 @@ music-theory engine**.
   bracket diagram** showing every pair above the root nesting into wider intervals; set-class /
   prime-form / bitmask), and a **Harmony map** (consonance × major/minor chirality, plotting the
   chord over the trichord landscape). The graphs persist as scaffolding so the section never blinks
-  out during playback.
+  out during playback. When the Tonality engine is connected, the set-class facts come from the
+  engine (an "engine / local" badge shows the source); otherwise they're computed locally.
+
+  <p>
+    <img src="docs/anatomy-colour.svg" alt="Chord Anatomy colour wheels for C7" width="440">
+    <img src="docs/anatomy-intervals.svg" alt="Interval-bracket diagram for C7" width="250" valign="top">
+  </p>
+  <sub>Chord Anatomy for C7 — the two colour wheels (root-aware circle-of-fifths and root-blind
+  interval-content, each a resultant-vector construction) and the interval-bracket diagram
+  (every pair above the root, stacked by span).</sub>
 
 ## Getting started
 
@@ -83,18 +92,21 @@ A framework-free core is kept strictly separate from the React UI:
 src/
   lib/theory/    Pure music theory — scales, chord qualities, pitch, voicings, chord
                  analysis (analyzeSelection), scale detection, Roman-numeral analysis
-                 (roman.ts). Imports no React; unit-testable.
+                 (roman.ts), and chord-anatomy maths (chord-anatomy.ts: interval vector,
+                 DFT, the two colour resultants, chirality, interval brackets). No React.
   lib/midi/      MIDI parsing (@tonejs/midi → Song; notes carry beats/duration/drum,
                  Song carries beatsToSeconds / timeToBarBeat / barStarts) + time queries
                  + keyboard/Web-MIDI input. No React.
   lib/tonality/  The Tonality integration boundary — the only module that knows the
-                 engine's wire format (probe / nameChord / analyzeMidi / structuralKeys);
-                 everything downstream consumes the normalized FileAnalysis.
+                 engine's wire format (probe / nameChord / setClassInfo / analyzeMidi /
+                 structuralKeys); everything downstream consumes normalized data.
   geometry/      piano.ts — the single source of truth for the pitch axis, shared by the
                  Piano keyboard and the PianoRoll so they stay aligned.
   audio/         synth.ts (one shared synth) + transport.ts (anchor-pair clock + lookahead).
-  hooks/         usePlayback, useAudioContext, useLiveInput, useBridge, useEngineProcess.
-  components/    Grid, Piano, PianoRoll, TransportBar, Bracelet, Tonnetz, ControlPanels.
+  hooks/         usePlayback, useAudioContext, useLiveInput, useBridge, useEngineProcess,
+                 useChordFacts (consume engine set-class facts when connected).
+  components/    Grid, Piano, PianoRoll, TransportBar, Bracelet, Tonnetz, CircleOfFifths,
+                 ChordAnatomy, ControlPanels.
   App.tsx        Owns state; derives grid/piano/chord/highlight/analysis data.
 ```
 
@@ -118,7 +130,13 @@ src/
 Audiology consumes [Tonality](https://github.com/Lifted-Truck/Tonality), a local-first
 music-theory engine, over its official HTTP bridge (`python -m mts.mcp.bridge`, loopback
 `:8012`). The dev server can spawn/stop the bridge on demand. `src/lib/tonality/` is the only
-module that speaks the engine's wire format; the UI consumes a normalized `FileAnalysis`.
+module that speaks the engine's wire format; the UI consumes normalized data.
+
+The integration is **consume-when-connected**: where the engine is up, Audiology prefers its
+determinations (e.g. Chord Anatomy's set-class identity, DFT, and chirality from `set_class_info`)
+and falls back to the local pure-theory core when it isn't — so the app stays fully usable offline.
+The north-star (see Roadmap) is to make the engine the single source of truth and retire the
+duplicated local math once the engine can be packaged with the app.
 
 The two projects coordinate through a brief/response channel in the Tonality repo
 (`integrations/audiology/`), backed by a corpus **validation harness** (`validation/` in the
