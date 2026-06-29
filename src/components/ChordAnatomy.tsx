@@ -21,6 +21,8 @@ import {
   primeForm,
   pcBitmask,
   analyzeSelection,
+  MAX_CHIRALITY,
+  MAX_CONSONANCE_F5,
   IC_PAIR_LABELS,
   IC_HUES,
   icRimAngle,
@@ -349,14 +351,14 @@ function MapPanel({ uniq, name }: { uniq: number[]; name: string }) {
     T = 16,
     B = 214,
     cxAxis = (L + Rr) / 2;
-  const F5MAX = 2.85;
+  // Fixed global bounds (max over ALL pc-sets) so the axes encompass every possible
+  // chord — never rescaling or clamping as the chord changes. Signed cube-root on x
+  // keeps the small-magnitude triads legible despite the wide (±8.2) handedness range.
+  const F5MAX = MAX_CONSONANCE_F5 * 1.04;
+  const CHN = cbrt(MAX_CHIRALITY * 1.02);
   const land = trichordLandscape();
   const myCh = chirality(uniq);
   const myF5 = consonanceF5(uniq);
-  // FIXED signed cube-root scale derived only from the (constant) landscape, so the
-  // backdrop never rescales when the chord changes (the current chord just clamps to
-  // the edge if it exceeds it). 3 covers the common 4-note vocabulary handedness.
-  const CHN = cbrt(Math.max(3, ...land.map((t) => Math.abs(t.chirality))));
   const halfW = (Rr - L) / 2;
   const clampX = (x: number) => Math.max(L + 6, Math.min(Rr - 6, x));
   const X = (ch: number) => clampX(cxAxis + (cbrt(ch) / CHN) * halfW);

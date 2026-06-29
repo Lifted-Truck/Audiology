@@ -231,6 +231,15 @@ export function consonanceF5(pcs: number[]): number {
   return dft(pcs)[5].mag;
 }
 
+/**
+ * Global maxima over **all** pc-sets (by exhaustive enumeration of the 4096 subsets) —
+ * fixed bounds for the harmony map so its axes encompass every possible chord and never
+ * rescale or clamp. `chirality` peaks at 8.196 (e.g. {0,1,4,5,10,11}, far past the 2.366
+ * trichord max); `|f5|` peaks at 3.864 (e.g. {1,3,5,6,8,10}).
+ */
+export const MAX_CHIRALITY = 8.196;
+export const MAX_CONSONANCE_F5 = 3.864;
+
 /** A point on the harmony map. */
 export interface HarmonyPoint {
   x: number; // chirality (bispectrum handedness)
