@@ -9,7 +9,7 @@
 //               the current chord plotted over the full trichord landscape.
 // All maths lives in lib/theory/chord-anatomy.ts (React-free).
 
-import React, { useRef, useState } from "react";
+import React, { useState } from "react";
 import {
   intervalVector,
   tonalColor,
@@ -63,37 +63,29 @@ export default function ChordAnatomy({
   const [panel, setPanel] = useState<Panel>("colour");
   const uniq = [...new Set(pcs.map((p) => ((p % 12) + 12) % 12))].sort((a, b) => a - b);
 
-  // Latch the last real chord so the view persists when notes stop (Live/Analyze go
-  // empty between events) — the section shouldn't blink out. We render the held chord
-  // and flag it as held.
-  const held = useRef<Held | null>(null);
-  let shown: Held | null;
-  let live = false;
-  if (uniq.length >= 2) {
-    const realization = realizationMidi.length >= 2 ? realizationMidi : uniq.map((p) => 60 + p);
-    shown = { pcs: uniq, realization, rootPc, name: identify(uniq, realization, symbol) };
-    held.current = shown;
-    live = true;
-  } else {
-    shown = held.current;
-  }
-
-  if (!shown) {
+  // Reflect the CURRENT selection — never latch a stale chord. Below 2 notes the
+  // surfaces aren't defined, so show the note(s) plainly or stay blank. The section's
+  // box stays mounted (this returns a placeholder, not null), so nothing jumps.
+  if (uniq.length < 2) {
     return (
-      <div style={{ padding: "18px 14px", color: C.faint, fontSize: 13, textAlign: "center" }}>
-        Select, play, or build a chord (2+ notes) to see its anatomy.
+      <div style={{ padding: "22px 14px", color: C.faint, fontSize: 13, textAlign: "center", lineHeight: 1.5 }}>
+        {uniq.length === 1
+          ? `${NOTE[uniq[0]]} — single note · add a note for intervals, two for the full anatomy`
+          : "Play, select, or build a chord (2+ notes) to see its anatomy."}
       </div>
     );
   }
 
+  const realization = realizationMidi.length >= 2 ? realizationMidi : uniq.map((p) => 60 + p);
+  const name = identify(uniq, realization, symbol);
+
   return (
     <div style={{ color: C.text }}>
       <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginBottom: 8 }}>
-        <span style={{ fontSize: 17, fontWeight: 600 }}>{shown.name}</span>
+        <span style={{ fontSize: 17, fontWeight: 600 }}>{name}</span>
         <span style={{ fontSize: 11, color: C.faint, fontFamily: "'JetBrains Mono', monospace" }}>
-          {shown.pcs.map((p) => NOTE[p]).join(" ")}
+          {uniq.map((p) => NOTE[p]).join(" ")}
         </span>
-        {!live && <span style={{ fontSize: 10, color: C.faint, marginLeft: "auto" }}>· held</span>}
       </div>
       <div style={{ display: "flex", gap: 4, marginBottom: 12 }}>
         {(["colour", "intervals", "map"] as Panel[]).map((p) => (
@@ -117,20 +109,11 @@ export default function ChordAnatomy({
         ))}
       </div>
 
-      {panel === "colour" && <ColourPanel uniq={shown.pcs} realizationMidi={shown.realization} label={label} />}
-      {panel === "intervals" && (
-        <IntervalsPanel uniq={shown.pcs} rootPc={shown.rootPc} realizationMidi={shown.realization} />
-      )}
-      {panel === "map" && <MapPanel uniq={shown.pcs} name={shown.name} />}
+      {panel === "colour" && <ColourPanel uniq={uniq} realizationMidi={realization} label={label} />}
+      {panel === "intervals" && <IntervalsPanel uniq={uniq} rootPc={rootPc} realizationMidi={realization} />}
+      {panel === "map" && <MapPanel uniq={uniq} name={name} />}
     </div>
   );
-}
-
-interface Held {
-  pcs: number[];
-  realization: number[];
-  rootPc: number | null;
-  name: string;
 }
 
 /** Chord name if recognized, else a stacked-interval list. Mirrors the app analyzer. */
