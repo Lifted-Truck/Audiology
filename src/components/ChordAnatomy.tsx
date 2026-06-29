@@ -9,7 +9,7 @@
 //               the current chord plotted over the full trichord landscape.
 // All maths lives in lib/theory/chord-anatomy.ts (React-free).
 
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 import {
   intervalVector,
   tonalColor,
@@ -20,6 +20,7 @@ import {
   trichordLandscape,
   primeForm,
   pcBitmask,
+  analyzeSelection,
   IC_PAIR_LABELS,
   IC_HUES,
   icRimAngle,
@@ -60,16 +61,38 @@ export default function ChordAnatomy({
   const [panel, setPanel] = useState<Panel>("colour");
   const uniq = [...new Set(pcs.map((p) => ((p % 12) + 12) % 12))].sort((a, b) => a - b);
 
-  if (uniq.length < 2) {
+  // Latch the last real chord so the view persists when notes stop (Live/Analyze go
+  // empty between events) — the section shouldn't blink out. We render the held chord
+  // and flag it as held.
+  const held = useRef<Held | null>(null);
+  let shown: Held | null;
+  let live = false;
+  if (uniq.length >= 2) {
+    const realization = realizationMidi.length >= 2 ? realizationMidi : uniq.map((p) => 60 + p);
+    shown = { pcs: uniq, realization, rootPc, name: identify(uniq, realization, symbol) };
+    held.current = shown;
+    live = true;
+  } else {
+    shown = held.current;
+  }
+
+  if (!shown) {
     return (
       <div style={{ padding: "18px 14px", color: C.faint, fontSize: 13, textAlign: "center" }}>
-        {symbol ? `${symbol} — ` : ""}select or build a chord (2+ notes) to see its anatomy.
+        Select, play, or build a chord (2+ notes) to see its anatomy.
       </div>
     );
   }
 
   return (
     <div style={{ color: C.text }}>
+      <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginBottom: 8 }}>
+        <span style={{ fontSize: 17, fontWeight: 600 }}>{shown.name}</span>
+        <span style={{ fontSize: 11, color: C.faint, fontFamily: "'JetBrains Mono', monospace" }}>
+          {shown.pcs.map((p) => NOTE[p]).join(" ")}
+        </span>
+        {!live && <span style={{ fontSize: 10, color: C.faint, marginLeft: "auto" }}>· held</span>}
+      </div>
       <div style={{ display: "flex", gap: 4, marginBottom: 12 }}>
         {(["colour", "intervals", "map"] as Panel[]).map((p) => (
           <button
@@ -92,13 +115,29 @@ export default function ChordAnatomy({
         ))}
       </div>
 
-      {panel === "colour" && <ColourPanel uniq={uniq} realizationMidi={realizationMidi} label={label} />}
+      {panel === "colour" && <ColourPanel uniq={shown.pcs} realizationMidi={shown.realization} label={label} />}
       {panel === "intervals" && (
-        <IntervalsPanel uniq={uniq} rootPc={rootPc} realizationMidi={realizationMidi} />
+        <IntervalsPanel uniq={shown.pcs} rootPc={shown.rootPc} realizationMidi={shown.realization} />
       )}
-      {panel === "map" && <MapPanel uniq={uniq} />}
+      {panel === "map" && <MapPanel uniq={shown.pcs} name={shown.name} />}
     </div>
   );
+}
+
+interface Held {
+  pcs: number[];
+  realization: number[];
+  rootPc: number | null;
+  name: string;
+}
+
+/** Chord name if recognized, else a stacked-interval list. Mirrors the app analyzer. */
+function identify(pcs: number[], midis: number[], symbol?: string | null): string {
+  if (symbol) return symbol;
+  const res = analyzeSelection(midis, (pc) => NOTE[pc]);
+  if ("candidates" in res && res.candidates.length) return res.candidates[0].name;
+  const lad = stackedIntervals(midis).map((s) => s.name);
+  return lad.length ? lad.join("·") : pcs.map((p) => NOTE[p]).join(" ");
 }
 
 // ----- Colour ------------------------------------------------------------------
@@ -302,7 +341,7 @@ function IntervalsPanel({
 
 // ----- Harmony map -------------------------------------------------------------
 
-function MapPanel({ uniq }: { uniq: number[] }) {
+function MapPanel({ uniq, name }: { uniq: number[]; name: string }) {
   const W = 300,
     H = 260,
     L = 30,
@@ -314,14 +353,16 @@ function MapPanel({ uniq }: { uniq: number[] }) {
   const land = trichordLandscape();
   const myCh = chirality(uniq);
   const myF5 = consonanceF5(uniq);
-  // Signed cube-root scale (compresses range, keeps triads visible), auto-fit to
-  // whatever's shown so 4+ note chords with larger handedness don't fly off.
-  const maxAbs = Math.max(0.5, Math.abs(myCh), ...land.map((t) => Math.abs(t.chirality)));
-  const CHN = cbrt(maxAbs);
+  // FIXED signed cube-root scale derived only from the (constant) landscape, so the
+  // backdrop never rescales when the chord changes (the current chord just clamps to
+  // the edge if it exceeds it). 3 covers the common 4-note vocabulary handedness.
+  const CHN = cbrt(Math.max(3, ...land.map((t) => Math.abs(t.chirality))));
   const halfW = (Rr - L) / 2;
-  const clampX = (x: number) => Math.max(L, Math.min(Rr, x));
+  const clampX = (x: number) => Math.max(L + 6, Math.min(Rr - 6, x));
   const X = (ch: number) => clampX(cxAxis + (cbrt(ch) / CHN) * halfW);
   const Y = (f5: number) => B - (f5 / F5MAX) * (B - T);
+  const myX = X(myCh),
+    myY = Y(myF5);
   return (
     <div>
       <svg viewBox={`0 0 ${W} ${H}`} style={{ width: "100%" }}>
@@ -352,10 +393,20 @@ function MapPanel({ uniq }: { uniq: number[] }) {
             </g>
           );
         })}
-        <circle cx={X(myCh)} cy={Y(myF5)} r={9} fill="none" stroke={C.accent} strokeWidth={2.5} />
+        <circle cx={myX} cy={myY} r={9} fill="none" stroke={C.accent} strokeWidth={2.5} />
+        <text
+          x={clampX(myX)}
+          y={myY - 13 < T + 4 ? myY + 22 : myY - 13}
+          textAnchor="middle"
+          fontSize={11}
+          fontWeight={600}
+          fill={C.accent}
+        >
+          {name}
+        </text>
       </svg>
       <div style={{ fontSize: 10.5, color: C.faint, marginTop: 4, lineHeight: 1.5 }}>
-        Ring = this chord (|f5| {myF5.toFixed(2)}, handedness {myCh >= 0 ? "+" : ""}{myCh.toFixed(2)}). Dots = common
+        Ring = {name} (|f5| {myF5.toFixed(2)}, handedness {myCh >= 0 ? "+" : ""}{myCh.toFixed(2)}). Dots = common
         trichords for reference. Consonance ↑, inversional handedness ←→ (major/minor on triads, bispectrum for any size).
       </div>
     </div>
