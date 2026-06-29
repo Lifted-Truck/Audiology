@@ -21,6 +21,9 @@ import {
   primeForm,
   pcBitmask,
   analyzeSelection,
+  stackAboveRoot,
+  intervalShortName,
+  intervalClassOf,
   MAX_CHIRALITY,
   MAX_CONSONANCE_F5,
   IC_PAIR_LABELS,
@@ -106,9 +109,7 @@ export default function ChordAnatomy({
       </div>
 
       {panel === "colour" && <ColourPanel uniq={uniq} realizationMidi={realization} active={active} label={label} />}
-      {panel === "intervals" && (
-        <IntervalsPanel uniq={uniq} rootPc={rootPc} realizationMidi={realization} active={active} />
-      )}
+      {panel === "intervals" && <IntervalsPanel uniq={uniq} rootPc={rootPc} active={active} />}
       {panel === "map" && <MapPanel uniq={uniq} name={active ? name : null} active={active} />}
     </div>
   );
@@ -269,18 +270,16 @@ function IntervalWheel({ uniq, css, active }: { uniq: number[]; css: string; act
 function IntervalsPanel({
   uniq,
   rootPc,
-  realizationMidi,
   active,
 }: {
   uniq: number[];
   rootPc: number | null;
-  realizationMidi: number[];
   active: boolean;
 }) {
   const v = intervalVector(uniq);
   const maxic = Math.max(1, ...v);
-  const ladderMidi = realizationMidi.length >= 2 ? realizationMidi : uniq.map((p, i) => 60 + (uniq[i] - uniq[0] + 12) % 12);
-  const ladder = stackedIntervals(ladderMidi);
+  const heights = stackAboveRoot(uniq, rootPc);
+  const rootAbs = rootPc != null ? ((rootPc % 12) + 12) % 12 : uniq.length ? uniq[0] : 0;
   const pf = primeForm(uniq);
   const mask = pcBitmask(uniq);
   return (
@@ -311,14 +310,15 @@ function IntervalsPanel({
         })}
       </div>
 
-      <div style={{ fontSize: 11, color: C.dim, marginBottom: 5 }}>stacked intervals (bottom → top)</div>
-      <div style={{ display: "flex", flexDirection: "column-reverse", gap: 0, marginBottom: 14 }}>
-        {ladder.map((s, i) => (
-          <div key={i} style={{ fontSize: 12, color: C.text, padding: "3px 0", borderTop: `0.5px solid ${C.border}` }}>
-            {s.name} <span style={{ color: C.faint, fontSize: 10 }}>({s.semitones} st)</span>
-          </div>
-        ))}
-        {ladder.length === 0 && <div style={{ fontSize: 11, color: C.faint }}>—</div>}
+      <div style={{ fontSize: 11, color: C.dim, marginBottom: 3 }}>
+        intervals above the root · every pair, stacked by span
+      </div>
+      <div style={{ marginBottom: 14 }}>
+        {active && heights.length >= 2 ? (
+          <IntervalBrackets heights={heights} rootAbs={rootAbs} />
+        ) : (
+          <div style={{ fontSize: 11, color: C.faint, padding: "6px 0" }}>—</div>
+        )}
       </div>
 
       <div style={{ fontSize: 11, color: C.dim, lineHeight: 1.7, fontFamily: "'JetBrains Mono', monospace" }}>
@@ -331,6 +331,56 @@ function IntervalsPanel({
         <div style={{ color: C.faint }}>mask&nbsp;&nbsp;&nbsp;{mask.toString(2).padStart(12, "0")}</div>
       </div>
     </div>
+  );
+}
+
+// Stacked interval brackets: notes along the bottom, every pairwise interval drawn as
+// a bracket spanning its two notes, stacked by span width (adjacent at the bottom, the
+// full span on top). Shows how the small intervals above the root nest into wider ones.
+function IntervalBrackets({ heights, rootAbs }: { heights: number[]; rootAbs: number }) {
+  const n = heights.length;
+  const colW = n > 5 ? 40 : 46,
+    rowH = 22,
+    leftPad = 22,
+    topPad = 14;
+  const maxLevel = n - 1;
+  const noteX = (i: number) => leftPad + i * colW;
+  const rowY = (d: number) => topPad + (maxLevel - d) * rowH;
+  const noteY = topPad + maxLevel * rowH + 18;
+  const W = leftPad * 2 + (n - 1) * colW;
+  const H = noteY + 6;
+  const icColor = (ic: number) => (ic <= 5 ? `oklch(0.64 0.15 ${IC_HUES[ic - 1]})` : "#8590a2");
+
+  const brackets: React.ReactNode[] = [];
+  for (let d = 1; d <= maxLevel; d++) {
+    for (let k = 0; k + d < n; k++) {
+      const semi = heights[k + d] - heights[k];
+      const col = icColor(intervalClassOf(semi));
+      const x1 = noteX(k),
+        x2 = noteX(k + d),
+        y = rowY(d);
+      brackets.push(
+        <g key={`${d}-${k}`}>
+          <line x1={x1} y1={y} x2={x2} y2={y} stroke={col} strokeWidth={1.5} />
+          <line x1={x1} y1={y} x2={x1} y2={y + 4} stroke={col} strokeWidth={1.5} />
+          <line x1={x2} y1={y} x2={x2} y2={y + 4} stroke={col} strokeWidth={1.5} />
+          <rect x={(x1 + x2) / 2 - 13} y={y - 11} width={26} height={13} rx={3} fill={C.panel} />
+          <text x={(x1 + x2) / 2} y={y - 1} textAnchor="middle" fontSize={10} fontWeight={600} fill={col}>
+            {intervalShortName(semi)}
+          </text>
+        </g>
+      );
+    }
+  }
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} style={{ width: "100%", maxWidth: W + 16, display: "block" }}>
+      {brackets}
+      {heights.map((h, i) => (
+        <text key={i} x={noteX(i)} y={noteY} textAnchor="middle" fontSize={11} fontWeight={700} fontFamily="'JetBrains Mono', monospace" fill={C.dim}>
+          {NOTE[(rootAbs + h) % 12]}
+        </text>
+      ))}
+    </svg>
   );
 }
 

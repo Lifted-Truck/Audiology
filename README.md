@@ -26,9 +26,11 @@ music-theory engine**.
   connected, local fallback otherwise), with functional role and alternatives.
 - **Chord Anatomy** — a view that demystifies the current chord across three panels: **Colour**
   (root-aware circle-of-fifths and root-blind interval-content colour wheels, each showing the
-  resultant-vector construction), **Intervals** (interval-vector histogram, stacked-interval
-  ladder, set-class / prime-form / bitmask), and a **Harmony map** (consonance × major/minor
-  chirality, plotting the chord over the trichord landscape).
+  resultant-vector construction), **Intervals** (interval-vector histogram; a stacked **interval-
+  bracket diagram** showing every pair above the root nesting into wider intervals; set-class /
+  prime-form / bitmask), and a **Harmony map** (consonance × major/minor chirality, plotting the
+  chord over the trichord landscape). The graphs persist as scaffolding so the section never blinks
+  out during playback.
 
 ## Getting started
 
@@ -188,6 +190,13 @@ the Representation layer (cf. the bracelet/Tonnetz descriptors in `brief-2`).
 browsable reference), and **interactive note-picking** on the wheels and map (build a chord by clicking
 and watch the resultant vector and harmony-map position move) — the point where these stop being
 illustrations and become a teaching surface.
+
+- **MIDI chord-colour timeline** — a piano-roll toggle that tints the chords of a loaded/playing
+  file by their somatic colour (the Chord Anatomy colour) as the song progresses, **excluding the
+  drum channel**, so harmonic motion is visible at a glance. Clean when the Tonality engine is
+  connected (its per-segment chord analysis supplies the segments to colour); a fully standalone
+  version needs a local chord-segmentation pass over the non-drum notes (group simultaneous/
+  overlapping onsets into chord spans). Reuse the existing key-region strip mechanics for the lane.
 
 ## License
 

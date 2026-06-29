@@ -283,18 +283,27 @@ Roadmap; the remaining Tonality-engine upgrades are in the section above).
   React-free in the lib). Driven by `activePcs` + `chordRealizationMidi` like Bracelet/Tonnetz; a
   segmented control switches three panels: **Colour** (root-aware circle-of-fifths wheel +
   root-blind interval-content wheel, both showing the resultant-vector construction, with swatches),
-  **Intervals** (interval-vector histogram, stacked-interval ladder, set-class line: prime form /
-  bitmask / vector), **Harmony map** (consonance |f5| × chirality, the current chord ringed over the
-  full trichord landscape). Colour rides OKLCH lightness with a sub-linear focus→chroma stretch
-  (decompresses the grey centre). The harmony map's handedness axis is **generalized to any chord
-  size**: `chirality(pcs)` is the bispectrum slice `Im(f1·f2·conj(f3))` (transposition-invariant,
-  inversion-odd, major<0/minor>0, separates dom7↔m7♭5); `stepGapChirality` keeps the exact
-  trichord `(a−b)(b−c)(c−a)`. The single slice false-zeros on 28 exotic 5–7-note set classes
+  **Intervals** (interval-vector histogram; an **interval-bracket diagram** — every pair above the
+  root drawn as a bracket spanning its two notes, stacked by span, coloured by interval class, so
+  the small intervals visibly nest into wider ones; set-class line: prime form / bitmask / vector),
+  **Harmony map** (consonance |f5| × chirality, the current chord ringed over the full trichord
+  landscape, axes pinned to global maxima so any chord fits). Colour rides OKLCH lightness with a
+  sub-linear focus→chroma stretch (decompresses the grey centre). **The graphs persist as
+  scaffolding** (an `active` flag): the rings/rim/axis/landscape always render; only chord-specific
+  marks (resultant dots, bars, ring, swatch colour, brackets) appear/clear with the selection —
+  nothing latched, the section never resizes. The harmony map's handedness axis is **generalized to
+  any chord size**: `chirality(pcs)` is the bispectrum slice `Im(f1·f2·conj(f3))` (transposition-
+  invariant, inversion-odd, major<0/minor>0, separates dom7↔m7♭5); `stepGapChirality` keeps the
+  exact trichord `(a−b)(b−c)(c−a)`. The single slice false-zeros on 28 exotic 5–7-note set classes
   (none musical); the **complete** signed invariant (full bispectrum) is Tonality's open research
-  item. All maths is currently computed **client-side** — the standing Tonality ask is to *consume*
-  the engine's interval vector / `set_class_info` / **DFT magnitude+phase** once the bridge exposes
-  phase, rather than recompute (see `integrations/audiology/brief-15.md`).
-  *Remaining:* a reachable-domain "atlas" view, and interactive note-picking on the wheels/map.
+  item. All maths is currently computed **client-side**. **Tonality has now shipped the engine side**
+  (response-15 / -15-update): `set_class_info` exposes `dft_phases`, `dft_magnitudes`, `prime_form`,
+  `mask`, `trichord_chirality`, and `general_chirality` — so the *consume-when-connected* path
+  (keep client-side as the standalone fallback) is unblocked and is the natural next integration.
+  *Remaining:* wire engine-consume; a reachable-domain "atlas" view; interactive note-picking on the
+  wheels/map; the **MIDI chord-colour timeline** (roll toggle tinting chord segments by their
+  somatic colour as the song plays, drums excluded — engine segments now available, standalone needs
+  local segmentation).
 - **Confirm the drum grey reads distinctly** from the in-key/out-of-key note colours on the roll.
 - **Validation-harness PR (Tonality repo).** The `--ab-profile` / `--ab-profile-regions` harness
   modes depend on the engine's `profile_version` kwarg (#85). Open the harness PR once #85 + the

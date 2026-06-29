@@ -176,6 +176,30 @@ export function stackedIntervals(midis: number[]): StackedInterval[] {
   return out;
 }
 
+/** Pitch classes as semitone heights above the root (root → 0), sorted ascending.
+ *  Root = `rootPc` if given (and folded into 0..11), else the lowest pitch class. */
+export function stackAboveRoot(pcs: number[], rootPc: number | null): number[] {
+  const u = [...new Set(pcs.map((p) => ((p % 12) + 12) % 12))];
+  if (!u.length) return [];
+  const root = rootPc != null ? ((rootPc % 12) + 12) % 12 : Math.min(...u);
+  return u.map((p) => ((p - root) % 12 + 12) % 12).sort((a, b) => a - b);
+}
+
+const SHORT_IVL: Record<number, string> = {
+  0: "P1", 1: "m2", 2: "M2", 3: "m3", 4: "M3", 5: "P4", 6: "TT",
+  7: "P5", 8: "m6", 9: "M6", 10: "m7", 11: "M7", 12: "P8",
+};
+/** Short interval name for a semitone count (compounds fold to the simple name). */
+export function intervalShortName(semitones: number): string {
+  const s = ((semitones % 12) + 12) % 12;
+  return SHORT_IVL[s === 0 && semitones !== 0 ? 12 : s] ?? `${semitones}`;
+}
+/** Interval class (1..6) of a semitone count — the inversion-folded distance. */
+export function intervalClassOf(semitones: number): number {
+  const d = ((semitones % 12) + 12) % 12;
+  return Math.min(d, 12 - d);
+}
+
 // ----- harmony map: consonance × chirality (Tymoczko trichord geometry) ---------
 
 /** The step-gaps of a chord around the octave (sum = 12). Needs ≥2 distinct pcs. */
