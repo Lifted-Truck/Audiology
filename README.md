@@ -32,12 +32,17 @@ music-theory engine**.
 
 ## Getting started
 
-Requires **Node 18+**.
+This is a self-contained frontend — **Node 18+ is the only requirement.** No Python, no
+backend, no API keys.
 
 ```bash
+git clone <this-repo> && cd Audiology
 npm install
 npm run dev        # Vite dev server on http://localhost:5173
 ```
+
+That's it — the scale/chord explorer, the **Chord Anatomy** view, MIDI-file playback, and a
+local chord analyzer all work with **nothing else installed**.
 
 Other scripts:
 
@@ -47,9 +52,24 @@ npm run preview    # preview the production build
 npm run typecheck  # tsc --noEmit
 ```
 
-The theory-engine features are optional: the transport's **"⏻ Start engine"** button spawns
-the local Tonality bridge for you (see [Tonality integration](#tonality-integration)). Without
-it, the explorer, playback, and a local chord analyzer all still work.
+### Optional: the Tonality engine (deeper analysis)
+
+A few features — whole-file **key / structural-area / chord analysis** of loaded MIDI, and
+engine-backed live chord naming — are powered by the separate
+[Tonality](https://github.com/Lifted-Truck/Tonality) music-theory engine. **This is entirely
+optional; everything above runs without it.** It is *not* an npm dependency — the dev server
+launches it on demand when you click **"⏻ Start engine"** in the transport.
+
+To enable it: clone Tonality, set up its Python env (see its README), and either place it
+**next to this repo** (`../Tonality` — the zero-config default) or point the `TONALITY_DIR`
+environment variable at it:
+
+```bash
+TONALITY_DIR=/path/to/Tonality npm run dev     # also: TONALITY_PYTHON, TONALITY_PORT
+```
+
+The engine talks to the app over a local HTTP bridge — see
+[Tonality integration](#tonality-integration).
 
 ## Architecture
 

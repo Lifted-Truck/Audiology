@@ -24,7 +24,10 @@ import type { IncomingMessage, ServerResponse } from "node:http";
 // `mts`, so PYTHONPATH must point at the working tree — `-m mts.mcp.bridge` then
 // resolves the engine from there.
 function tonalityBridge(): Plugin {
-  const TONALITY_DIR = process.env.TONALITY_DIR || "/Users/machinepriest/Documents/Tonality";
+  // The optional engine. Default to a sibling checkout (clone Audiology and Tonality
+  // next to each other) so a fresh clone needs no config; override with TONALITY_DIR
+  // (and TONALITY_PYTHON) for any other layout. The app runs fully without it.
+  const TONALITY_DIR = process.env.TONALITY_DIR || join(process.cwd(), "..", "Tonality");
   const PYTHON = process.env.TONALITY_PYTHON || `${TONALITY_DIR}/.venv/bin/python`;
   const PORT = process.env.TONALITY_PORT || "8012";
   const BRIDGE_URL = `http://127.0.0.1:${PORT}`;
