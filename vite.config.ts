@@ -1,4 +1,4 @@
-import { defineConfig, type Plugin } from "vite";
+import { defineConfig, loadEnv, type Plugin } from "vite";
 import react from "@vitejs/plugin-react";
 import { spawn, type ChildProcess } from "node:child_process";
 import { writeFile, unlink } from "node:fs/promises";
@@ -23,13 +23,15 @@ import type { IncomingMessage, ServerResponse } from "node:http";
 // TONALITY_DIR, TONALITY_PYTHON, TONALITY_PORT. The .venv has a stale installed
 // `mts`, so PYTHONPATH must point at the working tree — `-m mts.mcp.bridge` then
 // resolves the engine from there.
-function tonalityBridge(): Plugin {
-  // The optional engine. Default to a sibling checkout (clone Audiology and Tonality
-  // next to each other) so a fresh clone needs no config; override with TONALITY_DIR
-  // (and TONALITY_PYTHON) for any other layout. The app runs fully without it.
-  const TONALITY_DIR = process.env.TONALITY_DIR || join(process.cwd(), "..", "Tonality");
-  const PYTHON = process.env.TONALITY_PYTHON || `${TONALITY_DIR}/.venv/bin/python`;
-  const PORT = process.env.TONALITY_PORT || "8012";
+function tonalityBridge(env: Record<string, string>): Plugin {
+  // The optional engine. `env` is the merged .env*/.env.local + shell environment
+  // (via loadEnv), so a machine can point at its own Tonality checkout in `.env.local`
+  // (TONALITY_DIR / TONALITY_PYTHON / TONALITY_PORT) without editing committed code.
+  // Default to a sibling checkout (clone Audiology and Tonality next to each other) so a
+  // fresh clone needs no config; the app runs fully without the engine either way.
+  const TONALITY_DIR = env.TONALITY_DIR || join(process.cwd(), "..", "Tonality");
+  const PYTHON = env.TONALITY_PYTHON || `${TONALITY_DIR}/.venv/bin/python`;
+  const PORT = env.TONALITY_PORT || "8012";
   const BRIDGE_URL = `http://127.0.0.1:${PORT}`;
 
   let child: ChildProcess | null = null;
@@ -131,7 +133,12 @@ function tonalityBridge(): Plugin {
   };
 }
 
-export default defineConfig({
-  plugins: [react(), tonalityBridge()],
-  server: { open: true },
+export default defineConfig(({ mode }) => {
+  // Load .env, .env.local, etc. (all keys, no VITE_ prefix filter) so the engine
+  // launcher can read machine-specific TONALITY_* without committing a personal path.
+  const env = loadEnv(mode, process.cwd(), "");
+  return {
+    plugins: [react(), tonalityBridge(env)],
+    server: { open: true },
+  };
 });
