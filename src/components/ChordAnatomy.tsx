@@ -20,10 +20,17 @@ import {
   trichordLandscape,
   primeForm,
   pcBitmask,
+  analyzeSelection,
+  stackAboveRoot,
+  intervalShortName,
+  intervalClassOf,
+  MAX_CHIRALITY,
+  MAX_CONSONANCE_F5,
   IC_PAIR_LABELS,
   IC_HUES,
   icRimAngle,
 } from "../lib/theory";
+import type { SetClassInfo } from "../lib/tonality/bridge";
 
 const C = {
   bg: "#0d1117",
@@ -50,26 +57,56 @@ export default function ChordAnatomy({
   realizationMidi,
   label,
   symbol,
+  facts,
 }: {
   pcs: number[];
   rootPc: number | null;
   realizationMidi: number[];
   label: (pc: number) => string;
   symbol?: string | null;
+  facts?: SetClassInfo | null;
 }) {
   const [panel, setPanel] = useState<Panel>("colour");
   const uniq = [...new Set(pcs.map((p) => ((p % 12) + 12) % 12))].sort((a, b) => a - b);
 
-  if (uniq.length < 2) {
-    return (
-      <div style={{ padding: "18px 14px", color: C.faint, fontSize: 13, textAlign: "center" }}>
-        {symbol ? `${symbol} — ` : ""}select or build a chord (2+ notes) to see its anatomy.
-      </div>
-    );
-  }
+  // The graphs are ALWAYS rendered — the scaffolding (wheel rings, IC rim, histogram
+  // axis, harmony-map landscape) persists so the section never resizes or blinks out
+  // during MIDI playback / live performance. Only the chord-specific marks (resultant
+  // dots, bars, the map ring) come and go with the current selection. Nothing is
+  // latched: when fewer than 2 notes sound, the marks simply clear.
+  const active = uniq.length >= 2;
+  // Engine facts only when they describe the currently-shown chord (and it's active).
+  const eng = active && facts ? facts : null;
+  const realization = realizationMidi.length >= 2 ? realizationMidi : uniq.map((p) => 60 + p);
+  const name = active ? identify(uniq, realization, symbol) : uniq.length === 1 ? NOTE[uniq[0]] : "—";
+  const sub = active
+    ? uniq.map((p) => NOTE[p]).join(" ")
+    : uniq.length === 1
+      ? "single note · play 2+ notes for the full anatomy"
+      : "waiting for notes";
 
   return (
     <div style={{ color: C.text }}>
+      <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginBottom: 8 }}>
+        <span style={{ fontSize: 17, fontWeight: 600, color: active ? C.text : C.faint }}>{name}</span>
+        <span style={{ fontSize: 11, color: C.faint, fontFamily: "'JetBrains Mono', monospace" }}>{sub}</span>
+        {active && (
+          <span
+            title={eng ? "set-class facts from the Tonality engine" : "computed locally (engine not connected)"}
+            style={{
+              marginLeft: "auto",
+              fontSize: 9.5,
+              letterSpacing: "0.05em",
+              padding: "1px 6px",
+              borderRadius: 5,
+              border: `1px solid ${eng ? C.teal : C.border2}`,
+              color: eng ? C.teal : C.faint,
+            }}
+          >
+            {eng ? "engine" : "local"}
+          </span>
+        )}
+      </div>
       <div style={{ display: "flex", gap: 4, marginBottom: 12 }}>
         {(["colour", "intervals", "map"] as Panel[]).map((p) => (
           <button
@@ -92,24 +129,35 @@ export default function ChordAnatomy({
         ))}
       </div>
 
-      {panel === "colour" && <ColourPanel uniq={uniq} realizationMidi={realizationMidi} label={label} />}
-      {panel === "intervals" && (
-        <IntervalsPanel uniq={uniq} rootPc={rootPc} realizationMidi={realizationMidi} />
-      )}
-      {panel === "map" && <MapPanel uniq={uniq} />}
+      {/* Fixed-height panel area so switching panels / changing chord size never resizes
+          the section. Sized to the tallest panel; shorter panels keep the headroom. */}
+      <div style={{ minHeight: 392 }}>
+        {panel === "colour" && <ColourPanel uniq={uniq} realizationMidi={realization} active={active} label={label} />}
+        {panel === "intervals" && <IntervalsPanel uniq={uniq} rootPc={rootPc} active={active} eng={eng} />}
+        {panel === "map" && <MapPanel uniq={uniq} name={active ? name : null} active={active} eng={eng} />}
+      </div>
     </div>
   );
 }
 
+/** Chord name if recognized, else a stacked-interval list. Mirrors the app analyzer. */
+function identify(pcs: number[], midis: number[], symbol?: string | null): string {
+  if (symbol) return symbol;
+  const res = analyzeSelection(midis, (pc) => NOTE[pc]);
+  if ("candidates" in res && res.candidates.length) return res.candidates[0].name;
+  const lad = stackedIntervals(midis).map((s) => s.name);
+  return lad.length ? lad.join("·") : pcs.map((p) => NOTE[p]).join(" ");
+}
+
 // ----- Colour ------------------------------------------------------------------
 
-function Swatch({ title, css, focus, sub }: { title: string; css: string; focus: number; sub: string }) {
+function Swatch({ title, css, focus, sub, active }: { title: string; css: string; focus: number; sub: string; active: boolean }) {
   return (
     <div style={{ flex: 1 }}>
       <div style={{ fontSize: 11, color: C.dim, marginBottom: 4 }}>{title}</div>
-      <div style={{ height: 40, borderRadius: 8, background: css, border: `1px solid ${C.border2}` }} />
+      <div style={{ height: 40, borderRadius: 8, background: active ? css : "#161b22", border: `1px solid ${C.border2}` }} />
       <div style={{ fontSize: 10, color: C.faint, marginTop: 4 }}>
-        {sub} · focus {focus.toFixed(2)}
+        {active ? `${sub} · focus ${focus.toFixed(2)}` : "—"}
       </div>
     </div>
   );
@@ -118,10 +166,12 @@ function Swatch({ title, css, focus, sub }: { title: string; css: string; focus:
 function ColourPanel({
   uniq,
   realizationMidi,
+  active,
   label,
 }: {
   uniq: number[];
   realizationMidi: number[];
+  active: boolean;
   label: (pc: number) => string;
 }) {
   const tc = tonalColor(uniq, realizationMidi);
@@ -129,23 +179,22 @@ function ColourPanel({
   return (
     <div>
       <div style={{ display: "flex", gap: 12, marginBottom: 14 }}>
-        <Swatch title="Tonal colour (root-aware)" css={tc.css} focus={tc.focus} sub={`hue ${Math.round(tc.hue)}°`} />
-        <Swatch title="Interval colour (root-blind)" css={ic.css} focus={ic.focus} sub={`hue ${Math.round(ic.hue)}°`} />
+        <Swatch title="Tonal colour (root-aware)" css={tc.css} focus={tc.focus} sub={`hue ${Math.round(tc.hue)}°`} active={active} />
+        <Swatch title="Interval colour (root-blind)" css={ic.css} focus={ic.focus} sub={`hue ${Math.round(ic.hue)}°`} active={active} />
       </div>
       <div style={{ display: "flex", gap: 12 }}>
-        <PitchWheel uniq={uniq} css={tc.css} label={label} />
-        <IntervalWheel uniq={uniq} css={ic.css} />
+        <PitchWheel uniq={uniq} css={tc.css} active={active} label={label} />
+        <IntervalWheel uniq={uniq} css={ic.css} active={active} />
       </div>
     </div>
   );
 }
 
-function PitchWheel({ uniq, css, label }: { uniq: number[]; css: string; label: (pc: number) => string }) {
+function PitchWheel({ uniq, css, active, label }: { uniq: number[]; css: string; active: boolean; label: (pc: number) => string }) {
   const S = 188,
     cx = 94,
     cy = 94,
     R = 64;
-  const memb = new Set(uniq);
   const screenAng = (pc: number) => (cofPos(pc) * 30 - 90) * D2R;
   let sx = 0,
     sy = 0;
@@ -153,8 +202,8 @@ function PitchWheel({ uniq, css, label }: { uniq: number[]; css: string; label: 
     sx += Math.cos(screenAng(pc));
     sy += Math.sin(screenAng(pc));
   }
-  const rx = cx + (sx / uniq.length) * R,
-    ry = cy + (sy / uniq.length) * R;
+  const rx = cx + (uniq.length ? sx / uniq.length : 0) * R,
+    ry = cy + (uniq.length ? sy / uniq.length : 0) * R;
   return (
     <div style={{ flex: 1, textAlign: "center" }}>
       <div style={{ fontSize: 10.5, color: C.dim, marginBottom: 2 }}>circle of fifths</div>
@@ -182,15 +231,19 @@ function PitchWheel({ uniq, css, label }: { uniq: number[]; css: string; label: 
             </g>
           );
         })}
-        <line x1={cx} y1={cy} x2={rx} y2={ry} stroke={C.dim} strokeWidth={1.2} strokeDasharray="3 2" />
-        <circle cx={rx} cy={ry} r={7.5} fill={css} stroke={C.text} strokeWidth={1.4} />
+        {active && (
+          <>
+            <line x1={cx} y1={cy} x2={rx} y2={ry} stroke={C.dim} strokeWidth={1.2} strokeDasharray="3 2" />
+            <circle cx={rx} cy={ry} r={7.5} fill={css} stroke={C.text} strokeWidth={1.4} />
+          </>
+        )}
         <circle cx={cx} cy={cy} r={1.6} fill={C.faint} />
       </svg>
     </div>
   );
 }
 
-function IntervalWheel({ uniq, css }: { uniq: number[]; css: string }) {
+function IntervalWheel({ uniq, css, active }: { uniq: number[]; css: string; active: boolean }) {
   const S = 188,
     cx = 94,
     cy = 94,
@@ -205,8 +258,8 @@ function IntervalWheel({ uniq, css }: { uniq: number[]; css: string }) {
     ux += w[k] * Math.cos(icRimAngle(k));
     uy += w[k] * Math.sin(icRimAngle(k));
   }
-  const rx = cx + (ux / tot) * R,
-    ry = cy + (uy / tot) * R;
+  const rx = cx + (tot ? ux / tot : 0) * R,
+    ry = cy + (tot ? uy / tot : 0) * R;
   return (
     <div style={{ flex: 1, textAlign: "center" }}>
       <div style={{ fontSize: 10.5, color: C.dim, marginBottom: 2 }}>interval content</div>
@@ -225,8 +278,13 @@ function IntervalWheel({ uniq, css }: { uniq: number[]; css: string }) {
           );
         })}
         {tt > 0 && <circle cx={cx} cy={cy} r={3 + tt * 2.4} fill="none" stroke={C.faint} strokeWidth={1.1} strokeDasharray="2.5 2" />}
-        <line x1={cx} y1={cy} x2={rx} y2={ry} stroke={C.dim} strokeWidth={1.2} strokeDasharray="3 2" />
-        <circle cx={rx} cy={ry} r={7.5} fill={css} stroke={C.text} strokeWidth={1.4} />
+        {active && (
+          <>
+            <line x1={cx} y1={cy} x2={rx} y2={ry} stroke={C.dim} strokeWidth={1.2} strokeDasharray="3 2" />
+            <circle cx={rx} cy={ry} r={7.5} fill={css} stroke={C.text} strokeWidth={1.4} />
+          </>
+        )}
+        <circle cx={cx} cy={cy} r={1.6} fill={C.faint} />
       </svg>
     </div>
   );
@@ -237,18 +295,21 @@ function IntervalWheel({ uniq, css }: { uniq: number[]; css: string }) {
 function IntervalsPanel({
   uniq,
   rootPc,
-  realizationMidi,
+  active,
+  eng,
 }: {
   uniq: number[];
   rootPc: number | null;
-  realizationMidi: number[];
+  active: boolean;
+  eng: SetClassInfo | null;
 }) {
   const v = intervalVector(uniq);
   const maxic = Math.max(1, ...v);
-  const ladderMidi = realizationMidi.length >= 2 ? realizationMidi : uniq.map((p, i) => 60 + (uniq[i] - uniq[0] + 12) % 12);
-  const ladder = stackedIntervals(ladderMidi);
-  const pf = primeForm(uniq);
-  const mask = pcBitmask(uniq);
+  const heights = stackAboveRoot(uniq, rootPc);
+  const rootAbs = rootPc != null ? ((rootPc % 12) + 12) % 12 : uniq.length ? uniq[0] : 0;
+  // Prefer the engine's set-class identity when connected (Rahn prime form is authoritative).
+  const pf = eng ? eng.primeForm : primeForm(uniq);
+  const mask = eng ? eng.mask : pcBitmask(uniq);
   return (
     <div>
       <div style={{ fontSize: 11, color: C.dim, marginBottom: 5 }}>
@@ -277,20 +338,21 @@ function IntervalsPanel({
         })}
       </div>
 
-      <div style={{ fontSize: 11, color: C.dim, marginBottom: 5 }}>stacked intervals (bottom → top)</div>
-      <div style={{ display: "flex", flexDirection: "column-reverse", gap: 0, marginBottom: 14 }}>
-        {ladder.map((s, i) => (
-          <div key={i} style={{ fontSize: 12, color: C.text, padding: "3px 0", borderTop: `0.5px solid ${C.border}` }}>
-            {s.name} <span style={{ color: C.faint, fontSize: 10 }}>({s.semitones} st)</span>
-          </div>
-        ))}
-        {ladder.length === 0 && <div style={{ fontSize: 11, color: C.faint }}>—</div>}
+      <div style={{ fontSize: 11, color: C.dim, marginBottom: 3 }}>
+        intervals above the root · every pair, stacked by span
+      </div>
+      <div style={{ height: 168, display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 14 }}>
+        {active && heights.length >= 2 ? (
+          <IntervalBrackets heights={heights} rootAbs={rootAbs} />
+        ) : (
+          <div style={{ fontSize: 11, color: C.faint }}>—</div>
+        )}
       </div>
 
       <div style={{ fontSize: 11, color: C.dim, lineHeight: 1.7, fontFamily: "'JetBrains Mono', monospace" }}>
         <div>
-          notes&nbsp;&nbsp;{uniq.map((p) => NOTE[p]).join(" ")}
-          {rootPc != null ? <span style={{ color: C.faint }}> · bass {NOTE[((rootPc % 12) + 12) % 12]}</span> : null}
+          notes&nbsp;&nbsp;{uniq.length ? uniq.map((p) => NOTE[p]).join(" ") : "—"}
+          {active && rootPc != null ? <span style={{ color: C.faint }}> · bass {NOTE[((rootPc % 12) + 12) % 12]}</span> : null}
         </div>
         <div>prime&nbsp;&nbsp;[{pf.join(" ")}]</div>
         <div>vector&nbsp;[{v.join(" ")}]</div>
@@ -300,9 +362,61 @@ function IntervalsPanel({
   );
 }
 
+// Stacked interval brackets: notes along the bottom, every pairwise interval drawn as
+// a bracket spanning its two notes, stacked by span width (adjacent at the bottom, the
+// full span on top). Shows how the small intervals above the root nest into wider ones.
+function IntervalBrackets({ heights, rootAbs }: { heights: number[]; rootAbs: number }) {
+  const n = heights.length;
+  const colW = n > 5 ? 40 : 46,
+    rowH = 22,
+    leftPad = 22,
+    topPad = 14;
+  const maxLevel = n - 1;
+  const noteX = (i: number) => leftPad + i * colW;
+  const rowY = (d: number) => topPad + (maxLevel - d) * rowH;
+  const noteY = topPad + maxLevel * rowH + 18;
+  const W = leftPad * 2 + (n - 1) * colW;
+  const H = noteY + 6;
+  const icColor = (ic: number) => (ic <= 5 ? `oklch(0.64 0.15 ${IC_HUES[ic - 1]})` : "#8590a2");
+
+  const brackets: React.ReactNode[] = [];
+  for (let d = 1; d <= maxLevel; d++) {
+    for (let k = 0; k + d < n; k++) {
+      const semi = heights[k + d] - heights[k];
+      const col = icColor(intervalClassOf(semi));
+      const x1 = noteX(k),
+        x2 = noteX(k + d),
+        y = rowY(d);
+      brackets.push(
+        <g key={`${d}-${k}`}>
+          <line x1={x1} y1={y} x2={x2} y2={y} stroke={col} strokeWidth={1.5} />
+          <line x1={x1} y1={y} x2={x1} y2={y + 4} stroke={col} strokeWidth={1.5} />
+          <line x1={x2} y1={y} x2={x2} y2={y + 4} stroke={col} strokeWidth={1.5} />
+          <rect x={(x1 + x2) / 2 - 13} y={y - 11} width={26} height={13} rx={3} fill={C.panel} />
+          <text x={(x1 + x2) / 2} y={y - 1} textAnchor="middle" fontSize={10} fontWeight={600} fill={col}>
+            {intervalShortName(semi)}
+          </text>
+        </g>
+      );
+    }
+  }
+  // Fills a fixed-height parent (xMidYMid meet) so adding notes scales the diagram to
+  // fit instead of growing the panel — the box height stays static.
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="xMidYMid meet" style={{ width: "100%", height: "100%", display: "block" }}>
+      {brackets}
+      {heights.map((h, i) => (
+        <text key={i} x={noteX(i)} y={noteY} textAnchor="middle" fontSize={11} fontWeight={700} fontFamily="'JetBrains Mono', monospace" fill={C.dim}>
+          {NOTE[(rootAbs + h) % 12]}
+        </text>
+      ))}
+    </svg>
+  );
+}
+
 // ----- Harmony map -------------------------------------------------------------
 
-function MapPanel({ uniq }: { uniq: number[] }) {
+function MapPanel({ uniq, name, active, eng }: { uniq: number[]; name: string | null; active: boolean; eng: SetClassInfo | null }) {
   const W = 300,
     H = 260,
     L = 30,
@@ -310,21 +424,32 @@ function MapPanel({ uniq }: { uniq: number[] }) {
     T = 16,
     B = 214,
     cxAxis = (L + Rr) / 2;
-  const F5MAX = 2.85;
+  // Fixed global bounds (max over ALL pc-sets) so the axes encompass every possible
+  // chord — never rescaling or clamping as the chord changes. Signed cube-root on x
+  // keeps the small-magnitude triads legible despite the wide (±8.2) handedness range.
+  const F5MAX = MAX_CONSONANCE_F5 * 1.04;
+  const CHN = cbrt(MAX_CHIRALITY * 1.02);
   const land = trichordLandscape();
-  const myCh = chirality(uniq);
-  const myF5 = consonanceF5(uniq);
-  // Signed cube-root scale (compresses range, keeps triads visible), auto-fit to
-  // whatever's shown so 4+ note chords with larger handedness don't fly off.
-  const maxAbs = Math.max(0.5, Math.abs(myCh), ...land.map((t) => Math.abs(t.chirality)));
-  const CHN = cbrt(maxAbs);
+  // Consume the engine's determinations when connected. `general_chirality` is the same
+  // bispectrum slice the landscape dots use, so use it directly — the ring then lands
+  // exactly on its landscape dot (maj on "maj", etc.). Only for true bispectrum
+  // blind-spots (general ≈ 0 but the complete `chirality_sign` is ±) do we nudge off the
+  // spine so the chord still shows its correct side.
+  const myF5 = eng ? eng.consonanceF5 : consonanceF5(uniq);
+  const myCh = eng
+    ? Math.abs(eng.generalChirality) > 0.01
+      ? eng.generalChirality
+      : eng.chiralitySign * 0.4
+    : chirality(uniq);
   const halfW = (Rr - L) / 2;
-  const clampX = (x: number) => Math.max(L, Math.min(Rr, x));
+  const clampX = (x: number) => Math.max(L + 6, Math.min(Rr - 6, x));
   const X = (ch: number) => clampX(cxAxis + (cbrt(ch) / CHN) * halfW);
   const Y = (f5: number) => B - (f5 / F5MAX) * (B - T);
+  const myX = X(myCh),
+    myY = Y(myF5);
   return (
     <div>
-      <svg viewBox={`0 0 ${W} ${H}`} style={{ width: "100%" }}>
+      <svg viewBox={`0 0 ${W} ${H}`} style={{ width: "100%", maxWidth: 380, display: "block", margin: "0 auto" }}>
         <line x1={cxAxis} y1={T} x2={cxAxis} y2={B + 4} stroke={C.border2} strokeWidth={1} strokeDasharray="3 3" />
         <line x1={L} y1={B + 4} x2={Rr} y2={B + 4} stroke={C.border} strokeWidth={1} />
         <text x={L} y={B + 18} textAnchor="start" fontSize={9.5} fill={C.dim}>
@@ -340,23 +465,51 @@ function MapPanel({ uniq }: { uniq: number[] }) {
           consonance |f5| →
         </text>
         {land.map((t, i) => {
-          const big = /maj|min|aug|dim|sus|cluster/.test(t.name);
+          const big = /^(maj|min|aug|dim|sus|cluster)$/.test(t.name);
           return (
             <g key={i}>
-              <circle cx={X(t.chirality)} cy={Y(t.consonance)} r={big ? 5.5 : 4} fill={t.intervalCss} stroke={C.text} strokeWidth={big ? 1.1 : 0.4} opacity={0.9} />
+              {/* hover anything for its name; the named anchors also show a visible label */}
+              <circle cx={X(t.chirality)} cy={Y(t.consonance)} r={big ? 5.5 : 4} fill={t.intervalCss} stroke={C.text} strokeWidth={big ? 1.1 : 0.4} opacity={0.9} style={{ cursor: "default" }}>
+                <title>{t.name}</title>
+              </circle>
               {big && (
-                <text x={X(t.chirality) + (t.chirality < 0 ? -7 : 7)} y={Y(t.consonance) + 3} textAnchor={t.chirality < 0 ? "end" : "start"} fontSize={9} fill={C.dim}>
+                <text x={X(t.chirality) + (t.chirality < 0 ? -7 : 7)} y={Y(t.consonance) + 3} textAnchor={t.chirality < 0 ? "end" : "start"} fontSize={9} fill={C.dim} pointerEvents="none">
                   {t.name}
                 </text>
               )}
             </g>
           );
         })}
-        <circle cx={X(myCh)} cy={Y(myF5)} r={9} fill="none" stroke={C.accent} strokeWidth={2.5} />
+        {active && (
+          <>
+            <circle cx={myX} cy={myY} r={9} fill="none" stroke={C.accent} strokeWidth={2.5}>
+              <title>{name ?? ""}</title>
+            </circle>
+            <text
+              x={clampX(myX)}
+              y={myY - 13 < T + 4 ? myY + 22 : myY - 13}
+              textAnchor="middle"
+              fontSize={11}
+              fontWeight={600}
+              fill={C.accent}
+              pointerEvents="none"
+            >
+              {name}
+            </text>
+          </>
+        )}
       </svg>
       <div style={{ fontSize: 10.5, color: C.faint, marginTop: 4, lineHeight: 1.5 }}>
-        Ring = this chord (|f5| {myF5.toFixed(2)}, handedness {myCh >= 0 ? "+" : ""}{myCh.toFixed(2)}). Dots = common
-        trichords for reference. Consonance ↑, inversional handedness ←→ (major/minor on triads, bispectrum for any size).
+        {active ? (
+          <>
+            Ring = {name} (|f5| {myF5.toFixed(2)}, handedness {myCh >= 0 ? "+" : ""}
+            {myCh.toFixed(2)}).{" "}
+          </>
+        ) : (
+          <>Play a chord to plot it. </>
+        )}
+        Dots = common trichords for reference. Consonance ↑, inversional handedness ←→ (major/minor on triads,
+        bispectrum for any size).
       </div>
     </div>
   );

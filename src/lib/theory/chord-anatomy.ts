@@ -176,6 +176,30 @@ export function stackedIntervals(midis: number[]): StackedInterval[] {
   return out;
 }
 
+/** Pitch classes as semitone heights above the root (root → 0), sorted ascending.
+ *  Root = `rootPc` if given (and folded into 0..11), else the lowest pitch class. */
+export function stackAboveRoot(pcs: number[], rootPc: number | null): number[] {
+  const u = [...new Set(pcs.map((p) => ((p % 12) + 12) % 12))];
+  if (!u.length) return [];
+  const root = rootPc != null ? ((rootPc % 12) + 12) % 12 : Math.min(...u);
+  return u.map((p) => ((p - root) % 12 + 12) % 12).sort((a, b) => a - b);
+}
+
+const SHORT_IVL: Record<number, string> = {
+  0: "P1", 1: "m2", 2: "M2", 3: "m3", 4: "M3", 5: "P4", 6: "TT",
+  7: "P5", 8: "m6", 9: "M6", 10: "m7", 11: "M7", 12: "P8",
+};
+/** Short interval name for a semitone count (compounds fold to the simple name). */
+export function intervalShortName(semitones: number): string {
+  const s = ((semitones % 12) + 12) % 12;
+  return SHORT_IVL[s === 0 && semitones !== 0 ? 12 : s] ?? `${semitones}`;
+}
+/** Interval class (1..6) of a semitone count — the inversion-folded distance. */
+export function intervalClassOf(semitones: number): number {
+  const d = ((semitones % 12) + 12) % 12;
+  return Math.min(d, 12 - d);
+}
+
 // ----- harmony map: consonance × chirality (Tymoczko trichord geometry) ---------
 
 /** The step-gaps of a chord around the octave (sum = 12). Needs ≥2 distinct pcs. */
@@ -231,6 +255,15 @@ export function consonanceF5(pcs: number[]): number {
   return dft(pcs)[5].mag;
 }
 
+/**
+ * Global maxima over **all** pc-sets (by exhaustive enumeration of the 4096 subsets) —
+ * fixed bounds for the harmony map so its axes encompass every possible chord and never
+ * rescale or clamp. `chirality` peaks at 8.196 (e.g. {0,1,4,5,10,11}, far past the 2.366
+ * trichord max); `|f5|` peaks at 3.864 (e.g. {1,3,5,6,8,10}).
+ */
+export const MAX_CHIRALITY = 8.196;
+export const MAX_CONSONANCE_F5 = 3.864;
+
 /** A point on the harmony map. */
 export interface HarmonyPoint {
   x: number; // chirality (bispectrum handedness)
@@ -258,13 +291,15 @@ function nameTrichord(gapsSorted: number[], ch: number): string {
   if (achiral[a]) return achiral[a];
   const chiral: Record<string, [string, string]> = {
     "3,4,5": ["maj", "min"],
+    "2,3,7": ["(0 2 5)", "(0 3 5)"],
     "2,4,6": ["(0 2 6)", "(0 4 6)"],
-    "1,5,6": ["cl+TT", "cl+TT"],
+    "1,5,6": ["(0 1 6)", "(0 5 6)"],
     "1,4,7": ["(0 1 5)", "(0 4 5)"],
     "1,3,8": ["(0 1 4)", "(0 3 4)"],
     "1,2,9": ["(0 1 3)", "(0 2 3)"],
   };
-  return chiral[a] ? (ch < 0 ? chiral[a][0] : chiral[a][1]) : "";
+  if (chiral[a]) return ch < 0 ? chiral[a][0] : chiral[a][1];
+  return "(" + a.replace(/,/g, " ") + ")"; // never empty — fallback to the gap signature
 }
 let _landscape: TrichordType[] | null = null;
 export function trichordLandscape(): TrichordType[] {

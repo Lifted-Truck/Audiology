@@ -6,6 +6,12 @@ pitch-class diagrams, with live MIDI-file playback and real-time, theory-engine-
 analysis. Its north star is to become **a GUI for the [Tonality](#tonality-integration)
 music-theory engine**.
 
+<p align="center">
+  <img src="docs/midi.png" alt="Audiology — MIDI piano roll with Tonality key and chord analysis" width="780">
+</p>
+<p align="center"><sub>A loaded MIDI file analysed by the Tonality engine — the structural key strip
+(B♭ maj), a tonicization pivot lane, and the per-segment chord strip over the piano roll.</sub></p>
+
 ## Features
 
 - **Scale & chord explorer** — 27 scales, 20 chord qualities, inversions and voicings,
@@ -26,18 +32,51 @@ music-theory engine**.
   connected, local fallback otherwise), with functional role and alternatives.
 - **Chord Anatomy** — a view that demystifies the current chord across three panels: **Colour**
   (root-aware circle-of-fifths and root-blind interval-content colour wheels, each showing the
-  resultant-vector construction), **Intervals** (interval-vector histogram, stacked-interval
-  ladder, set-class / prime-form / bitmask), and a **Harmony map** (consonance × major/minor
-  chirality, plotting the chord over the trichord landscape).
+  resultant-vector construction), **Intervals** (interval-vector histogram; a stacked **interval-
+  bracket diagram** showing every pair above the root nesting into wider intervals; set-class /
+  prime-form / bitmask), and a **Harmony map** (consonance × major/minor chirality, plotting the
+  chord over the trichord landscape). The graphs persist as scaffolding so the section never blinks
+  out during playback. When the Tonality engine is connected, the set-class facts come from the
+  engine (an "engine / local" badge shows the source); otherwise they're computed locally.
+
+  <p>
+    <img src="docs/anatomy_colour.png" alt="Chord Anatomy — Colour panel" width="265">
+    <img src="docs/anatomy_intervals.png" alt="Chord Anatomy — Intervals panel" width="265">
+    <img src="docs/anatomy_harmony.png" alt="Chord Anatomy — Harmony map panel" width="265">
+  </p>
+  <sub>Chord Anatomy's three panels for a C major triad — <b>Colour</b> (the two resultant-vector
+  wheels), <b>Intervals</b> (interval vector + bracket diagram + set-class), and the <b>Harmony map</b>
+  (consonance × major/minor chirality). The "engine" badge shows the set-class facts are coming from
+  Tonality.</sub>
+
+## A look at the surfaces
+
+The explorer surfaces (toggled in the **Views** bar):
+
+<p>
+  <img src="docs/piano.png" alt="Piano keyboard with in-scale / chord-tone / out-of-scale colouring" width="540">
+  <img src="docs/pushgrid.png" alt="Ableton-Push-style pad grid" width="235" valign="top">
+</p>
+<p>
+  <img src="docs/diagrams.png" alt="Bracelet, Tonnetz, and Circle of Fifths diagrams" width="780">
+</p>
+<sub>The C2–C6 piano and the 8×8 Push grid (teal = in scale, amber = chord tone, red = out of scale),
+and the <b>Bracelet</b> / endless <b>Tonnetz</b> / <b>Circle of Fifths</b> pitch-class diagrams.
+The <a href="docs/fullpage.png">whole app in one view</a>.</sub>
 
 ## Getting started
 
-Requires **Node 18+**.
+This is a self-contained frontend — **Node 18+ is the only requirement.** No Python, no
+backend, no API keys.
 
 ```bash
+git clone <this-repo> && cd Audiology
 npm install
 npm run dev        # Vite dev server on http://localhost:5173
 ```
+
+That's it — the scale/chord explorer, the **Chord Anatomy** view, MIDI-file playback, and a
+local chord analyzer all work with **nothing else installed**.
 
 Other scripts:
 
@@ -47,9 +86,26 @@ npm run preview    # preview the production build
 npm run typecheck  # tsc --noEmit
 ```
 
-The theory-engine features are optional: the transport's **"⏻ Start engine"** button spawns
-the local Tonality bridge for you (see [Tonality integration](#tonality-integration)). Without
-it, the explorer, playback, and a local chord analyzer all still work.
+### Optional: the Tonality engine (deeper analysis)
+
+A few features — whole-file **key / structural-area / chord analysis** of loaded MIDI, and
+engine-backed live chord naming — are powered by the separate
+[Tonality](https://github.com/Lifted-Truck/Tonality) music-theory engine. **This is entirely
+optional; everything above runs without it.** It is *not* an npm dependency — the dev server
+launches it on demand when you click **"⏻ Start engine"** in the transport.
+
+To enable it: clone Tonality, set up its Python env (see its README), then either place it
+**next to this repo** (`../Tonality` — the zero-config default) or tell the dev server where it
+is. The simplest way is a local env file:
+
+```bash
+cp .env.example .env.local      # then set TONALITY_DIR=/path/to/Tonality
+npm run dev
+```
+
+`.env.local` is gitignored; the dev server reads `TONALITY_DIR` (plus optional `TONALITY_PYTHON`
+/ `TONALITY_PORT`) from it — or from a shell env var (`TONALITY_DIR=… npm run dev`). The engine
+talks to the app over a local HTTP bridge — see [Tonality integration](#tonality-integration).
 
 ## Architecture
 
@@ -59,18 +115,21 @@ A framework-free core is kept strictly separate from the React UI:
 src/
   lib/theory/    Pure music theory — scales, chord qualities, pitch, voicings, chord
                  analysis (analyzeSelection), scale detection, Roman-numeral analysis
-                 (roman.ts). Imports no React; unit-testable.
+                 (roman.ts), and chord-anatomy maths (chord-anatomy.ts: interval vector,
+                 DFT, the two colour resultants, chirality, interval brackets). No React.
   lib/midi/      MIDI parsing (@tonejs/midi → Song; notes carry beats/duration/drum,
                  Song carries beatsToSeconds / timeToBarBeat / barStarts) + time queries
                  + keyboard/Web-MIDI input. No React.
   lib/tonality/  The Tonality integration boundary — the only module that knows the
-                 engine's wire format (probe / nameChord / analyzeMidi / structuralKeys);
-                 everything downstream consumes the normalized FileAnalysis.
+                 engine's wire format (probe / nameChord / setClassInfo / analyzeMidi /
+                 structuralKeys); everything downstream consumes normalized data.
   geometry/      piano.ts — the single source of truth for the pitch axis, shared by the
                  Piano keyboard and the PianoRoll so they stay aligned.
   audio/         synth.ts (one shared synth) + transport.ts (anchor-pair clock + lookahead).
-  hooks/         usePlayback, useAudioContext, useLiveInput, useBridge, useEngineProcess.
-  components/    Grid, Piano, PianoRoll, TransportBar, Bracelet, Tonnetz, ControlPanels.
+  hooks/         usePlayback, useAudioContext, useLiveInput, useBridge, useEngineProcess,
+                 useChordFacts (consume engine set-class facts when connected).
+  components/    Grid, Piano, PianoRoll, TransportBar, Bracelet, Tonnetz, CircleOfFifths,
+                 ChordAnatomy, ControlPanels.
   App.tsx        Owns state; derives grid/piano/chord/highlight/analysis data.
 ```
 
@@ -94,7 +153,13 @@ src/
 Audiology consumes [Tonality](https://github.com/Lifted-Truck/Tonality), a local-first
 music-theory engine, over its official HTTP bridge (`python -m mts.mcp.bridge`, loopback
 `:8012`). The dev server can spawn/stop the bridge on demand. `src/lib/tonality/` is the only
-module that speaks the engine's wire format; the UI consumes a normalized `FileAnalysis`.
+module that speaks the engine's wire format; the UI consumes normalized data.
+
+The integration is **consume-when-connected**: where the engine is up, Audiology prefers its
+determinations (e.g. Chord Anatomy's set-class identity, DFT, and chirality from `set_class_info`)
+and falls back to the local pure-theory core when it isn't — so the app stays fully usable offline.
+The north-star (see Roadmap) is to make the engine the single source of truth and retire the
+duplicated local math once the engine can be packaged with the app.
 
 The two projects coordinate through a brief/response channel in the Tonality repo
 (`integrations/audiology/`), backed by a corpus **validation harness** (`validation/` in the
@@ -107,6 +172,28 @@ bytes→path file-analysis adapter.
 Near-term feature work and known bugs are tracked in [CLAUDE.md](CLAUDE.md) ("Open
 engineering threads"). The longer-horizon direction:
 
+- **Tonality at the core (north star).** Today the app duplicates a lot of theory locally
+  (interval vector, DFT, set-class, chirality, chord naming, scale detection) so it can run
+  standalone, with the engine as an optional sidecar. The end state is the inverse: **Tonality
+  is the single source of truth**, and that duplicated client-side math is *removed* — one
+  implementation, no drift. The blocker is runtime: Tonality is Python, so "baked in" means the
+  engine **travels with the app** rather than being a separately-cloned sidecar — via an
+  in-browser Python (Pyodide/WASM), a bundled engine binary, a desktop shell (Tauri/Electron)
+  that ships Python, or porting the hot core to WASM. The migration path is already open: (1)
+  **consume-when-connected** — prefer engine outputs wherever the bridge is up, keep local as a
+  fallback (the `set_class_info` outputs Tonality just shipped — `dft_phases`, both chiralities,
+  `prime_form` — make the Chord Anatomy surfaces the first candidate); (2) pick a packaging
+  strategy so the engine is always present; (3) delete the now-redundant local math. Until step 2
+  lands, the standalone-friendly local core stays — this is the destination, not a near-term flip.
+- **Native desktop app (off the browser).** Eventually Audiology should ship as its own
+  application rather than a browser tab — for lower-latency audio/MIDI, real file access, OS MIDI
+  I/O, and an installable artifact. A desktop shell (**Tauri** or Electron) is also the natural
+  vehicle for *Tonality at the core* above: it can bundle the Python engine (or a packaged binary)
+  so "baked in" and "native" are one move. It's a big port, so the discipline to protect now is
+  **modularity** — keep the pure core React-free and platform-agnostic, keep all browser-specific
+  surfaces (Web Audio, Web MIDI, File API, the Vite dev-server bridge launcher) behind narrow,
+  swappable seams, so the shell can replace them one at a time. Every new feature should respect
+  that boundary so the port stays painless rather than a rewrite.
 - **Learning mode** — flashcards + structured lessons over the explorer (identify a
   chord/scale/interval, spell a Roman numeral, name a key), eventually driven by **progress
   reports imported from a separate learning app** so sequencing and spaced-repetition reflect
@@ -168,6 +255,13 @@ the Representation layer (cf. the bracelet/Tonnetz descriptors in `brief-2`).
 browsable reference), and **interactive note-picking** on the wheels and map (build a chord by clicking
 and watch the resultant vector and harmony-map position move) — the point where these stop being
 illustrations and become a teaching surface.
+
+- **MIDI chord-colour timeline** — a piano-roll toggle that tints the chords of a loaded/playing
+  file by their somatic colour (the Chord Anatomy colour) as the song progresses, **excluding the
+  drum channel**, so harmonic motion is visible at a glance. Clean when the Tonality engine is
+  connected (its per-segment chord analysis supplies the segments to colour); a fully standalone
+  version needs a local chord-segmentation pass over the non-drum notes (group simultaneous/
+  overlapping onsets into chord spans). Reuse the existing key-region strip mechanics for the lane.
 
 ## License
 

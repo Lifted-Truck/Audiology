@@ -28,6 +28,7 @@ import CircleOfFifths from "./components/CircleOfFifths";
 import ControlPanels from "./components/ControlPanels";
 import { parseTonalityAnalysis, shiftAnalysis, qualitySymbol, nameChord, analyzeMidi, scaleToEngineKey, structuralKeys, modeToScaleName, type FileAnalysis, type ChordNaming, type StructuralArea, type Tonicization } from "./lib/tonality";
 import { useBridge } from "./hooks/useBridge";
+import { useChordFacts } from "./hooks/useChordFacts";
 import { useEngineProcess } from "./hooks/useEngineProcess";
 import { Dot } from "./ui/primitives";
 import type {
@@ -356,11 +357,17 @@ export default function App() {
     const MIN_AREA_BEATS = 24;
     const bands: { startSec: number; endSec: number; tonicPc: number; mode: string; label: string }[] = [];
     for (const a of structuralAreas) {
+      const endSec = song.beatsToSeconds(a.endBeats);
+      if (endSec <= 0) continue; // area lies entirely in the trimmed-away leading silence
+      // Clamp the start to 0 — the trim unshift can push the FIRST area negative (the
+      // engine's window grid begins before the trimmed first note), which would draw its
+      // label at a negative x, off the static canvas, losing the first section's key.
+      const startSec = Math.max(0, song.beatsToSeconds(a.startBeats));
       const label = spellInKey(a.tonicPc, a.tonicPc, a.mode) + keyModeWord(a.mode);
       const prev = bands[bands.length - 1];
       const tooShort = a.endBeats - a.startBeats < MIN_AREA_BEATS;
-      if (prev && (prev.label === label || tooShort)) prev.endSec = song.beatsToSeconds(a.endBeats);
-      else bands.push({ startSec: song.beatsToSeconds(a.startBeats), endSec: song.beatsToSeconds(a.endBeats), tonicPc: a.tonicPc, mode: a.mode, label });
+      if (prev && (prev.label === label || tooShort)) prev.endSec = endSec;
+      else bands.push({ startSec, endSec, tonicPc: a.tonicPc, mode: a.mode, label });
     }
     return bands;
   }, [playback.song, structuralAreas]);
@@ -450,7 +457,16 @@ export default function App() {
       const inKey = chordRoman(rootPc, quality, ton.tonicPc, ton.mode);
       return isDominantRoman(inKey) ? inKey + "/" + ton.parentRoman : null;
     };
-    return analysis.segments.map((s) => {
+    // The chord strip is a harmonic summary, so absorb articulation noise: at a low/off
+    // coalesce, a held chord's notes release a few ms apart, leaving sub-perceptual
+    // fragments (a single ringing note, an incomplete subset) that would otherwise show
+    // as spurious one-note "chords" (e.g. an "F" between two Gm7 strikes). Fold any
+    // fragment that is blank-labelled, very short, or a re-strike of the same chord into
+    // the surrounding band — only genuine chord *changes* start a new region. (The
+    // Coalesce control still governs the engine-side segmentation; this is the display gate.)
+    const MIN_SEG_SEC = 0.12;
+    const out: { startSec: number; endSec: number; label: string }[] = [];
+    for (const s of analysis.segments) {
       const mid = (s.startSec + s.endSec) / 2;
       const isChord = s.rootPc != null && s.quality != null;
       const single = !isChord && s.pcs.length === 1;
@@ -463,8 +479,14 @@ export default function App() {
           ? degree(s.pcs[0], mid)
           : "";
       const label = chordLabelMode === "roman" ? rn || name : chordLabelMode === "both" && rn ? name + " · " + rn : name;
-      return { startSec: s.startSec, endSec: s.endSec, label };
-    });
+      const prev = out[out.length - 1];
+      if (prev && (!label || s.endSec - s.startSec < MIN_SEG_SEC || prev.label === label)) {
+        prev.endSec = s.endSec; // extend the surrounding chord over the fragment / re-strike
+      } else {
+        out.push({ startSec: s.startSec, endSec: s.endSec, label });
+      }
+    }
+    return out;
   }, [analysis, noteName, keyBands, chordLabelMode, tonicizationSpans]);
 
   /* ----- build chord ----- */
@@ -485,6 +507,9 @@ export default function App() {
     if (interaction === "build") return chordOn ? chord.closePcs : [];
     return Array.from(new Set(highlightSel.map(pcOf)));
   }, [interaction, chordOn, chord, highlightSel]);
+
+  // Consume-when-connected: engine set-class facts for the active chord (null = use local).
+  const chordFacts = useChordFacts(bridge.baseUrl, bridge.connected, activePcs);
 
   // Chord root for the diagrams: the explicit chord root (Build), else the bass
   // (lowest sounding) pc (Analyze/Live). null = nothing to mark.
@@ -652,13 +677,20 @@ export default function App() {
   };
 
   const keyAccent = (p: Cell): KeyAccent | null => {
+    // An out-of-scale chord tone must still read as out-of-key (red), not be hidden
+    // behind the amber chord-tone colour — this is what the grid does, and the piano
+    // didn't, so e.g. an E♭/A♭ chord tone in C major showed amber instead of red.
+    const out = showScaleColors && !p.inScale;
     if (p.isLit) return { c: "#fde047", strong: true };
-    if (p.isSel) return { c: "#fbbf24", strong: true };
-    if (p.isSelPc) return { c: "#d97706", dashed: true };
-    if (p.isVoice || p.isCRoot) return { c: "#fbbf24", strong: true, badge: p.voiceNum };
-    if (p.isTone) return { c: "#f59e0b" };
+    if (p.isSel) return { c: out ? "#ef4444" : "#fbbf24", strong: true };
+    if (p.isSelPc) return { c: out ? "#ef4444" : "#d97706", dashed: true };
+    if (p.isVoice || p.isCRoot) return { c: out ? "#ef4444" : "#fbbf24", strong: true, badge: p.voiceNum };
+    if (p.isTone) return { c: out ? "#ef4444" : "#f59e0b" };
     if (showScaleColors && p.isRoot) return { c: "#a5b4fc", strong: true };
     if (showScaleColors && p.inScale) return { c: "#2dd4bf" };
+    // Plain out-of-scale keys read red (outlined, not filled — distinct from the teal
+    // in-scale fill and the filled chord/played accents). Matches the grid + the legend.
+    if (out) return { c: "#f87171", dashed: true };
     return null;
   };
 
@@ -876,6 +908,7 @@ export default function App() {
                   realizationMidi={chordRealizationMidi}
                   label={pcLabel}
                   symbol={chordSymbol}
+                  facts={chordFacts}
                 />
               </div>
             </div>
@@ -884,7 +917,7 @@ export default function App() {
           <div className="px-legend">
             <Dot c="#a5b4fc" t="root / tonic" />
             <Dot c="#2dd4bf" t="in scale" />
-            {mode === "chromatic" && <Dot c="#f87171" t="out of scale" />}
+            {showScaleColors && <Dot c="#f87171" t="out of scale" />}
             <Dot c="#fbbf24" t={isLive ? "playing live" : interaction === "analyze" ? "selected" : chordDisplay === "voicing" ? "voicing note" : "chord tone"} />
             {playback.song && <Dot c="#fde047" t="sounding (file)" />}
             {playback.song && views.pianoRoll && <Dot c="#a78bfa" t="in tonicized key (roll)" />}
