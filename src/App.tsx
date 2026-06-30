@@ -677,16 +677,20 @@ export default function App() {
   };
 
   const keyAccent = (p: Cell): KeyAccent | null => {
+    // An out-of-scale chord tone must still read as out-of-key (red), not be hidden
+    // behind the amber chord-tone colour — this is what the grid does, and the piano
+    // didn't, so e.g. an E♭/A♭ chord tone in C major showed amber instead of red.
+    const out = showScaleColors && !p.inScale;
     if (p.isLit) return { c: "#fde047", strong: true };
-    if (p.isSel) return { c: "#fbbf24", strong: true };
-    if (p.isSelPc) return { c: "#d97706", dashed: true };
-    if (p.isVoice || p.isCRoot) return { c: "#fbbf24", strong: true, badge: p.voiceNum };
-    if (p.isTone) return { c: "#f59e0b" };
+    if (p.isSel) return { c: out ? "#ef4444" : "#fbbf24", strong: true };
+    if (p.isSelPc) return { c: out ? "#ef4444" : "#d97706", dashed: true };
+    if (p.isVoice || p.isCRoot) return { c: out ? "#ef4444" : "#fbbf24", strong: true, badge: p.voiceNum };
+    if (p.isTone) return { c: out ? "#ef4444" : "#f59e0b" };
     if (showScaleColors && p.isRoot) return { c: "#a5b4fc", strong: true };
     if (showScaleColors && p.inScale) return { c: "#2dd4bf" };
-    // Out-of-scale keys read red (outlined, not filled — distinct from the teal in-scale
-    // fill and the amber chord/played fills). Matches the grid + the legend.
-    if (showScaleColors && !p.inScale) return { c: "#f87171", dashed: true };
+    // Plain out-of-scale keys read red (outlined, not filled — distinct from the teal
+    // in-scale fill and the filled chord/played accents). Matches the grid + the legend.
+    if (out) return { c: "#f87171", dashed: true };
     return null;
   };
 
