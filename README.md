@@ -6,6 +6,12 @@ pitch-class diagrams, with live MIDI-file playback and real-time, theory-engine-
 analysis. Its north star is to become **a GUI for the [Tonality](#tonality-integration)
 music-theory engine**.
 
+<p align="center">
+  <img src="docs/midi.png" alt="Audiology — MIDI piano roll with Tonality key and chord analysis" width="780">
+</p>
+<p align="center"><sub>A loaded MIDI file analysed by the Tonality engine — the structural key strip
+(B♭ maj), a tonicization pivot lane, and the per-segment chord strip over the piano roll.</sub></p>
+
 ## Features
 
 - **Scale & chord explorer** — 27 scales, 20 chord qualities, inversions and voicings,
@@ -34,12 +40,29 @@ music-theory engine**.
   engine (an "engine / local" badge shows the source); otherwise they're computed locally.
 
   <p>
-    <img src="docs/anatomy-colour.svg" alt="Chord Anatomy colour wheels for C7" width="440">
-    <img src="docs/anatomy-intervals.svg" alt="Interval-bracket diagram for C7" width="250" valign="top">
+    <img src="docs/anatomy_colour.png" alt="Chord Anatomy — Colour panel" width="265">
+    <img src="docs/anatomy_intervals.png" alt="Chord Anatomy — Intervals panel" width="265">
+    <img src="docs/anatomy_harmony.png" alt="Chord Anatomy — Harmony map panel" width="265">
   </p>
-  <sub>Chord Anatomy for C7 — the two colour wheels (root-aware circle-of-fifths and root-blind
-  interval-content, each a resultant-vector construction) and the interval-bracket diagram
-  (every pair above the root, stacked by span).</sub>
+  <sub>Chord Anatomy's three panels for a C major triad — <b>Colour</b> (the two resultant-vector
+  wheels), <b>Intervals</b> (interval vector + bracket diagram + set-class), and the <b>Harmony map</b>
+  (consonance × major/minor chirality). The "engine" badge shows the set-class facts are coming from
+  Tonality.</sub>
+
+## A look at the surfaces
+
+The explorer surfaces (toggled in the **Views** bar):
+
+<p>
+  <img src="docs/piano.png" alt="Piano keyboard with in-scale / chord-tone / out-of-scale colouring" width="540">
+  <img src="docs/pushgrid.png" alt="Ableton-Push-style pad grid" width="235" valign="top">
+</p>
+<p>
+  <img src="docs/diagrams.png" alt="Bracelet, Tonnetz, and Circle of Fifths diagrams" width="780">
+</p>
+<sub>The C2–C6 piano and the 8×8 Push grid (teal = in scale, amber = chord tone, red = out of scale),
+and the <b>Bracelet</b> / endless <b>Tonnetz</b> / <b>Circle of Fifths</b> pitch-class diagrams.
+The <a href="docs/fullpage.png">whole app in one view</a>.</sub>
 
 ## Getting started
 
