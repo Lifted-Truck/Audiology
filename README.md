@@ -194,10 +194,24 @@ engineering threads"). The longer-horizon direction:
   surfaces (Web Audio, Web MIDI, File API, the Vite dev-server bridge launcher) behind narrow,
   swappable seams, so the shell can replace them one at a time. Every new feature should respect
   that boundary so the port stays painless rather than a rewrite.
-- **Learning mode** — flashcards + structured lessons over the explorer (identify a
-  chord/scale/interval, spell a Roman numeral, name a key), eventually driven by **progress
-  reports imported from a separate learning app** so sequencing and spaced-repetition reflect
-  real mastery rather than in-app state alone. *(Being workshopped.)*
+- **A modular surface for music education.** The larger aim: Audiology's interactive surfaces
+  (grid, piano, roll, bracelet/Tonnetz/circle, Chord Anatomy) plus Tonality's determinations become
+  reusable **building blocks** that a variety of interactive teaching programs can drive — Audiology
+  supplies the interaction + rendering, Tonality supplies the theory, the program supplies the
+  pedagogy. Programs envisioned (some in progress with collaborators):
+  - **Ear training** — a research-backed **pitch-identification** trainer *(being scoped with another
+    agent)*; **interval** recognition **both in and out of a tonic context**; **chord** quality /
+    inversion / function; and other listening drills.
+  - **Visual identification flashcards** — recognise a chord/scale/interval/key **across the different
+    representations** (pad grid, keyboard, staff-less pitch clock, Tonnetz, circle of fifths, colour
+    wheels), so a learner connects the same object across notations.
+  - **Structured theory courses** — sequenced lessons from beginner to advanced, using the explorer
+    and analysis as the live worked-example surface.
+
+  What makes this tractable is keeping the pieces modular and exchangeable: the **Audiology MCP** and
+  **Greater modularity** items below are the enabling seams (drive the surfaces, publish/consume
+  progress), and **spaced-repetition sequencing** is driven by **progress reports imported from a
+  separate learning app** so it reflects real mastery, not in-app state alone. *(Being workshopped.)*
 - **An Audiology MCP** — expose Audiology's own capabilities (analysis surfaces, scale/chord
   identification, learning-mode progress) as an MCP server so other agents and apps can drive
   it and exchange data with it — distinct from the Tonality bridge, where Audiology is the
