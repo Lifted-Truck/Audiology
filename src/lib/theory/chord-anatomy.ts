@@ -86,11 +86,31 @@ const stretch = (f: number) => Math.pow(clamp(f, 0, 1), 0.6);
 
 const cofPos = (pc: number) => ((pc * 7) % 12 + 12) % 12;
 
+/** Register → perceptually-uniform OKLCH lightness (mean MIDI pitch, clamped). */
+function lightnessFromRealization(realizationMidi?: number[]): number {
+  if (!realizationMidi || !realizationMidi.length) return 0.62;
+  const avg = realizationMidi.reduce((a, b) => a + b, 0) / realizationMidi.length;
+  return clamp(0.4 + ((avg - 48) / (84 - 48)) * 0.4, 0.34, 0.82);
+}
+
+/**
+ * Build the root-aware colour from an already-computed hue (deg) + focus (0..1) —
+ * the shared tail of `tonalColor` and the engine-consume path (hue = arg f5,
+ * focus = |f5|/cardinality, both from `set_class_info`'s DFT). Register → lightness.
+ */
+export function tonalColorFrom(hue: number, focus: number, realizationMidi?: number[]): ChordColor {
+  const h = ((hue % 360) + 360) % 360;
+  const L = lightnessFromRealization(realizationMidi);
+  const chroma = stretch(focus) * 0.16;
+  return { hue: h, chroma, lightness: L, focus, css: `oklch(${L.toFixed(3)} ${chroma.toFixed(3)} ${Math.round(h)})` };
+}
+
 /**
  * Root-aware colour: each pitch class is a hue on the circle of fifths, the chord
- * colour is their resultant (circular mean). Hue = which way the chord points,
- * focus = saturation. Register → perceptually-uniform OKLCH lightness (not HSL L).
- * Transposition rotates the hue; symmetric chords cancel to grey.
+ * colour is their resultant (circular mean) — hue = arg(f5), focus = |f5|/n. Hue =
+ * which way the chord points, focus = saturation. Register → perceptually-uniform
+ * OKLCH lightness (not HSL L). Transposition rotates the hue; symmetric chords cancel
+ * to grey. The engine's `dft_phases[4]`/`dft_magnitudes[4]` are the same arg f5 / |f5|.
  */
 export function tonalColor(pcs: number[], realizationMidi?: number[]): ChordColor {
   const u = toPcs(pcs);
@@ -105,24 +125,18 @@ export function tonalColor(pcs: number[], realizationMidi?: number[]): ChordColo
   let hue = (Math.atan2(sy, sx) * 180) / Math.PI;
   if (hue < 0) hue += 360;
   const focus = Math.hypot(sx, sy) / u.length;
-  let L = 0.62;
-  if (realizationMidi && realizationMidi.length) {
-    const avg = realizationMidi.reduce((a, b) => a + b, 0) / realizationMidi.length;
-    L = clamp(0.4 + ((avg - 48) / (84 - 48)) * 0.4, 0.34, 0.82);
-  }
-  const chroma = stretch(focus) * 0.16;
-  return { hue, chroma, lightness: L, focus, css: `oklch(${L.toFixed(3)} ${chroma.toFixed(3)} ${Math.round(hue)})` };
+  return tonalColorFrom(hue, focus, realizationMidi);
 }
 
 const icAng = (k: number) => ((-90 + k * 72) * Math.PI) / 180; // k=0..4 on the rim
 
 /**
- * Root-blind colour: rim = the five inversion-paired interval classes weighted by
- * the interval vector; the tritone (self-inverse) sits at the centre and pulls
- * toward grey. Transposition-invariant — inversional pairs (maj=min) share a colour.
+ * Build the root-blind colour from an interval vector — the shared tail of
+ * `intervalColor` and the engine-consume path (the vector recovered from the
+ * engine's DFT magnitudes via `intervalVectorFromMagnitudes`). Rim = the five
+ * inversion-paired interval classes; the tritone (self-inverse) pulls toward grey.
  */
-export function intervalColor(pcs: number[]): ChordColor {
-  const v = intervalVector(pcs);
+export function intervalColorFromVector(v: IntervalVector): ChordColor {
   const tot = v.reduce((a, b) => a + b, 0);
   if (!tot) return { hue: 0, chroma: 0, lightness: 0.62, focus: 0, css: "oklch(0.62 0 0)" };
   let ux = 0,
@@ -138,6 +152,38 @@ export function intervalColor(pcs: number[]): ChordColor {
   if (hue < 0) hue += 360;
   const chroma = stretch(focus) * 0.19;
   return { hue, chroma, lightness: 0.63, focus, css: `oklch(0.63 ${chroma.toFixed(3)} ${Math.round(hue)})` };
+}
+
+/**
+ * Root-blind colour: transposition-invariant — inversional pairs (maj=min) share a
+ * colour. See `intervalColorFromVector`.
+ */
+export function intervalColor(pcs: number[]): ChordColor {
+  return intervalColorFromVector(intervalVector(pcs));
+}
+
+/**
+ * Recover the interval-class vector from the DFT magnitudes |f_1..f_6| + cardinality —
+ * exact (verified over all 4096 pc-sets; worst rounding residual ~5e-15). Lets the
+ * interval content come straight from the engine's `set_class_info` (which returns the
+ * DFT magnitudes but NOT the vector). Inverse of |f_k|² = Σ_m IFUNC(m)·e^(−2πikm/12):
+ * rebuild the full 12-pt |f|² spectrum (|f_0| = N, |f_{12−k}| = |f_k|), inverse-DFT to
+ * the real interval function IFUNC, then icv[d] = IFUNC(d) for d=1..5 and
+ * icv[6] = IFUNC(6)/2 (the tritone is self-paired, so it's double-counted).
+ */
+export function intervalVectorFromMagnitudes(mags: number[], cardinality: number): IntervalVector {
+  const P = new Array<number>(12);
+  P[0] = cardinality * cardinality;
+  for (let k = 1; k <= 6; k++) P[k] = (mags[k - 1] ?? 0) ** 2;
+  for (let k = 7; k <= 11; k++) P[k] = P[12 - k];
+  const v: IntervalVector = [0, 0, 0, 0, 0, 0];
+  for (let m = 1; m <= 6; m++) {
+    let s = 0;
+    for (let k = 0; k < 12; k++) s += P[k] * Math.cos((TAU * k * m) / 12);
+    const ifunc = s / 12;
+    v[m - 1] = Math.round(m === 6 ? ifunc / 2 : ifunc);
+  }
+  return v;
 }
 
 /** The hue of each interval-class rim node, for legends/wheels. */
