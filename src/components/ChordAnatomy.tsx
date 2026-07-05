@@ -12,8 +12,10 @@
 import React, { useState } from "react";
 import {
   intervalVector,
+  intervalVectorFromMagnitudes,
   tonalColor,
-  intervalColor,
+  tonalColorFrom,
+  intervalColorFromVector,
   stackedIntervals,
   chirality,
   consonanceF5,
@@ -30,6 +32,7 @@ import {
   IC_HUES,
   icRimAngle,
 } from "../lib/theory";
+import type { IntervalVector } from "../lib/theory";
 import type { SetClassInfo } from "../lib/tonality/bridge";
 
 const C = {
@@ -132,7 +135,7 @@ export default function ChordAnatomy({
       {/* Fixed-height panel area so switching panels / changing chord size never resizes
           the section. Sized to the tallest panel; shorter panels keep the headroom. */}
       <div style={{ minHeight: 392 }}>
-        {panel === "colour" && <ColourPanel uniq={uniq} realizationMidi={realization} active={active} label={label} />}
+        {panel === "colour" && <ColourPanel uniq={uniq} realizationMidi={realization} active={active} label={label} eng={eng} />}
         {panel === "intervals" && <IntervalsPanel uniq={uniq} rootPc={rootPc} active={active} eng={eng} />}
         {panel === "map" && <MapPanel uniq={uniq} name={active ? name : null} active={active} eng={eng} />}
       </div>
@@ -168,14 +171,25 @@ function ColourPanel({
   realizationMidi,
   active,
   label,
+  eng,
 }: {
   uniq: number[];
   realizationMidi: number[];
   active: boolean;
   label: (pc: number) => string;
+  eng: SetClassInfo | null;
 }) {
-  const tc = tonalColor(uniq, realizationMidi);
-  const ic = intervalColor(uniq);
+  const card = uniq.length;
+  // Consume the engine's DFT when connected: tonal hue/focus are arg(f5) / |f5|/n
+  // (dft_phases[4] / dft_magnitudes[4], the engine's arrays being 0-indexed from f1),
+  // and the interval vector — which set_class_info doesn't return — is recovered
+  // exactly from the DFT magnitudes. Same numbers as local; the "engine" badge stays honest.
+  const engOk = eng != null && eng.dftMagnitudes.length >= 6 && eng.dftPhases.length >= 5 && card > 0;
+  const v = engOk ? intervalVectorFromMagnitudes(eng.dftMagnitudes, card) : intervalVector(uniq);
+  const tc = engOk
+    ? tonalColorFrom((eng.dftPhases[4] * 180) / Math.PI, eng.dftMagnitudes[4] / card, realizationMidi)
+    : tonalColor(uniq, realizationMidi);
+  const ic = intervalColorFromVector(v);
   return (
     <div>
       <div style={{ display: "flex", gap: 12, marginBottom: 14 }}>
@@ -184,7 +198,7 @@ function ColourPanel({
       </div>
       <div style={{ display: "flex", gap: 12 }}>
         <PitchWheel uniq={uniq} css={tc.css} active={active} label={label} />
-        <IntervalWheel uniq={uniq} css={ic.css} active={active} />
+        <IntervalWheel v={v} css={ic.css} active={active} />
       </div>
     </div>
   );
@@ -243,12 +257,11 @@ function PitchWheel({ uniq, css, active, label }: { uniq: number[]; css: string;
   );
 }
 
-function IntervalWheel({ uniq, css, active }: { uniq: number[]; css: string; active: boolean }) {
+function IntervalWheel({ v, css, active }: { v: IntervalVector; css: string; active: boolean }) {
   const S = 188,
     cx = 94,
     cy = 94,
     R = 60;
-  const v = intervalVector(uniq);
   const w = v.slice(0, 5),
     tt = v[5];
   const tot = w.reduce((a, b) => a + b, 0) + tt;
@@ -303,7 +316,12 @@ function IntervalsPanel({
   active: boolean;
   eng: SetClassInfo | null;
 }) {
-  const v = intervalVector(uniq);
+  // Interval vector from the engine's DFT magnitudes when connected (set_class_info
+  // doesn't return the vector directly), else the local count. Exact either way.
+  const v =
+    eng && eng.dftMagnitudes.length >= 6
+      ? intervalVectorFromMagnitudes(eng.dftMagnitudes, uniq.length)
+      : intervalVector(uniq);
   const maxic = Math.max(1, ...v);
   const heights = stackAboveRoot(uniq, rootPc);
   const rootAbs = rootPc != null ? ((rootPc % 12) + 12) % 12 : uniq.length ? uniq[0] : 0;

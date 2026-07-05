@@ -309,19 +309,23 @@ Roadmap; the remaining Tonality-engine upgrades are in the section above).
   `dft_phases`/`dft_magnitudes`/`prime_form`/`mask`/`trichord_chirality`/`general_chirality` **and
   `chirality_sign`** (the COMPLETE handedness, 0 iff achiral — brief-16's result shipped).
   `lib/tonality/bridge.ts` `setClassInfo()` + `hooks/useChordFacts.ts` (debounced, bridge-gated)
-  fetch it; `App` passes `facts` to `ChordAnatomy`. When connected the **set-class line** (Rahn
-  `prime_form` + `mask`) and the **harmony map** (`|f5|` consonance + chirality via `chirality_sign`
-  × `|general_chirality|`, so even bispectrum blind-spots land on the right side) come from the
-  engine, with a teal **"engine"/"local" badge**; on disconnect `useChordFacts` returns null and the
-  local pure core takes over — verified both directions in-browser. **Next consume slices:** the
-  colours (drive `tonalColor` hue/focus from `dft_phases[4]`/`dft_magnitudes[4]` = arg f5 / |f5|;
-  interval colour + interval vector + brackets still local — the engine doesn't return the interval
-  vector, so recover it from `dft_magnitudes` or request an engine field). This is step 1 of the
-  README "Tonality at the core" path (consume → package → delete the local duplicate).
-  *Remaining:* finish engine-consume (colours/IV); a reachable-domain "atlas" view; interactive
-  note-picking on the wheels/map; the **MIDI chord-colour timeline** (roll toggle tinting chord
-  segments by their somatic colour as the song plays, drums excluded — engine segments available,
-  standalone needs local segmentation).
+  fetch it; `App` passes `facts` to `ChordAnatomy`. When connected **all three panels** come from the
+  engine, with a teal **"engine"/"local" badge**: the **set-class line** (Rahn `prime_form` + `mask`),
+  the **harmony map** (`|f5|` consonance + chirality via `chirality_sign` × `|general_chirality|`, so
+  even bispectrum blind-spots land on the right side), and now the **Colour + Intervals panels** — the
+  **tonal colour** hue/focus = arg f5 / |f5| straight from `dft_phases[4]`/`dft_magnitudes[4]` (the
+  engine's DFT arrays are 0-indexed from f1, so `[4]` = f5), and the **interval vector** (interval
+  colour, IC histogram, vector line) recovered *exactly* from the DFT magnitudes via
+  `intervalVectorFromMagnitudes` (set_class_info doesn't return the vector; recovery verified over all
+  4096 pc-sets, worst rounding residual ~5e-15). On disconnect `useChordFacts` returns null and the
+  local pure core takes over — engine and local produce byte-identical output (verified both directions
+  in-browser: engine `dft_phases[4]` == local `arg(f5)`, same sign convention). This completes step 1
+  of the README "Tonality at the core" path for Chord Anatomy (consume → package → delete the local
+  duplicate). *Remaining:* the **interval-bracket diagram** stays local by nature (it's voicing/register-
+  relative — `stackAboveRoot`, not a set-class invariant the DFT carries); a reachable-domain "atlas"
+  view; interactive note-picking on the wheels/map; the **MIDI chord-colour timeline** (roll toggle
+  tinting chord segments by their somatic colour as the song plays, drums excluded — engine segments
+  available, standalone needs local segmentation).
 - **Confirm the drum grey reads distinctly** from the in-key/out-of-key note colours on the roll.
 - **Validation-harness PR (Tonality repo).** The `--ab-profile` / `--ab-profile-regions` harness
   modes depend on the engine's `profile_version` kwarg (#85). Open the harness PR once #85 + the
