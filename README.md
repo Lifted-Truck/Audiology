@@ -199,9 +199,11 @@ engineering threads"). The longer-horizon direction:
   reusable **building blocks** that a variety of interactive teaching programs can drive — Audiology
   supplies the interaction + rendering, Tonality supplies the theory, the program supplies the
   pedagogy. Programs envisioned (some in progress with collaborators):
-  - **Ear training** — a research-backed **pitch-identification** trainer *(being scoped with another
-    agent)*; **interval** recognition **both in and out of a tonic context**; **chord** quality /
-    inversion / function; and other listening drills.
+  - **Ear training** — a research-backed **pitch-identification** trainer (**CHROMA**, the first
+    module, scoped in [`docs/proposals/chroma-pitch-training.md`](docs/proposals/chroma-pitch-training.md)
+    with a provisional [module-host contract](docs/proposals/module-contract-sketch.md)); **interval**
+    recognition **both in and out of a tonic context**; **chord** quality / inversion / function; and
+    other listening drills.
   - **Visual identification flashcards** — recognise a chord/scale/interval/key **across the different
     representations** (pad grid, keyboard, staff-less pitch clock, Tonnetz, circle of fifths, colour
     wheels), so a learner connects the same object across notations.
@@ -212,6 +214,11 @@ engineering threads"). The longer-horizon direction:
   **Greater modularity** items below are the enabling seams (drive the surfaces, publish/consume
   progress), and **spaced-repetition sequencing** is driven by **progress reports imported from a
   separate learning app** so it reflects real mastery, not in-app state alone. *(Being workshopped.)*
+  Two shared build items the first module surfaces (neither exists yet, both outlive CHROMA): a
+  **multi-timbre audio subsystem** (today there is one oscillator synth, `audio/synth.ts`; modules
+  need distinct timbres, masking, and millisecond-accurate scheduled onset) and a **telemetry sink**
+  for cohort studies (emission is easy; collection + consent/identity is real plumbing a
+  standalone frontend lacks — a natural fit for the Audiology MCP below).
 - **An Audiology MCP** — expose Audiology's own capabilities (analysis surfaces, scale/chord
   identification, learning-mode progress) as an MCP server so other agents and apps can drive
   it and exchange data with it — distinct from the Tonality bridge, where Audiology is the
