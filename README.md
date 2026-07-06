@@ -123,20 +123,25 @@ src/
   lib/tonality/  The Tonality integration boundary — the only module that knows the
                  engine's wire format (probe / nameChord / setClassInfo / analyzeMidi /
                  structuralKeys); everything downstream consumes normalized data.
+  lib/state/     The derivation layer between App's raw state and what the views render:
+                 analysis-strip selectors (key bands, chord regions, tonicizations,
+                 follow-key signals), grid/piano cell builders, pad styling. Pure and
+                 React-free — App's memos are one-line wrappers around these selectors.
   geometry/      piano.ts — the single source of truth for the pitch axis, shared by the
                  Piano keyboard and the PianoRoll so they stay aligned.
   audio/         synth.ts (one shared synth) + transport.ts (anchor-pair clock + lookahead).
   hooks/         usePlayback, useAudioContext, useLiveInput, useBridge, useEngineProcess,
-                 useChordFacts (consume engine set-class facts when connected).
+                 useEngineFacts (the generic engine-consume seam: debounced fetch when
+                 connected, local fallback when not) + useChordFacts built on it.
   components/    Grid, Piano, PianoRoll, TransportBar, Bracelet, Tonnetz, CircleOfFifths,
                  ChordAnatomy, ControlPanels.
-  App.tsx        Owns state; derives grid/piano/chord/highlight/analysis data.
+  App.tsx        Owns state, wires it into lib/state selectors, composes the views.
 ```
 
 ### Key invariants
 
-- **The pure core imports no React.** `lib/theory/*` and `lib/midi/*` stay testable and
-  framework-free; `lib/tonality/*` is the sole engine-wire boundary.
+- **The pure core imports no React.** `lib/theory/*`, `lib/midi/*`, and `lib/state/*` stay
+  testable and framework-free; `lib/tonality/*` is the sole engine-wire boundary.
 - **One synth, one clock.** All audio runs through a single `AudioContext` and the `playMidi`
   synth; the transport schedules on the Web Audio clock.
 - **Song-time vs audio-time.** Playback maps song seconds to audio-context seconds via an

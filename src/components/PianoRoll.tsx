@@ -120,6 +120,11 @@ export default function PianoRoll({
   const wrapRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const staticRef = useRef<HTMLCanvasElement | null>(null);
+  // Bumped whenever the static layer is rebuilt; the visible layer deps on it, so
+  // a rebuild ALWAYS re-blits. This retires the recurring stale-blit bug class:
+  // static-layer inputs no longer need to be duplicated in the visible layer's
+  // dep array (forgetting one used to freeze the screen until a scroll).
+  const [staticVersion, setStaticVersion] = useState(0);
   const [width, setWidth] = useState(600);
   const scrollXRef = useRef(0);
   const draggingRef = useRef(false);
@@ -194,6 +199,7 @@ export default function PianoRoll({
   useEffect(() => {
     if (!song) {
       staticRef.current = null;
+      setStaticVersion((v) => v + 1); // re-blit (clears the visible canvas too)
       return;
     }
     const ratio = dpr();
@@ -316,6 +322,7 @@ export default function PianoRoll({
     }
 
     staticRef.current = c;
+    setStaticVersion((v) => v + 1); // signal the visible layer to re-blit
   }, [song, duration, pxPerSec, regions, keyRegions, pivots, tonicizations, keyStripH, pivotStripH, chordStripH, rulerH, topH, height, tempoScale, laneH]);
 
   /* visible layer — playhead, blit, active glow; runs whenever position changes */
@@ -371,11 +378,11 @@ export default function PianoRoll({
     ctx.fillRect(headX - 0.5, 0, 1.5, height);
 
     void activeNotes;
-    // tempoScale + the strip inputs (regions/keyRegions/pivots) are deps so any
-    // change that rebuilds the static layer also re-blits it here — otherwise the
-    // screen keeps the stale blit until an unrelated repaint (the roman↔names /
-    // tempo "needs a scroll to refresh" bug).
-  }, [song, currentTime, duration, width, pxPerSec, activeNotes, topH, height, manualScroll, follow, tempoScale, regions, keyRegions, pivots, laneH]);
+    // staticVersion stands in for ALL static-layer inputs (strips, tempoScale,
+    // tonicizations, …): the static effect bumps it on every rebuild, so this
+    // effect re-blits without having to duplicate that input list — new static
+    // inputs only ever need adding to the static effect's deps.
+  }, [song, currentTime, duration, width, pxPerSec, activeNotes, topH, height, manualScroll, follow, laneH, staticVersion]);
 
   /* click / drag to seek */
   const timeFromEvent = (clientX: number): number => {

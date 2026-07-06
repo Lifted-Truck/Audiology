@@ -36,7 +36,15 @@ north star is to become **a GUI for the Tonality music-theory engine**.
 
 ## Architecture invariants (do not violate)
 
-- **`lib/theory/*` and `lib/midi/*` import no React** — they are the pure, testable core.
+- **`lib/theory/*`, `lib/midi/*`, and `lib/state/*` import no React** — they are the pure,
+  testable core. `lib/state` is the derivation layer between App's raw state and what the views
+  render (key/chord strip selectors, grid/piano cell builders, pad styling); App's memos are
+  one-line wrappers around it. New derived data goes in a selector there, not inline in App.
+- **Engine consumption goes through `useEngineFacts`** (`hooks/useEngineFacts.ts`): the one
+  debounced, aborting, null-on-fallback seam for "prefer the engine when connected, fall back to
+  local". `useChordFacts`, the Live naming, and the structural-keys fetch are instances; a new
+  consume slice should be another instance, not a bespoke effect. (The file-analysis flow keeps
+  its own wiring — it has UI state the seam doesn't model: spinner, error banner, manual re-run.)
 - **One synth, one clock.** A single `AudioContext`; all notes go through the `playMidi`
   synth (`audio/synth.ts`). The transport schedules on `ctx.currentTime`.
 - **Time model.** Playback bridges *song-time* (`Note.time`, seconds) and *audio-time*
@@ -63,11 +71,14 @@ north star is to become **a GUI for the Tonality music-theory engine**.
 - **Scrubbing while paused is silent by design** — it only moves the cursor and repaints.
 - **Canvas DPR.** The PianoRoll is a canvas; scale by `devicePixelRatio` for crispness
   and cache the static note layer (redraw only on song/zoom/viewport change).
-- **The recurring stale-blit bug.** PianoRoll is two layers — a rasterized static layer and a
-  visible layer that blits it + draws the playhead/glow. When you add a prop that changes what
-  the *visible* layer draws (a region/label/`tempoScale`), you **must** add it to the visible-
-  layer effect's dep array, or the change won't show until the user scrolls. This bit us for
-  `tempoScale` (per-bar ruler times) and `regions/keyRegions/pivots` (the Roman↔names toggle).
+- **The stale-blit bug class (fixed structurally — keep the invariant).** PianoRoll is two
+  layers — a rasterized static layer and a visible layer that blits it + draws the playhead/glow.
+  Historically, every static-layer input also had to be duplicated in the *visible* layer's dep
+  array or the screen kept the stale blit until a scroll (bit us for `tempoScale` and the
+  Roman↔names toggle). Now the static effect bumps a `staticVersion` state on every rebuild and
+  the visible effect deps on it — a rebuild always re-blits. **Invariant: new inputs that change
+  the static raster go in the STATIC effect's dep array only** (forgetting one there is
+  immediately visible — the strip won't draw at all); never grow the visible dep list to chase it.
 - **HMR + new `Song`/`Note` fields.** An HMR'd PianoRoll can blit against an old `Song` shape
   (e.g. before `barStarts` existed) and throw until a fresh server restart — guard new fields
   defensively (`song.barStarts?.length`). The errors are transient; a clean restart clears them.
@@ -132,6 +143,17 @@ runnable (typecheck + build pass) after every change.
   and `src/ui/{types,primitives}.tsx` are the typed pieces. `PushExplorer.jsx` deleted,
   `allowJs:false`. Markup kept byte-identical (verified visually); typecheck + build pass.
   (PianoRoll already sits above Piano; transport bar already themed — done in earlier phases.)
+
+- **Infrastructure — the derivation layer + the engine-consume seam.** App.tsx (was ~960 lines)
+  no longer holds derivation logic: the analysis-strip selectors (`windowedKeyBands`,
+  `structuralKeyBandsOf`, `chordRegionsOf`, tonicization spans, follow-key signals) and the
+  grid/piano cell builders + pad styling live in **`lib/state/`** (pure, React-free — the
+  grid/piano flag logic that was duplicated is one `cellOf`). All bridge consumers except file
+  analysis run through the generic **`useEngineFacts`** hook (debounce, abort, null-fallback,
+  optional clear-on-key-change): set-class facts, Live naming, structural keys. PianoRoll's
+  visible layer re-blits via a `staticVersion` bump instead of duplicated deps (see Gotchas).
+  Verified visually byte-identical + all three engine consumers live in-browser. This is the
+  internal library boundary for the eventual surface-library split (see README Roadmap).
 
 ### Migration complete
 All phases (0–5) plus Live play, MIDI key analysis, and Phase-4 playback wiring are done.

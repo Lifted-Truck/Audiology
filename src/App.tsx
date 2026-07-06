@@ -6,13 +6,18 @@
 import React, { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import "./styles/theme.css";
 import {
-  SHARP, FLAT, FLAT_KEYS, SCALES, CHROMA_INT, INKEY_INT,
+  SHARP, FLAT, FLAT_KEYS, SCALES,
   QUALITIES, SYM, DEG_NUM, DEG_ROM, DEG_SOL,
-  mod, pcOf, octOf, buildVoicing, spellInKey, chordRoman, keyRoman, scaleDegreeLabel, isDominantRoman,
+  mod, pcOf, octOf, buildVoicing,
 } from "./lib/theory";
 import type { ScaleName, QualityKey } from "./lib/theory/constants";
 import type { Voicing } from "./lib/theory/types";
-import { PIANO_LO, PIANO_HI, WHITE_PCS, BLACK_PCS } from "./geometry/piano";
+import {
+  windowedKeyBands, structuralKeyBandsOf, segmentKeyAt, visitedKeysOf,
+  tonicizationSpansOf, pivotBandsOf, chordRegionsOf,
+  buildGridCells, buildPianoKeys, padStyleOf, keyAccentOf,
+} from "./lib/state";
+import type { ScaleContext, SurfaceSelection } from "./lib/state";
 import { useAudioContext } from "./hooks/useAudioContext";
 import { useLiveInput } from "./hooks/useLiveInput";
 import { usePlayback } from "./hooks/usePlayback";
@@ -26,15 +31,20 @@ import Tonnetz from "./components/Tonnetz";
 import ChordAnatomy from "./components/ChordAnatomy";
 import CircleOfFifths from "./components/CircleOfFifths";
 import ControlPanels from "./components/ControlPanels";
-import { parseTonalityAnalysis, shiftAnalysis, qualitySymbol, nameChord, analyzeMidi, scaleToEngineKey, structuralKeys, modeToScaleName, type FileAnalysis, type ChordNaming, type StructuralArea, type Tonicization } from "./lib/tonality";
+import { parseTonalityAnalysis, shiftAnalysis, nameChord, analyzeMidi, scaleToEngineKey, structuralKeys, modeToScaleName, type FileAnalysis, type ChordNaming, type StructuralArea, type Tonicization } from "./lib/tonality";
 import { useBridge } from "./hooks/useBridge";
 import { useChordFacts } from "./hooks/useChordFacts";
+import { useEngineFacts } from "./hooks/useEngineFacts";
 import { useEngineProcess } from "./hooks/useEngineProcess";
 import { Dot } from "./ui/primitives";
 import type {
   Interaction, GridMode, Layout, Orient, LabelMode, NoteNotation,
-  DegNotation, DegRef, ChordDisplay, Cell, GridCell, WhiteKey, BlackKey, KeyAccent, BuiltChord,
+  DegNotation, DegRef, ChordDisplay, Cell, KeyAccent, BuiltChord,
 } from "./ui/types";
+
+// Stable empty fallback — a fresh [] per render would churn every downstream
+// memo (and rebuild the roll's static layer) whenever no tonicizations exist.
+const NO_TONICIZATIONS: Tonicization[] = [];
 
 type ViewKey = "transport" | "grid" | "pianoRoll" | "piano" | "bracelet" | "tonnetz" | "circle" | "anatomy";
 const VIEW_DEFS: { key: ViewKey; label: string }[] = [
@@ -92,14 +102,9 @@ export default function App() {
   const [disambigRelKeys, setDisambigRelKeys] = useState(false);
   const [smoothRegions, setSmoothRegions] = useState(false);
 
-  // Structural key-areas (structural_keys) for the roll's key strip — the clean,
-  // tonicization-absorbed reduction validated in the corpus harness. Default
-  // display when available; the windowed key_regions are the "evidence" toggle.
-  const [structuralAreas, setStructuralAreas] = useState<StructuralArea[] | null>(null);
-  const [tonicizations, setTonicizations] = useState<Tonicization[]>([]);
-  // The frame-weighted structural "home" key — preferred over the windowed global
-  // key for the circle's home ring (robust on near-ties, e.g. Bohemian Bb-vs-Eb).
-  const [structuralHome, setStructuralHome] = useState<{ tonicPc: number; mode: string } | null>(null);
+  // The roll's key-strip source toggle: the clean structural reduction (default)
+  // vs the raw windowed key_regions ("evidence" view). The structural data itself
+  // is fetched below via useEngineFacts once playback + bridge exist.
   const [keyStripMode, setKeyStripMode] = useState<"structural" | "windowed">("structural");
   // Chord strip label mode: chord names, roman numerals (relative to the local
   // key), or both. Roman is often shorter, so it fits tight bars better.
@@ -119,7 +124,6 @@ export default function App() {
   const [showScaleColors, setShowScaleColors] = useState(true);
 
   const pattern = SCALES[scaleName];
-  const len = pattern.length;
   const useFlats = noteNot === "flat" || (noteNot === "auto" && FLAT_KEYS.includes(root));
   const noteName = useCallback((pc: number) => (useFlats ? FLAT : SHARP)[pc], [useFlats]);
   const inScalePc = useCallback((pc: number) => pattern.includes(mod(pc - root, 12)), [pattern, root]);
@@ -265,112 +269,71 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [bridge.connected]);
 
-  const [engineNaming, setEngineNaming] = useState<ChordNaming | null>(null);
-  useEffect(() => {
-    if (!isLive || !bridge.connected || highlightSel.length < 2) {
-      setEngineNaming(null);
-      return;
-    }
-    const pcs = Array.from(new Set(highlightSel.map(pcOf)));
-    const tonic = noteName(root);
-    const keyName = scaleToEngineKey(scaleName);
-    const realization = [...highlightSel].sort((a, b) => a - b);
-    const ctrl = new AbortController();
-    const id = setTimeout(() => {
-      nameChord(bridge.baseUrl, { pcs, tonic, keyName, realizationMidi: realization }, ctrl.signal)
-        .then(setEngineNaming)
-        .catch(() => setEngineNaming(null));
-    }, 80); // coalesce rapid changes
-    return () => { clearTimeout(id); ctrl.abort(); };
-  }, [isLive, bridge.connected, bridge.baseUrl, highlightSel, root, scaleName, noteName]);
+  // Live engine-backed chord naming — an instance of the generic engine-consume
+  // seam. 80ms debounce coalesces rapid changes; null (offline / <2 notes /
+  // errored) falls back to the local analyzer in the Live panel.
+  const engineNaming = useEngineFacts<ChordNaming>({
+    enabled: isLive && bridge.connected && highlightSel.length >= 2,
+    key: bridge.baseUrl + "|" + highlightSel.join(",") + "|" + root + "|" + scaleName + "|" + useFlats,
+    debounceMs: 80,
+    fetch: (signal) =>
+      nameChord(
+        bridge.baseUrl,
+        {
+          pcs: Array.from(new Set(highlightSel.map(pcOf))),
+          tonic: noteName(root),
+          keyName: scaleToEngineKey(scaleName),
+          realizationMidi: [...highlightSel].sort((a, b) => a - b),
+        },
+        signal
+      ),
+  });
 
-  // Fetch structural key-areas for the loaded song from the bridge (events built
-  // from the parsed MIDI, in beats). Cleared on song change / disconnect.
-  useEffect(() => {
-    setStructuralAreas(null);
-    setTonicizations([]);
-    setStructuralHome(null);
-    const song = playback.song;
-    if (!song || !bridge.connected) return;
-    // Feed the engine the ORIGINAL (untrimmed) beats: the leading-silence trim is a
-    // display/playback offset, and re-basing the beats shifts structural_keys' window
-    // grid and corrupts the reduction (e.g. a spurious minor blip at the very start).
-    // Shift the returned areas/tonicizations back by trimBeats onto the trimmed axis.
-    const tb = song.trimBeats;
-    const events = song.notes.map((n) => [n.beats + tb, n.durationBeats, n.midi]);
-    const unshift = <T extends { startBeats: number; endBeats: number }>(x: T): T =>
-      ({ ...x, startBeats: x.startBeats - tb, endBeats: x.endBeats - tb });
-    const ctrl = new AbortController();
-    structuralKeys(bridge.baseUrl, events, {}, ctrl.signal)
-      .then((r) => {
-        setStructuralAreas(r.areas.map(unshift));
-        setTonicizations(r.tonicizations.map(unshift));
-        setStructuralHome(r.homeTonicPc != null && r.homeMode ? { tonicPc: r.homeTonicPc, mode: r.homeMode } : null);
-      })
-      .catch(() => { setStructuralAreas(null); setTonicizations([]); setStructuralHome(null); });
-    return () => ctrl.abort();
-  }, [playback.song, bridge.connected, bridge.baseUrl]);
+  // Structural key-areas for the loaded song — another engine-consume instance.
+  // clearOnKeyChange: a new song must never show the old song's areas. The frame-
+  // weighted structural "home" key is preferred over the windowed global key for
+  // the circle's home ring (robust on near-ties, e.g. Bohemian Bb-vs-Eb).
+  const structural = useEngineFacts<{
+    areas: StructuralArea[];
+    tonicizations: Tonicization[];
+    home: { tonicPc: number; mode: string } | null;
+  }>({
+    enabled: !!playback.song && bridge.connected,
+    key: playback.song,
+    debounceMs: 0,
+    clearOnKeyChange: true,
+    fetch: async (signal) => {
+      const song = playback.song!;
+      // Feed the engine the ORIGINAL (untrimmed) beats: the leading-silence trim is a
+      // display/playback offset, and re-basing the beats shifts structural_keys' window
+      // grid and corrupts the reduction (e.g. a spurious minor blip at the very start).
+      // Shift the returned areas/tonicizations back by trimBeats onto the trimmed axis.
+      const tb = song.trimBeats;
+      const events = song.notes.map((n) => [n.beats + tb, n.durationBeats, n.midi]);
+      const unshift = <T extends { startBeats: number; endBeats: number }>(x: T): T =>
+        ({ ...x, startBeats: x.startBeats - tb, endBeats: x.endBeats - tb });
+      const r = await structuralKeys(bridge.baseUrl, events, {}, signal);
+      return {
+        areas: r.areas.map(unshift),
+        tonicizations: r.tonicizations.map(unshift),
+        home: r.homeTonicPc != null && r.homeMode ? { tonicPc: r.homeTonicPc, mode: r.homeMode } : null,
+      };
+    },
+  });
+  const structuralAreas = structural?.areas ?? null;
+  const tonicizations = structural?.tonicizations ?? NO_TONICIZATIONS;
+  const structuralHome = structural?.home ?? null;
 
   // Pitch-class views (bracelet / Tonnetz) backdrop: the current scale's pcs.
   const scalePcs = useMemo(() => new Set(pattern.map((i) => mod(root + i, 12))), [pattern, root]);
 
-  // Tonality's local-key regions → a key-band strip (modulations become visible).
-  // Low-confidence regions (tiny margin — the engine flagging near-ambiguity) are
-  // absorbed into the prevailing key so the strip reads simply; the full,
-  // every-region view is the planned "deeper analysis" mode (see CLAUDE.md).
-  // Each band is spelled in its OWN key (a Bb-major region reads "Bb maj", not
-  // "A# maj", regardless of the root the user has selected) and carries
-  // tonicPc/mode so the chord strip below can match its spelling.
-  const keyRegionBands = useMemo(() => {
-    if (!analysis) return [];
-    const MIN_MARGIN = 0.03; // below this, treat as "no real key change here"
-    const merged: typeof analysis.keyRegions = [];
-    for (const r of analysis.keyRegions) {
-      if (merged.length && r.meanMargin < MIN_MARGIN) {
-        merged[merged.length - 1] = { ...merged[merged.length - 1], endSec: r.endSec };
-      } else {
-        merged.push({ ...r });
-      }
-    }
-    return merged.map((r) => ({
-      startSec: r.startSec,
-      endSec: r.endSec,
-      tonicPc: r.tonicPc,
-      mode: r.mode,
-      label: spellInKey(r.tonicPc, r.tonicPc, r.mode) + (r.mode === "major" ? " maj" : r.mode === "minor" ? " min" : " " + r.mode),
-    }));
-  }, [analysis]);
-
-  // structural_keys areas → key bands (beats → seconds via the song's exact map).
-  // The structural reduction absorbs tonicizations, so this strip is the clean
-  // key-area view (harness-validated); adjacent same-key areas collapse to one.
-  const keyModeWord = (m: string) => (m === "major" ? " maj" : m === "minor" ? " min" : " " + m);
-  const structuralKeyBands = useMemo(() => {
-    const song = playback.song;
-    if (!song || !structuralAreas) return [];
-    // Consumer-side gate: absorb very short areas — brief tonicizations that just
-    // cleared the engine's 8-beat floor (a real modulation worth showing lasts a
-    // few bars) — into the surrounding key, plus collapse adjacent same-key areas.
-    // So the strip shows structural modulations, not flickers. The engine-side
-    // principled version is the `min_area_beats` re-anchoring (Tonality response-7,
-    // Finding 3b); this is the interim display gate. Toggle to "windowed" for the raw track.
-    const MIN_AREA_BEATS = 24;
-    const bands: { startSec: number; endSec: number; tonicPc: number; mode: string; label: string }[] = [];
-    for (const a of structuralAreas) {
-      const endSec = song.beatsToSeconds(a.endBeats);
-      if (endSec <= 0) continue; // area lies entirely in the trimmed-away leading silence
-      // Clamp the start to 0 — the trim unshift can push the FIRST area negative (the
-      // engine's window grid begins before the trimmed first note), which would draw its
-      // label at a negative x, off the static canvas, losing the first section's key.
-      const startSec = Math.max(0, song.beatsToSeconds(a.startBeats));
-      const label = spellInKey(a.tonicPc, a.tonicPc, a.mode) + keyModeWord(a.mode);
-      const prev = bands[bands.length - 1];
-      const tooShort = a.endBeats - a.startBeats < MIN_AREA_BEATS;
-      if (prev && (prev.label === label || tooShort)) prev.endSec = endSec;
-      else bands.push({ startSec, endSec, tonicPc: a.tonicPc, mode: a.mode, label });
-    }
-    return bands;
-  }, [playback.song, structuralAreas]);
+  // Analysis-derived strips — the derivation logic lives in lib/state (pure,
+  // React-free, testable); these memos just wire state into the selectors.
+  const keyRegionBands = useMemo(() => windowedKeyBands(analysis), [analysis]);
+  const structuralKeyBands = useMemo(
+    () => structuralKeyBandsOf(playback.song, structuralAreas),
+    [playback.song, structuralAreas]
+  );
 
   // The key strip the roll shows: structural reduction by default (cleaner), the
   // windowed key_regions as the opt-in "evidence" view. Falls back to windowed
@@ -380,20 +343,8 @@ export default function App() {
 
   // Follow-the-key: the local key under the playhead (from the key bands), plus the
   // distinct keys the piece visits (for the circle-of-fifths journey trace).
-  const segmentKey = useMemo(() => {
-    const t = playback.currentTime;
-    const b = keyBands.find((band) => t >= band.startSec && t < band.endSec);
-    return b && b.tonicPc != null && b.mode ? { tonicPc: b.tonicPc, mode: b.mode } : null;
-  }, [keyBands, playback.currentTime]);
-  const visitedKeys = useMemo(() => {
-    const out: { tonicPc: number; mode: string }[] = [];
-    for (const b of keyBands) {
-      if (b.tonicPc == null || !b.mode) continue;
-      const last = out[out.length - 1];
-      if (!last || last.tonicPc !== b.tonicPc || last.mode !== b.mode) out.push({ tonicPc: b.tonicPc, mode: b.mode });
-    }
-    return out;
-  }, [keyBands]);
+  const segmentKey = useMemo(() => segmentKeyAt(keyBands, playback.currentTime), [keyBands, playback.currentTime]);
+  const visitedKeys = useMemo(() => visitedKeysOf(keyBands), [keyBands]);
   const canFollowKey = keyBands.length > 0;
   // When following, snap root+scale to the segment key (only major/minor map onto a
   // selectable scale). Keyed on the segment key's identity so it fires at key-area
@@ -406,88 +357,17 @@ export default function App() {
     setScaleName(sn);
   }, [followKey, segmentKey?.tonicPc, segmentKey?.mode]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Tonicizations (brief pivots the structural reduction absorbed) → spans in
-  // seconds, carrying the tonicized key + its roman relative to the parent. Used
-  // for the pivot-lane markers AND to tag applied/secondary dominants ("V7/vi")
-  // in the chord strip. Only meaningful alongside the structural key bands.
-  const tonicizationSpans = useMemo(() => {
-    const song = playback.song;
-    if (!song || keyStripMode !== "structural" || !tonicizations.length) return [];
-    return tonicizations.map((t) => ({
-      startSec: song.beatsToSeconds(t.startBeats),
-      endSec: song.beatsToSeconds(t.endBeats),
-      tonicPc: t.tonicPc,
-      mode: t.mode,
-      parentRoman: keyRoman(t.degree, t.parentMode, t.mode), // e.g. "vi" / "V"
-    }));
-  }, [playback.song, tonicizations, keyStripMode]);
-
-  // Pivot-lane markers: the tonicized key's roman ("what it leans toward").
-  const pivotBands = useMemo(
-    () => tonicizationSpans.map((t) => ({ startSec: t.startSec, endSec: t.endSec, label: t.parentRoman })),
-    [tonicizationSpans]
+  // Tonicization spans (pivot lane + applied-dominant tagging) and the chord
+  // strip — derivation in lib/state.
+  const tonicizationSpans = useMemo(
+    () => tonicizationSpansOf(playback.song, tonicizations, keyStripMode === "structural"),
+    [playback.song, tonicizations, keyStripMode]
   );
-
-  // Tonality's per-segment chord readings → time-aligned labels for the roll,
-  // each spelled in the local key region it falls under (chords in an Eb section
-  // read with flats, chords in an A-major section with sharps).
-  const chordRegions = useMemo(() => {
-    if (!analysis) return [];
-    // Use the *displayed* key bands (structural or windowed) for both spelling and
-    // roman function, so the chord strip agrees with the key strip above it.
-    const bandAt = (t: number) => keyBands.find((b) => t >= b.startSec && t < b.endSec);
-    const spell = (pc: number, t: number) => {
-      const b = bandAt(t);
-      return b ? spellInKey(pc, b.tonicPc, b.mode) : noteName(pc);
-    };
-    const roman = (rootPc: number, quality: string, t: number) => {
-      const b = bandAt(t);
-      return b ? chordRoman(rootPc, quality, b.tonicPc, b.mode) : "";
-    };
-    const degree = (pc: number, t: number) => {
-      const b = bandAt(t);
-      return b ? scaleDegreeLabel(pc, b.tonicPc, b.mode) : "";
-    };
-    // Applied / secondary dominant: inside a tonicization span, a chord that's the
-    // dominant of the tonicized key reads "V7/vi" etc. (its function in the target
-    // key + the target's roman in the parent). null when it isn't an applied chord.
-    const applied = (rootPc: number, quality: string, t: number) => {
-      const ton = tonicizationSpans.find((s) => t >= s.startSec && t < s.endSec);
-      if (!ton) return null;
-      const inKey = chordRoman(rootPc, quality, ton.tonicPc, ton.mode);
-      return isDominantRoman(inKey) ? inKey + "/" + ton.parentRoman : null;
-    };
-    // The chord strip is a harmonic summary, so absorb articulation noise: at a low/off
-    // coalesce, a held chord's notes release a few ms apart, leaving sub-perceptual
-    // fragments (a single ringing note, an incomplete subset) that would otherwise show
-    // as spurious one-note "chords" (e.g. an "F" between two Gm7 strikes). Fold any
-    // fragment that is blank-labelled, very short, or a re-strike of the same chord into
-    // the surrounding band — only genuine chord *changes* start a new region. (The
-    // Coalesce control still governs the engine-side segmentation; this is the display gate.)
-    const MIN_SEG_SEC = 0.12;
-    const out: { startSec: number; endSec: number; label: string }[] = [];
-    for (const s of analysis.segments) {
-      const mid = (s.startSec + s.endSec) / 2;
-      const isChord = s.rootPc != null && s.quality != null;
-      const single = !isChord && s.pcs.length === 1;
-      const name = isChord ? spell(s.rootPc!, mid) + qualitySymbol(s.quality!) : single ? spell(s.pcs[0], mid) : "";
-      // roman view: chord → applied-dominant tag if any, else its roman numeral;
-      // single melodic note → its scale degree (arabic) so the strip reads cleanly.
-      const rn = isChord
-        ? applied(s.rootPc!, s.quality!, mid) || roman(s.rootPc!, s.quality!, mid)
-        : single
-          ? degree(s.pcs[0], mid)
-          : "";
-      const label = chordLabelMode === "roman" ? rn || name : chordLabelMode === "both" && rn ? name + " · " + rn : name;
-      const prev = out[out.length - 1];
-      if (prev && (!label || s.endSec - s.startSec < MIN_SEG_SEC || prev.label === label)) {
-        prev.endSec = s.endSec; // extend the surrounding chord over the fragment / re-strike
-      } else {
-        out.push({ startSec: s.startSec, endSec: s.endSec, label });
-      }
-    }
-    return out;
-  }, [analysis, noteName, keyBands, chordLabelMode, tonicizationSpans]);
+  const pivotBands = useMemo(() => pivotBandsOf(tonicizationSpans), [tonicizationSpans]);
+  const chordRegions = useMemo(
+    () => chordRegionsOf(analysis, keyBands, tonicizationSpans, chordLabelMode, noteName),
+    [analysis, keyBands, tonicizationSpans, chordLabelMode, noteName]
+  );
 
   /* ----- build chord ----- */
   const voiceChord = useCallback(
@@ -538,95 +418,18 @@ export default function App() {
         : chordRootPc
       : root;
 
-  /* ----- grid ----- */
-  const grid = useMemo<GridCell[][]>(() => {
-    const baseRootMidi = 36 + root;
-    const pitchOf = (i: number) => {
-      const oct = Math.floor(i / len);
-      return baseRootMidi + oct * 12 + pattern[mod(i, len)];
-    };
-    const interval = (mode === "inkey" ? INKEY_INT : CHROMA_INT)[layout];
-
-    let baseIdx = 0, baseMidi = 0;
-    if (mode === "inkey") {
-      if (fixed) {
-        let best = 0, bd = Infinity;
-        for (let i = -30; i <= 50; i++) {
-          const d = Math.abs(pitchOf(i) - 36);
-          if (d < bd) { bd = d; best = i; }
-        }
-        baseIdx = best;
-      }
-    } else baseMidi = fixed ? 36 : 36 + root;
-
-    const selSet = new Set(highlightSel);
-    const selPcs = new Set(highlightSel.map(pcOf));
-
-    const rows: GridCell[][] = [];
-    for (let r = 0; r < 8; r++) {
-      const row: GridCell[] = [];
-      for (let c = 0; c < 8; c++) {
-        const stepR = orient === "vert" ? interval : 1;
-        const stepC = orient === "vert" ? 1 : interval;
-        const midi = mode === "inkey" ? pitchOf(baseIdx + r * stepR + c * stepC) : baseMidi + r * stepR + c * stepC;
-        const pc = pcOf(midi);
-        const inScale = inScalePc(pc);
-        const isRoot = pc === root;
-
-        let isTone = false, isCRoot = false, isVoice = false;
-        let voiceNum: number | null = null;
-        let isSel = false, isSelPc = false;
-        if (interaction === "build" && chordOn) {
-          isTone = chordDisplay === "tones" && chord.closePcs.includes(pc);
-          isCRoot = isTone && pc === chordRootPc;
-          isVoice = chordDisplay === "voicing" && chord.voicing.includes(midi);
-          voiceNum = isVoice ? chord.voicing.indexOf(midi) + 1 : null;
-        } else if (interaction === "analyze" || interaction === "live") {
-          isSel = selSet.has(midi);
-          isSelPc = !isSel && selPcs.has(pc);
-        }
-        row.push({ midi, pc, inScale, isRoot, isTone, isCRoot, isVoice, voiceNum, isSel, isSelPc, isLit: litSet.has(midi), r, c });
-      }
-      rows.push(row);
-    }
-    return rows;
-  }, [root, scaleName, mode, fixed, layout, orient, len, pattern, inScalePc, chordOn, chordDisplay, chord, chordRootPc, interaction, highlightSel, litSet]);
-
+  /* ----- grid + piano cell models (builders in lib/state) ----- */
+  const scaleCtx = useMemo<ScaleContext>(() => ({ root, pattern, inScalePc }), [root, pattern, inScalePc]);
+  const surfaceSel = useMemo<SurfaceSelection>(
+    () => ({ interaction, chordOn, chordDisplay, chord, chordRootPc, highlightSel, litSet }),
+    [interaction, chordOn, chordDisplay, chord, chordRootPc, highlightSel, litSet]
+  );
+  const grid = useMemo(
+    () => buildGridCells(scaleCtx, surfaceSel, { mode, fixed, layout, orient }),
+    [scaleCtx, surfaceSel, mode, fixed, layout, orient]
+  );
   const bottomLeft = grid[0][0];
-
-  /* ----- piano keyboard ----- */
-  const piano = useMemo<{ whites: WhiteKey[]; blacks: BlackKey[] }>(() => {
-    const selSet = new Set(highlightSel);
-    const selPcs = new Set(highlightSel.map(pcOf));
-    const make = (midi: number): Cell => {
-      const pc = pcOf(midi);
-      const inScale = inScalePc(pc);
-      const isRoot = pc === root;
-      let isTone = false, isCRoot = false, isVoice = false;
-      let voiceNum: number | null = null;
-      let isSel = false, isSelPc = false;
-      if (interaction === "build" && chordOn) {
-        isTone = chordDisplay === "tones" && chord.closePcs.includes(pc);
-        isCRoot = isTone && pc === chordRootPc;
-        isVoice = chordDisplay === "voicing" && chord.voicing.includes(midi);
-        voiceNum = isVoice ? chord.voicing.indexOf(midi) + 1 : null;
-      } else if (interaction === "analyze" || interaction === "live") {
-        isSel = selSet.has(midi);
-        isSelPc = !isSel && selPcs.has(pc);
-      }
-      return { midi, pc, inScale, isRoot, isTone, isCRoot, isVoice, voiceNum, isSel, isSelPc, isLit: litSet.has(midi) };
-    };
-    const whites: WhiteKey[] = [], blacks: BlackKey[] = [];
-    for (let m = PIANO_LO; m <= PIANO_HI; m++) {
-      if (WHITE_PCS.includes(mod(m, 12))) {
-        const wi = whites.length;
-        whites.push(make(m));
-        const nb = m + 1;
-        if (nb <= PIANO_HI && BLACK_PCS.includes(mod(nb, 12))) blacks.push({ ...make(nb), after: wi });
-      }
-    }
-    return { whites, blacks };
-  }, [root, scaleName, inScalePc, chordOn, chordDisplay, chord, chordRootPc, interaction, highlightSel, litSet]);
+  const piano = useMemo(() => buildPianoKeys(scaleCtx, surfaceSel), [scaleCtx, surfaceSel]);
 
   /* ----- labels ----- */
   const degLabel = (rel: number) => (degNot === "roman" ? DEG_ROM[rel] : degNot === "solfege" ? DEG_SOL[rel] : DEG_NUM[rel]);
@@ -634,65 +437,9 @@ export default function App() {
   // Pitch-class label honoring the Labels settings — for the bracelet / Tonnetz.
   const pcLabel = (pc: number) => (labelMode === "note" ? noteName(pc) : degLabel(mod(pc - refPc, 12)));
 
-  /* ----- pad style ----- */
-  const padStyle = (p: Cell): React.CSSProperties => {
-    let bg: string, color: string, border: string, glow: string;
-    if (!showScaleColors) {
-      bg = "#0e1117"; color = "#8893a4"; border = "1px solid #1c2129"; glow = "none";
-    } else if (p.isRoot) {
-      bg = "#1d2540"; color = "#eef2ff"; border = "1px solid #a5b4fc";
-      glow = "0 0 13px rgba(165,180,252,.5), inset 0 0 9px rgba(165,180,252,.28)";
-    } else if (p.inScale) {
-      bg = "#0a2825"; color = "#5eead4"; border = "1px solid #2dd4bf"; glow = "0 0 7px rgba(45,212,191,.28)";
-    } else {
-      bg = "#1d0f12"; color = "#f87171"; border = "1px solid #5b1d22"; glow = "none";
-    }
-    const out = showScaleColors && !p.inScale;
-    if (p.isSel) {
-      bg = "#4a2f06"; color = "#fde68a"; border = "1px solid #fbbf24";
-      glow = "0 0 17px rgba(251,191,36,.72), inset 0 0 11px rgba(251,191,36,.38)";
-    } else if (p.isSelPc) {
-      border = "1px dashed #d97706"; color = "#fcd34d";
-    } else if (p.isVoice || p.isCRoot) {
-      bg = out ? "#3a0f12" : (p.isCRoot ? "#4a2f06" : "#3a2a08");
-      color = out ? "#fca5a5" : "#fde68a";
-      border = "1px solid " + (out ? "#ef4444" : p.isCRoot ? "#fbbf24" : "#f59e0b");
-      glow = out
-        ? "0 0 15px rgba(239,68,68,.6), inset 0 0 10px rgba(239,68,68,.3)"
-        : "0 0 16px rgba(251,191,36,.7), inset 0 0 10px rgba(251,191,36,.35)";
-    } else if (p.isTone) {
-      color = out ? "#fca5a5" : "#fcd34d";
-      border = "1px solid " + (out ? "#ef4444" : "#f59e0b");
-      glow = out ? "0 0 10px rgba(239,68,68,.45)" : "0 0 10px rgba(245,158,11,.45), inset 0 0 8px rgba(245,158,11,.22)";
-    }
-    // Sounding right now (MIDI playback): a bright filled yellow — unmistakable
-    // against the teal scale tint and the red out-of-scale pads, and clearly
-    // distinct from the dark-brown-filled amber of chord tones / live-held
-    // selection (live notes stay amber via isSel; the file's notes glow yellow).
-    if (p.isLit) {
-      bg = "#fde047"; color = "#1a1400"; border = "1px solid #fef08a";
-      glow = "0 0 20px rgba(253,224,71,.9), inset 0 0 11px rgba(253,224,71,.5)";
-    }
-    return { background: bg, color, border, boxShadow: glow };
-  };
-
-  const keyAccent = (p: Cell): KeyAccent | null => {
-    // An out-of-scale chord tone must still read as out-of-key (red), not be hidden
-    // behind the amber chord-tone colour — this is what the grid does, and the piano
-    // didn't, so e.g. an E♭/A♭ chord tone in C major showed amber instead of red.
-    const out = showScaleColors && !p.inScale;
-    if (p.isLit) return { c: "#fde047", strong: true };
-    if (p.isSel) return { c: out ? "#ef4444" : "#fbbf24", strong: true };
-    if (p.isSelPc) return { c: out ? "#ef4444" : "#d97706", dashed: true };
-    if (p.isVoice || p.isCRoot) return { c: out ? "#ef4444" : "#fbbf24", strong: true, badge: p.voiceNum };
-    if (p.isTone) return { c: out ? "#ef4444" : "#f59e0b" };
-    if (showScaleColors && p.isRoot) return { c: "#a5b4fc", strong: true };
-    if (showScaleColors && p.inScale) return { c: "#2dd4bf" };
-    // Plain out-of-scale keys read red (outlined, not filled — distinct from the teal
-    // in-scale fill and the filled chord/played accents). Matches the grid + the legend.
-    if (out) return { c: "#f87171", dashed: true };
-    return null;
-  };
+  /* ----- pad / key styling (colour logic in lib/state) ----- */
+  const padStyle = (p: Cell): React.CSSProperties => padStyleOf(p, showScaleColors);
+  const keyAccent = (p: Cell): KeyAccent | null => keyAccentOf(p, showScaleColors);
 
   const onPad = (p: Cell) => {
     if (interaction === "analyze") {

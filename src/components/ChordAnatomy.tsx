@@ -21,6 +21,7 @@ import {
   consonanceF5,
   trichordLandscape,
   primeForm,
+  setClassLabel,
   pcBitmask,
   analyzeSelection,
   stackAboveRoot,
@@ -435,6 +436,11 @@ function IntervalBrackets({ heights, rootAbs }: { heights: number[]; rootAbs: nu
 // ----- Harmony map -------------------------------------------------------------
 
 function MapPanel({ uniq, name, active, eng }: { uniq: number[]; name: string | null; active: boolean; eng: SetClassInfo | null }) {
+  // The map plots set classes, so the ring is labelled abstractly by interval
+  // content ("M3·m3"), never by specific notes or a rooted chord name — the same
+  // point must read the same for every chord that lands on it. The specific
+  // chord name stays available on hover (and in the header above).
+  const setLbl = active ? setClassLabel(uniq) : null;
   const W = 300,
     H = 260,
     L = 30,
@@ -512,7 +518,7 @@ function MapPanel({ uniq, name, active, eng }: { uniq: number[]; name: string | 
               fill={C.accent}
               pointerEvents="none"
             >
-              {name}
+              {setLbl}
             </text>
           </>
         )}
@@ -520,7 +526,7 @@ function MapPanel({ uniq, name, active, eng }: { uniq: number[]; name: string | 
       <div style={{ fontSize: 10.5, color: C.faint, marginTop: 4, lineHeight: 1.5 }}>
         {active ? (
           <>
-            Ring = {name} (|f5| {myF5.toFixed(2)}, handedness {myCh >= 0 ? "+" : ""}
+            Ring = {setLbl} (|f5| {myF5.toFixed(2)}, handedness {myCh >= 0 ? "+" : ""}
             {myCh.toFixed(2)}).{" "}
           </>
         ) : (

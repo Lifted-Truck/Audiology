@@ -377,6 +377,28 @@ export function pcBitmask(pcs: number[]): number {
   return m;
 }
 
+/**
+ * Abstract, note-free label for the harmony map's ring: the consecutive interval
+ * steps of the set's prime form ("M3·m3" for major, "m3·M3" for minor…). The map
+ * plots SET CLASSES (same point for every transposition/inversion of the pc
+ * content), so the ring label must not name specific notes or a rooted chord —
+ * two chords on the same point should read the same. Dyads read as their interval-
+ * class pair ("P4·P5"), matching the interval-vector histogram's vocabulary
+ * (a played fifth folds to the fourth in prime form, which would read oddly).
+ */
+export function setClassLabel(pcs: number[]): string | null {
+  const u = toPcs(pcs);
+  if (u.length < 2) return null;
+  if (u.length === 2) {
+    const d = Math.abs(u[0] - u[1]);
+    return IC_PAIR_LABELS[Math.min(d, 12 - d) - 1];
+  }
+  const pf = primeForm(u);
+  const steps: string[] = [];
+  for (let i = 1; i < pf.length; i++) steps.push(intervalShortName(pf[i] - pf[i - 1]));
+  return steps.join("·");
+}
+
 /** Normal-ish prime form: the most compact rotation, transposed to start at 0. */
 export function primeForm(pcs: number[]): number[] {
   const u = toPcs(pcs).sort((a, b) => a - b);
