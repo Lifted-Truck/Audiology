@@ -71,4 +71,7 @@ export interface RawAnalysis {
   key: RawKeyResult;
   dataset: RawDataset;
   key_regions?: { regions: RawKeyRegion[] } | null;
+  /** RE-3 (Tonality PR #133, additive): itemized MIDI-read losses — re-strike
+   *  truncations, dropped dangling note-ons / zero-length pairs. Usually []. */
+  midi_read_losses?: unknown[];
 }

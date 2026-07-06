@@ -264,9 +264,18 @@ confidence is the consumer's job. So a C→G→(ambiguous Bm) file reads simply 
   derived from `analysis.keyRegions` / per-segment `analytical_context` at `playback.currentTime`
   (distinct from the whole-file inferred key), and a **circle-of-fifths** view module to follow
   the key changes. Builds on the merged key-region work; the segment-key tracker is the new piece.
-- **"Deeper analysis" mode (planned):** a toggle that surfaces *everything* the engine returns —
-  every key region (incl. low-confidence ones) with its margin, all chord-naming alternatives,
-  set-class / DFT info. The default view stays simplified (above); this is the opt-in full view.
+- **"Deeper analysis" mode (SHIPPED as the Analysis console).** The `console` view
+  (`src/components/AnalysisConsole.tsx`) surfaces everything the engine returns as verbose
+  text/numbers, in four scopes: **chord** (set-class identity, full DFT mags+phases, chirality
+  family, colours, the complete `name_pcs` reading with every alternative + scores — engine-
+  preferred with local fallback, per-section source tag), **now** (playhead position/bar·beat,
+  sounding notes, the key band / raw windowed region / tonicization / chord region under the
+  cursor), **regions** (every raw windowed key region INCLUDING sub-gate ones with honest
+  margins, structural areas, tonicizations, the full segment list), **file** (every ranked key
+  candidate + margin + profile, structural home, song stats, `midi_read_losses`). Copy button +
+  a JSON toggle showing the underlying objects. Notes: `engineNaming` is one shared
+  `useEngineFacts` instance enabled when live OR the console is shown (names the active chord in
+  any mode); `FileAnalysis` now carries `readLosses` (RE-3 additive surface, parsed since this).
 - Still local, to move onto the bridge over time: `catalog_*` (catalog parity + containment,
   retires `scalesContaining`), `voicing_analysis`/`voicing_suggestions` (Build mode), and
   consuming the coming **Representation layer** for view descriptions (keyboard slice first;

@@ -49,6 +49,14 @@ music-theory engine**.
   (consonance × major/minor chirality). The "engine" badge shows the set-class facts are coming from
   Tonality.</sub>
 
+- **Analysis console** — the verbose, copyable text/numbers view of everything the analysis
+  knows, at four scopes: the **current chord** (set-class identity, full DFT, chirality family,
+  the engine's complete naming with every alternative and score), the **playhead instant**
+  (sounding notes + the key/tonicization/chord context under the cursor), **every key region**
+  (including the low-confidence ones the strips absorb, with honest margins), and the **whole
+  file** (every ranked key candidate, structural home, itemized MIDI-read losses). Engine-backed
+  when connected, local fallbacks otherwise; a JSON toggle shows the raw objects.
+
 ## A look at the surfaces
 
 The explorer surfaces (toggled in the **Views** bar):
@@ -233,8 +241,10 @@ engineering threads"). The longer-horizon direction:
   model the MCP can publish.
 - **Follow-the-key mode** — auto-switch the explorer's root+scale to the current playback
   segment's local key as the playhead moves, with a circle-of-fifths view.
-- **"Deeper analysis" mode** — an opt-in view surfacing everything the engine returns (all key
-  regions + margins, naming alternatives, set-class / DFT, the structural anchor toggle).
+- ~~**"Deeper analysis" mode**~~ — **shipped** as the **Analysis console** view: an opt-in
+  surface with everything the engine returns as verbose text/numbers, in four scopes (current
+  chord · playhead instant · every region with honest margins · whole file), copyable, with a
+  raw-JSON toggle.
 - **Custom-scale analysis** — an Ian-Ring-style scale/pc-set editor surfacing interval vector,
   set-class, symmetry, modes, DFT "harmonic colour", and named matches (with Push-3 availability
   flagged).
