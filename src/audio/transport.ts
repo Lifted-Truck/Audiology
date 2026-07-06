@@ -20,6 +20,8 @@ const LATE = 0.02; // skip notes already >20ms late
 
 export interface Transport {
   load(song: Song): void;
+  /** Drop the loaded song: stop playback/scheduling, reset the cursor. */
+  unload(): void;
   play(): void;
   pause(): void;
   seek(songTime: number): void;
@@ -151,6 +153,15 @@ export function createTransport(ctx: AudioContext, synth: Synth): Transport {
       pauseSong = 0;
       scale = 1;
       resetSchedule(0);
+      onTick(0);
+    },
+    unload() {
+      stopLoops();
+      playing = false;
+      song = null;
+      pauseSong = 0;
+      scale = 1;
+      scheduleIdx = 0;
       onTick(0);
     },
     play() {

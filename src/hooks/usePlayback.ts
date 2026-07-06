@@ -23,6 +23,8 @@ export interface Playback {
   activeNotes: number[];
   /** Parse + load a MIDI file from an ArrayBuffer. */
   load(data: ArrayBuffer, name?: string): void;
+  /** Eject the loaded file: stop playback and return to the no-song state. */
+  unload(): void;
   play(): void;
   pause(): void;
   seek(t: number): void;
@@ -69,6 +71,15 @@ export function usePlayback(audio: AudioHandle): Playback {
     },
     [getTransport]
   );
+
+  const unload = useCallback(() => {
+    getTransport().unload();
+    setSong(null);
+    setDuration(0);
+    setTempoScaleState(1);
+    setIsPlaying(false);
+    setCurrentTime(0);
+  }, [getTransport]);
 
   const play = useCallback(() => {
     getTransport().play();
@@ -120,6 +131,7 @@ export function usePlayback(audio: AudioHandle): Playback {
     loop,
     activeNotes,
     load,
+    unload,
     play,
     pause,
     seek,

@@ -181,6 +181,15 @@ export default function App() {
     midiBytesRef.current = buf;
   }, []);
 
+  // Eject: drop the raw bytes FIRST (so the song-change effect below sees no
+  // bytes and doesn't re-analyze the stale file), then unload the transport.
+  // The song→null change cascades the rest: analysis cleared by the effect,
+  // structural facts cleared by their enabled gate.
+  const onMidiUnload = useCallback(() => {
+    midiBytesRef.current = null;
+    playback.unload();
+  }, [playback.unload]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const loadAnalysis = useCallback(async (file: File) => {
     try {
       const fa = parseTonalityAnalysis(JSON.parse(await file.text()));
@@ -531,6 +540,7 @@ export default function App() {
                 playback={playback}
                 onLoadAnalysis={loadAnalysis}
                 onMidiLoaded={onMidiLoaded}
+                onUnload={onMidiUnload}
                 onAnalyzeViaBridge={() => midiBytesRef.current && analyzeViaBridge(midiBytesRef.current)}
                 bridgeConnected={bridge.connected}
                 analyzing={analyzing}

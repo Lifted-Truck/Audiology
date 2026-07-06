@@ -15,6 +15,7 @@ export default function TransportBar({
   playback,
   onLoadAnalysis,
   onMidiLoaded,
+  onUnload,
   onAnalyzeViaBridge,
   bridgeConnected,
   analyzing,
@@ -37,6 +38,7 @@ export default function TransportBar({
   playback: Playback;
   onLoadAnalysis: (file: File) => void;
   onMidiLoaded: (buf: ArrayBuffer) => void;
+  onUnload: () => void;
   onAnalyzeViaBridge: () => void;
   bridgeConnected: boolean;
   analyzing: boolean;
@@ -85,6 +87,15 @@ export default function TransportBar({
         <span className="px-tp-name" title={song?.name}>
           {song ? song.name : "No file loaded"}
         </span>
+        {hasSong && (
+          <button
+            className="px-tp-eject"
+            onClick={onUnload}
+            title="Eject the loaded MIDI file (clears playback and its analysis)"
+          >
+            ⏏ Eject
+          </button>
+        )}
         {bridgeConnected ? (
           // Engine connected: analyze the loaded file on demand (auto-runs on load too).
           <button
