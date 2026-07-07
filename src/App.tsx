@@ -29,6 +29,7 @@ import Piano from "./components/Piano";
 import Bracelet from "./components/Bracelet";
 import Tonnetz from "./components/Tonnetz";
 import ChordAnatomy from "./components/ChordAnatomy";
+import AnalysisConsole from "./components/AnalysisConsole";
 import CircleOfFifths from "./components/CircleOfFifths";
 import ControlPanels from "./components/ControlPanels";
 import { parseTonalityAnalysis, shiftAnalysis, nameChord, analyzeMidi, scaleToEngineKey, structuralKeys, modeToScaleName, type FileAnalysis, type ChordNaming, type StructuralArea, type Tonicization } from "./lib/tonality";
@@ -46,7 +47,7 @@ import type {
 // memo (and rebuild the roll's static layer) whenever no tonicizations exist.
 const NO_TONICIZATIONS: Tonicization[] = [];
 
-type ViewKey = "transport" | "grid" | "pianoRoll" | "piano" | "bracelet" | "tonnetz" | "circle" | "anatomy";
+type ViewKey = "transport" | "grid" | "pianoRoll" | "piano" | "bracelet" | "tonnetz" | "circle" | "anatomy" | "console";
 const VIEW_DEFS: { key: ViewKey; label: string }[] = [
   { key: "transport", label: "Transport" },
   { key: "pianoRoll", label: "Piano roll" },
@@ -56,6 +57,7 @@ const VIEW_DEFS: { key: ViewKey; label: string }[] = [
   { key: "tonnetz", label: "Tonnetz" },
   { key: "circle", label: "Circle of 5ths" },
   { key: "anatomy", label: "Chord anatomy" },
+  { key: "console", label: "Analysis console" },
 ];
 
 export default function App() {
@@ -112,7 +114,7 @@ export default function App() {
 
   // Optional visual modules — each surface can be shown or hidden.
   const [views, setViews] = useState<Record<ViewKey, boolean>>({
-    transport: true, grid: true, pianoRoll: true, piano: true, bracelet: true, tonnetz: true, circle: false, anatomy: false,
+    transport: true, grid: true, pianoRoll: true, piano: true, bracelet: true, tonnetz: true, circle: false, anatomy: false, console: false,
   });
   // Follow-the-key: auto-switch the explorer's root+scale to the current playback
   // segment's local key as the playhead moves. Off by default; only meaningful
@@ -269,26 +271,6 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [bridge.connected]);
 
-  // Live engine-backed chord naming — an instance of the generic engine-consume
-  // seam. 80ms debounce coalesces rapid changes; null (offline / <2 notes /
-  // errored) falls back to the local analyzer in the Live panel.
-  const engineNaming = useEngineFacts<ChordNaming>({
-    enabled: isLive && bridge.connected && highlightSel.length >= 2,
-    key: bridge.baseUrl + "|" + highlightSel.join(",") + "|" + root + "|" + scaleName + "|" + useFlats,
-    debounceMs: 80,
-    fetch: (signal) =>
-      nameChord(
-        bridge.baseUrl,
-        {
-          pcs: Array.from(new Set(highlightSel.map(pcOf))),
-          tonic: noteName(root),
-          keyName: scaleToEngineKey(scaleName),
-          realizationMidi: [...highlightSel].sort((a, b) => a - b),
-        },
-        signal
-      ),
-  });
-
   // Structural key-areas for the loaded song — another engine-consume instance.
   // clearOnKeyChange: a new song must never show the old song's areas. The frame-
   // weighted structural "home" key is preferred over the windowed global key for
@@ -402,11 +384,33 @@ export default function App() {
         ? pcOf(Math.min(...highlightSel))
         : null;
 
-  // Sounding MIDI for Chord Anatomy's voicing-sensitive surfaces (stacked intervals,
+  // Sounding MIDI for the chord's voicing-sensitive surfaces (stacked intervals,
   // register → brightness): the built voicing in Build, the selected/sounding notes else.
   const chordRealizationMidi =
     interaction === "build" ? (chordOn ? chord.voicing : []) : highlightSel;
   const chordSymbol = interaction === "build" && chordOn ? chord.symbol : null;
+
+  // Engine-backed chord naming — another engine-consume instance, shared by the
+  // Live panel and the Analysis console (in Build/Analyze it names the active
+  // chord for the console; in Live these inputs equal the sounding notes, same
+  // call as before). 80ms debounce; null → the local analyzer fallback.
+  const engineNaming = useEngineFacts<ChordNaming>({
+    enabled: (isLive || views.console) && bridge.connected && activePcs.length >= 2,
+    key:
+      bridge.baseUrl + "|" + activePcs.join(",") + "|" + chordRealizationMidi.join(",") + "|" + root + "|" + scaleName + "|" + useFlats,
+    debounceMs: 80,
+    fetch: (signal) =>
+      nameChord(
+        bridge.baseUrl,
+        {
+          pcs: activePcs,
+          tonic: noteName(root),
+          keyName: scaleToEngineKey(scaleName),
+          realizationMidi: [...chordRealizationMidi].sort((a, b) => a - b),
+        },
+        signal
+      ),
+  });
 
   /* ----- reference for degree labels ----- */
   const refPc =
@@ -656,6 +660,32 @@ export default function App() {
                   label={pcLabel}
                   symbol={chordSymbol}
                   facts={chordFacts}
+                />
+              </div>
+            </div>
+          )}
+
+          {views.console && (
+            <div className="px-stage-block">
+              <div className="px-block-cap">Analysis console</div>
+              <div className="px-diagram">
+                <AnalysisConsole
+                  pcs={activePcs}
+                  rootPc={diagramRootPc}
+                  realizationMidi={chordRealizationMidi}
+                  facts={chordFacts}
+                  naming={engineNaming}
+                  song={playback.song}
+                  currentTime={playback.currentTime}
+                  activeNotes={playback.activeNotes}
+                  analysis={analysis}
+                  keyBands={keyBands}
+                  structuralAreas={structuralAreas}
+                  tonicizationSpans={tonicizationSpans}
+                  structuralHome={structuralHome}
+                  chordRegions={chordRegions}
+                  bridgeConnected={bridge.connected}
+                  noteName={noteName}
                 />
               </div>
             </div>

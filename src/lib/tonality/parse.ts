@@ -51,6 +51,10 @@ export interface FileAnalysis {
   key: KeyResult;
   segments: ChordSegment[];
   keyRegions: KeyRegion[];
+  /** Itemized MIDI-read losses (RE-3, additive; [] when clean or pre-RE-3):
+   *  re-strike truncations, dropped dangling note-ons / zero-length pairs —
+   *  "a rectangle that never appears is explained". Surfaced in the console. */
+  readLosses: unknown[];
 }
 
 export class TonalityParseError extends Error {}
@@ -65,6 +69,7 @@ export function shiftAnalysis(fa: FileAnalysis, dt: number): FileAnalysis {
     key: fa.key,
     segments: fa.segments.map((g) => ({ ...g, startSec: s(g.startSec), endSec: s(g.endSec) })),
     keyRegions: fa.keyRegions.map((r) => ({ ...r, startSec: s(r.startSec), endSec: s(r.endSec) })),
+    readLosses: fa.readLosses,
   };
 }
 
@@ -111,7 +116,7 @@ export function parseTonalityAnalysis(raw: unknown): FileAnalysis {
     meanMargin: r.mean_margin,
   }));
 
-  return { key, segments, keyRegions };
+  return { key, segments, keyRegions, readLosses: Array.isArray(a.midi_read_losses) ? a.midi_read_losses : [] };
 }
 
 function segmentOf(rec: RawSegmentRecord): ChordSegment {
