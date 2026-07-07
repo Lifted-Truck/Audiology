@@ -30,6 +30,7 @@ import Bracelet from "./components/Bracelet";
 import Tonnetz from "./components/Tonnetz";
 import ChordAnatomy from "./components/ChordAnatomy";
 import AnalysisConsole from "./components/AnalysisConsole";
+import PcSetLab from "./components/PcSetLab";
 import CircleOfFifths from "./components/CircleOfFifths";
 import ControlPanels from "./components/ControlPanels";
 import { parseTonalityAnalysis, shiftAnalysis, nameChord, analyzeMidi, scaleToEngineKey, structuralKeys, modeToScaleName, type FileAnalysis, type ChordNaming, type StructuralArea, type Tonicization } from "./lib/tonality";
@@ -47,7 +48,7 @@ import type {
 // memo (and rebuild the roll's static layer) whenever no tonicizations exist.
 const NO_TONICIZATIONS: Tonicization[] = [];
 
-type ViewKey = "transport" | "grid" | "pianoRoll" | "piano" | "bracelet" | "tonnetz" | "circle" | "anatomy" | "console";
+type ViewKey = "transport" | "grid" | "pianoRoll" | "piano" | "bracelet" | "tonnetz" | "circle" | "anatomy" | "console" | "pcset";
 const VIEW_DEFS: { key: ViewKey; label: string }[] = [
   { key: "transport", label: "Transport" },
   { key: "pianoRoll", label: "Piano roll" },
@@ -58,6 +59,7 @@ const VIEW_DEFS: { key: ViewKey; label: string }[] = [
   { key: "circle", label: "Circle of 5ths" },
   { key: "anatomy", label: "Chord anatomy" },
   { key: "console", label: "Analysis console" },
+  { key: "pcset", label: "Pc-set lab" },
 ];
 
 export default function App() {
@@ -114,7 +116,7 @@ export default function App() {
 
   // Optional visual modules — each surface can be shown or hidden.
   const [views, setViews] = useState<Record<ViewKey, boolean>>({
-    transport: true, grid: true, pianoRoll: true, piano: true, bracelet: true, tonnetz: true, circle: false, anatomy: false, console: false,
+    transport: true, grid: true, pianoRoll: true, piano: true, bracelet: true, tonnetz: true, circle: false, anatomy: false, console: false, pcset: false,
   });
   // Follow-the-key: auto-switch the explorer's root+scale to the current playback
   // segment's local key as the playhead moves. Off by default; only meaningful
@@ -696,6 +698,24 @@ export default function App() {
                   chordRegions={chordRegions}
                   bridgeConnected={bridge.connected}
                   noteName={noteName}
+                />
+              </div>
+            </div>
+          )}
+
+          {views.pcset && (
+            <div className="px-stage-block">
+              <div className="px-block-cap">Pc-set lab</div>
+              <div className="px-diagram">
+                <PcSetLab
+                  seedScalePcs={[...scalePcs]}
+                  seedActivePcs={activePcs}
+                  currentRoot={root}
+                  currentScale={scaleName}
+                  onApplyScale={(pc, scale) => { setFollowKey(false); setRoot(pc); setScaleName(scale); }}
+                  bridgeBaseUrl={bridge.baseUrl}
+                  bridgeConnected={bridge.connected}
+                  label={pcLabel}
                 />
               </div>
             </div>
