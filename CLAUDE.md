@@ -397,3 +397,41 @@ current song position *first*, then change the scale. `usePlayback` exposes
 stepBack, setTempoScale, activeNotes }`; `activeNotes` derives from `currentTime` via
 `activeNotesAt(T)` (`note.time <= T < note.endTime`) and is the single source for
 highlighting the Grid, Piano, and Analyzer.
+
+<!-- KNOWLEDGE-LOOP:START -->
+## Self-Improving Knowledge Loop
+
+Each session: read accumulated knowledge before acting, write distilled knowledge
+after. This meta-layer sits on top of my primary role and never overrides it.
+
+> Loop files: **[INDEX.md](INDEX.md)** (retrieval map, read in full each session) +
+> **[LIBRARY.md](LIBRARY.md)** (durable lessons, pulled selectively). Tags in use:
+> `tonality-bridge`, `cross-repo-channel`, `preview-verify`, `pianoroll-canvas`,
+> `architecture-seams`, `theory-dft`.
+
+### Every session
+1. **ORIENT** — Read INDEX.md in full (kept small on purpose). Pull ONLY the matching
+   entries from LIBRARY.md into context. Never load all of LIBRARY by default.
+2. **ACT** — Do the work, applying retrieved lessons. If a lesson proves wrong,
+   correcting it outranks adding a new one.
+3. **REFLECT** — Ask: "What did I learn that a future session needs and could not
+   cheaply re-derive?" A lesson qualifies only if durable, evidenced (tied to a
+   concrete trigger), and non-obvious. If nothing qualifies, write nothing.
+4. **WRITE (atomic)** — Append the lesson to LIBRARY.md and a one-line pointer to
+   INDEX.md in the same change. New lessons enter as `tier: candidate`; promote to
+   `canonical` only on a second independent occurrence or human review.
+
+### Write gate (anti-poisoning)
+This loop feeds its own output back as input, so a wrong lesson, written once, is
+retrieved and reinforced forever. Therefore: prefer not writing over writing
+unverified; every lesson states what would falsify it; if a retrieved lesson
+contradicts present evidence, trust the evidence and demote the lesson.
+
+### Consolidation (periodic)
+When LIBRARY exceeds ~30 entries, merge duplicates, delete superseded entries,
+promote recurring candidates, tighten tags. Refactor it like code; don't grow it
+like a log.
+
+### LIBRARY entry template
+`[Lxxxx] <title> | tier | added: YYYY-MM-DD | tags: … | lesson: … | evidence: … | falsifier: … | supersedes: …`
+<!-- KNOWLEDGE-LOOP:END -->
