@@ -16,6 +16,7 @@ import {
 } from "../lib/theory";
 import type { ScaleName } from "../lib/theory/constants";
 import { useChordFacts } from "../hooks/useChordFacts";
+import Bracelet from "./Bracelet";
 
 const C = {
   border: "#1c2129", border2: "#2a3340", text: "#e6edf3", dim: "#94a3b8",
@@ -123,8 +124,16 @@ export default function PcSetLab({
         </span>
       </div>
 
+      {/* Bracelet view of the working set — the pitch-class clock, doubling as an
+          alternate editor: click a node to toggle its membership (same as the rail). */}
+      <div style={{ display: "flex", justifyContent: "center", marginBottom: 12 }}>
+        <div style={{ width: 200 }}>
+          <Bracelet rootPc={-1} chordRootPc={null} scalePcs={new Set(a.u)} activePcs={a.u} label={label} onPick={toggle} />
+        </div>
+      </div>
+
       {a.card === 0 ? (
-        <div style={{ color: C.faint, padding: "12px 2px" }}>Empty set — tap notes above, or seed from the explorer.</div>
+        <div style={{ color: C.faint, padding: "12px 2px" }}>Empty set — tap a node above or a note on the rail, or seed from the explorer.</div>
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 14, fontFamily: "'JetBrains Mono', monospace" }}>
           <section>
