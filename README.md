@@ -217,7 +217,9 @@ engineering threads"). The longer-horizon direction:
   **modularity** — keep the pure core React-free and platform-agnostic, keep all browser-specific
   surfaces (Web Audio, Web MIDI, File API, the Vite dev-server bridge launcher) behind narrow,
   swappable seams, so the shell can replace them one at a time. Every new feature should respect
-  that boundary so the port stays painless rather than a rewrite.
+  that boundary so the port stays painless rather than a rewrite. *(Interim: a convenience desktop
+  launcher — [`docs/DESKTOP.md`](docs/DESKTOP.md), `scripts/launch-audiology.command` — starts the
+  dev server + opens the app from a double-click icon; the real native app is the Tauri work above.)*
 - **A modular surface for music education.** The larger aim: Audiology's interactive surfaces
   (grid, piano, roll, bracelet/Tonnetz/circle, Chord Anatomy) plus Tonality's determinations become
   reusable **building blocks** that a variety of interactive teaching programs can drive — Audiology
@@ -244,15 +246,22 @@ engineering threads"). The longer-horizon direction:
   held-out-timbre transfer on top of it — and a **telemetry sink** for cohort studies (emission is
   easy; collection + consent/identity is real plumbing a standalone frontend lacks — a natural fit
   for the Audiology MCP below).
-- **An Audiology MCP** — expose Audiology's own capabilities (analysis surfaces, scale/chord
-  identification, learning-mode progress) as an MCP server so other agents and apps can drive
-  it and exchange data with it — distinct from the Tonality bridge, where Audiology is the
-  *consumer*. First consumer would be the external learning app above.
+- **An Audiology MCP** *(next thrust — design in [`docs/proposals/audiology-mcp.md`](docs/proposals/audiology-mcp.md))* —
+  expose Audiology's own capabilities (analysis surfaces, scale/chord identification, and
+  **representation-as-SVG**: the bracelet/Tonnetz/circle/anatomy renders) as an MCP server other
+  agents and apps can drive — distinct from the Tonality bridge, where Audiology is the *consumer*.
+  Runs as a Node process over the pure React-free core; first consumer is the external learning app.
 - **Greater modularity** — formalize the existing discipline (pure core, single engine-wire
   boundary, optional Views) into a real mode/surface plugin seam and a stable internal data
-  model the MCP can publish.
-- **Follow-the-key mode** — auto-switch the explorer's root+scale to the current playback
-  segment's local key as the playhead moves, with a circle-of-fifths view.
+  model the MCP can publish. (The MCP proposal above is this seam's forcing function.)
+- **Ian Ring parity** *(spec in [`docs/proposals/ian-ring-parity.md`](docs/proposals/ian-ring-parity.md))* —
+  show, for any scale/pc-set, every representation and datum Ian Ring's site presents: a local
+  property pack (hemitonia, imperfections, deep-scale, Myhill, maximal-evenness…), names + Forte
+  number from the engine, distribution spectra, a set-class lattice, and staff notation. A backlog
+  to burn down, not a sprint.
+- ~~**Follow-the-key mode**~~ — **shipped**: a transport toggle that auto-switches the explorer's
+  root+scale to the current playback segment's **local** (windowed) key as the playhead moves, with
+  the Circle-of-5ths view showing the journey and the MIDI-file-key card headlining the local key.
 - ~~**"Deeper analysis" mode**~~ — **shipped** as the **Analysis console** view: an opt-in
   surface with everything the engine returns as verbose text/numbers, in four scopes (current
   chord · playhead instant · every region with honest margins · whole file), copyable, with a
