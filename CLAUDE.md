@@ -335,7 +335,9 @@ Roadmap; the remaining Tonality-engine upgrades are in the section above).
   (When-in-Rome/SWD ship ground-truth meter). Needs a brief + a harness meter-test.
 - **Custom-scale analysis (SHIPPED as the Pc-set lab).** The `pcset` view
   (`src/components/PcSetLab.tsx`, maths in `src/lib/theory/pcset.ts`) is a chromatic-rail pc-set
-  editor + analyzer: build any set (or seed from the explorer's scale / current selection) and read
+  editor + analyzer with a **Bracelet** (reuses `components/Bracelet.tsx`, `rootPc={-1}` so it's
+  rootless; nodes clickable → `toggle`, so the clock doubles as an editor alongside the rail):
+  build any set (or seed from the explorer's scale / current selection) and read
   its **identity** (normal order, prime form, interval vector, mask, set-class steps),
   **symmetry** (transpositional degree/period + inversional axis count), **complement**, **colour**
   (the two chord-anatomy resultant swatches), the **catalog names** it matches (scales flagged
