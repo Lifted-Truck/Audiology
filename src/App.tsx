@@ -120,6 +120,14 @@ export default function App() {
   // segment's local key as the playhead moves. Off by default; only meaningful
   // with engine key analysis (key bands) loaded.
   const [followKey, setFollowKey] = useState(false);
+  // Enabling follow-key also shows the windowed key strip on the roll, so what the
+  // roll displays matches what the explorer is following (the local key track);
+  // the structural reduction would otherwise show one home key while the root
+  // tracks local modulations. Disabling leaves the strip where it is.
+  const handleFollowKey = useCallback((v: boolean) => {
+    setFollowKey(v);
+    if (v) setKeyStripMode("windowed");
+  }, []);
   const toggleView = (k: ViewKey) => setViews((v) => ({ ...v, [k]: !v[k] }));
   // When off, the grid/piano drop the scale tint — a "blank" surface where only
   // played / selected / chord notes are highlighted.
@@ -332,11 +340,16 @@ export default function App() {
   const hasStructural = structuralKeyBands.length > 0;
   const keyBands = keyStripMode === "structural" && hasStructural ? structuralKeyBands : keyRegionBands;
 
-  // Follow-the-key: the local key under the playhead (from the key bands), plus the
-  // distinct keys the piece visits (for the circle-of-fifths journey trace).
-  const segmentKey = useMemo(() => segmentKeyAt(keyBands, playback.currentTime), [keyBands, playback.currentTime]);
-  const visitedKeys = useMemo(() => visitedKeysOf(keyBands), [keyBands]);
-  const canFollowKey = keyBands.length > 0;
+  // Follow-the-key: the local key under the playhead, plus the distinct keys the
+  // piece visits (for the circle-of-fifths journey trace). This tracks the
+  // *windowed* local-key track (`keyRegionBands`), NOT the displayed `keyBands` —
+  // the default structural reduction absorbs tonicizations into one home key (a
+  // C→G modulation collapses to a single G-major area), so following that strip
+  // would never track the modulation. The windowed track is literally "the current
+  // key in the file at this moment", which is what follow-the-key means.
+  const segmentKey = useMemo(() => segmentKeyAt(keyRegionBands, playback.currentTime), [keyRegionBands, playback.currentTime]);
+  const visitedKeys = useMemo(() => visitedKeysOf(keyRegionBands), [keyRegionBands]);
+  const canFollowKey = keyRegionBands.length > 0;
   // When following, snap root+scale to the segment key (only major/minor map onto a
   // selectable scale). Keyed on the segment key's identity so it fires at key-area
   // boundaries, not every frame; setRoot/setScaleName to an unchanged value no-op.
@@ -561,7 +574,7 @@ export default function App() {
                 smoothRegions={smoothRegions}
                 onSmoothChange={setSmoothRegions}
                 followKey={followKey}
-                onFollowKeyChange={setFollowKey}
+                onFollowKeyChange={handleFollowKey}
                 canFollowKey={canFollowKey}
               />
             </div>
@@ -740,6 +753,7 @@ export default function App() {
           noteName={noteName} inScalePc={inScalePc} isLive={isLive}
           chord={chord} highlightSel={highlightSel} liveNotes={liveNotes} litSet={litSet}
           live={live} song={playback.song} playMidi={playMidi} analysis={analysis}
+          followKey={followKey} segmentKey={segmentKey}
           showLayout={views.grid}
           showScaleColors={showScaleColors} setShowScaleColors={setShowScaleColors}
           engineNaming={engineNaming} bridgeConnected={bridge.connected}

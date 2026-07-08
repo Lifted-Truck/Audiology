@@ -77,6 +77,10 @@ export interface ControlPanelsProps {
   song: Song | null;
   playMidi: (m: number, dur?: number, when?: number, gMul?: number) => void;
   analysis: FileAnalysis | null;
+  /** Follow-the-key state: when on, the MIDI-file-key card headlines the local
+   *  (windowed) key under the playhead instead of the global inferred key. */
+  followKey: boolean;
+  segmentKey: { tonicPc: number; mode: string } | null;
   /** Whether the Push grid is visible — its Layout card hides when it isn't. */
   showLayout: boolean;
   showScaleColors: boolean;
@@ -223,10 +227,17 @@ export default function ControlPanels(p: ControlPanelsProps) {
             // not "A#") rather than the user's currently-selected root spelling.
             const label = (pc: number, mode: string) =>
               spellInKey(pc, pc, mode) + " " + mode.charAt(0).toUpperCase() + mode.slice(1);
+            const following = p.followKey && p.segmentKey;
             return (
               <div className="px-inferkey">
+                {following && (
+                  <div className="px-inferkey-follow">
+                    <span className="px-inferkey-cap">⟳ Following local key</span>
+                    <span className="px-inferkey-local">{label(p.segmentKey!.tonicPc, p.segmentKey!.mode)}</span>
+                  </div>
+                )}
                 <div className="px-inferkey-top">
-                  <span className="px-inferkey-cap">Inferred key · Tonality</span>
+                  <span className="px-inferkey-cap">{following ? "Global key · Tonality" : "Inferred key · Tonality"}</span>
                   <button className="px-apply" onClick={() => apply(k.tonicPc, k.mode)}>Apply</button>
                 </div>
                 <div className="px-inferkey-main">{label(k.tonicPc, k.mode)}</div>
