@@ -15,6 +15,7 @@ export function parseMidi(data: ArrayBuffer, fallbackName = "Untitled"): Song {
     const drum = track.instrument?.percussion === true || track.channel === 9;
     const trackName = track.name || undefined;
     const instrument = track.instrument?.name || undefined;
+    const program = track.instrument?.number;
     for (const n of track.notes) {
       notes.push({
         midi: n.midi,
@@ -28,6 +29,7 @@ export function parseMidi(data: ArrayBuffer, fallbackName = "Untitled"): Song {
         channel: track.channel,
         track: trackName,
         instrument,
+        program,
       });
     }
   }

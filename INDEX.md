@@ -15,3 +15,4 @@ Knowledge Loop in [CLAUDE.md](CLAUDE.md). Keep pointers to one line each.
 
 ## Lessons
 - [L0001] `preview-verify` — synthetic ▶ clicks don't resume the AudioContext; verify playback behavior by scrubbing the roll (mind the scroll offset). *(candidate)*
+- [L0002] `preview-verify` `architecture-seams` — audio/timbre changes can't be heard headless; verify structurally (Node-test pure DSP/GM maps, drive the routing UI, confirm a clean error console). *(candidate)*

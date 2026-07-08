@@ -16,8 +16,10 @@ import {
   windowedKeyBands, structuralKeyBandsOf, segmentKeyAt, visitedKeysOf,
   tonicizationSpansOf, pivotBandsOf, chordRegionsOf,
   buildGridCells, buildPianoKeys, padStyleOf, keyAccentOf,
+  channelSummary, autoAssign,
 } from "./lib/state";
 import type { ScaleContext, SurfaceSelection } from "./lib/state";
+import type { PresetKey } from "./audio/instruments";
 import { useAudioContext } from "./hooks/useAudioContext";
 import { useLiveInput } from "./hooks/useLiveInput";
 import { usePlayback } from "./hooks/usePlayback";
@@ -31,6 +33,7 @@ import Tonnetz from "./components/Tonnetz";
 import ChordAnatomy from "./components/ChordAnatomy";
 import AnalysisConsole from "./components/AnalysisConsole";
 import PcSetLab from "./components/PcSetLab";
+import InstrumentPanel from "./components/InstrumentPanel";
 import CircleOfFifths from "./components/CircleOfFifths";
 import ControlPanels from "./components/ControlPanels";
 import { parseTonalityAnalysis, shiftAnalysis, nameChord, analyzeMidi, scaleToEngineKey, structuralKeys, modeToScaleName, type FileAnalysis, type ChordNaming, type StructuralArea, type Tonicization } from "./lib/tonality";
@@ -48,7 +51,7 @@ import type {
 // memo (and rebuild the roll's static layer) whenever no tonicizations exist.
 const NO_TONICIZATIONS: Tonicization[] = [];
 
-type ViewKey = "transport" | "grid" | "pianoRoll" | "piano" | "bracelet" | "tonnetz" | "circle" | "anatomy" | "console" | "pcset";
+type ViewKey = "transport" | "grid" | "pianoRoll" | "piano" | "bracelet" | "tonnetz" | "circle" | "anatomy" | "console" | "pcset" | "instruments";
 const VIEW_DEFS: { key: ViewKey; label: string }[] = [
   { key: "transport", label: "Transport" },
   { key: "pianoRoll", label: "Piano roll" },
@@ -60,6 +63,7 @@ const VIEW_DEFS: { key: ViewKey; label: string }[] = [
   { key: "anatomy", label: "Chord anatomy" },
   { key: "console", label: "Analysis console" },
   { key: "pcset", label: "Pc-set lab" },
+  { key: "instruments", label: "Instruments" },
 ];
 
 export default function App() {
@@ -116,7 +120,7 @@ export default function App() {
 
   // Optional visual modules — each surface can be shown or hidden.
   const [views, setViews] = useState<Record<ViewKey, boolean>>({
-    transport: true, grid: true, pianoRoll: true, piano: true, bracelet: true, tonnetz: true, circle: false, anatomy: false, console: false, pcset: false,
+    transport: true, grid: true, pianoRoll: true, piano: true, bracelet: true, tonnetz: true, circle: false, anatomy: false, console: false, pcset: false, instruments: false,
   });
   // Follow-the-key: auto-switch the explorer's root+scale to the current playback
   // segment's local key as the playhead moves. Off by default; only meaningful
@@ -134,6 +138,13 @@ export default function App() {
   // When off, the grid/piano drop the scale tint — a "blank" surface where only
   // played / selected / chord notes are highlighted.
   const [showScaleColors, setShowScaleColors] = useState(true);
+
+  // Per-channel instrument assignment for playback (audio subsystem). Auto-set
+  // from the file's GM programs on load; overridable in the Instruments view.
+  // `livePreset` is the sound for pad taps / "play chord" / Live mode.
+  const [channelPresets, setChannelPresets] = useState<Record<number, PresetKey>>({});
+  const [drumChannels, setDrumChannels] = useState<number[]>([]);
+  const [livePreset, setLivePreset] = useState<PresetKey>("piano");
 
   const pattern = SCALES[scaleName];
   const useFlats = noteNot === "flat" || (noteNot === "auto" && FLAT_KEYS.includes(root));
@@ -188,6 +199,21 @@ export default function App() {
   const audio = useAudioContext();
   const getSynth = audio.getSynth;
   const playback = usePlayback(audio);
+
+  // Per-channel instrument subsystem. The song's channels + their GM metadata,
+  // the default assignment (auto-set on load), and the routing pushed to the synth.
+  const channels = useMemo(() => channelSummary(playback.song), [playback.song]);
+  useEffect(() => {
+    const { presets, drums } = autoAssign(channels);
+    setChannelPresets(presets);
+    setDrumChannels(drums);
+  }, [channels]);
+  useEffect(() => {
+    getSynth().setRouting(channelPresets, drumChannels);
+  }, [getSynth, channelPresets, drumChannels]);
+  useEffect(() => {
+    getSynth().setLivePreset(livePreset);
+  }, [getSynth, livePreset]);
 
   const onMidiLoaded = useCallback((buf: ArrayBuffer) => {
     midiBytesRef.current = buf;
@@ -729,6 +755,24 @@ export default function App() {
                   bridgeBaseUrl={bridge.baseUrl}
                   bridgeConnected={bridge.connected}
                   label={pcLabel}
+                />
+              </div>
+            </div>
+          )}
+
+          {views.instruments && (
+            <div className="px-stage-block">
+              <div className="px-block-cap">Instruments</div>
+              <div className="px-diagram">
+                <InstrumentPanel
+                  channels={channels}
+                  channelPresets={channelPresets}
+                  drumChannels={drumChannels}
+                  livePreset={livePreset}
+                  onSetPreset={(ch, key) => { setChannelPresets((p) => ({ ...p, [ch]: key })); if (sound) getSynth().previewPreset(key); }}
+                  onToggleDrum={(ch, drum) => setDrumChannels((d) => (drum ? [...new Set([...d, ch])] : d.filter((x) => x !== ch)))}
+                  onSetLivePreset={(key) => { setLivePreset(key); if (sound) getSynth().previewPreset(key); }}
+                  onAuditionDrum={(midi) => { if (sound) getSynth().playMidi(midi, 0.4, 0, 1, undefined, true); }}
                 />
               </div>
             </div>
