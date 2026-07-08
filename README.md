@@ -56,6 +56,11 @@ music-theory engine**.
   (including the low-confidence ones the strips absorb, with honest margins), and the **whole
   file** (every ranked key candidate, structural home, itemized MIDI-read losses). Engine-backed
   when connected, local fallbacks otherwise; a JSON toggle shows the raw objects.
+- **Pc-set lab** — a chromatic-rail editor for building an arbitrary pitch-class set (or seeding
+  one from the current scale / selection) and reading its full set-theory profile: normal order,
+  prime form, interval vector, mask, transpositional + inversional symmetry, complement, DFT
+  colour, the catalog scales/chords it matches (Push-3-available scales flagged, tap to apply to
+  the explorer), the scales it sits inside, and its modes. Identity is engine-backed when connected.
 
 ## A look at the surfaces
 
@@ -245,9 +250,10 @@ engineering threads"). The longer-horizon direction:
   surface with everything the engine returns as verbose text/numbers, in four scopes (current
   chord · playhead instant · every region with honest margins · whole file), copyable, with a
   raw-JSON toggle.
-- **Custom-scale analysis** — an Ian-Ring-style scale/pc-set editor surfacing interval vector,
-  set-class, symmetry, modes, DFT "harmonic colour", and named matches (with Push-3 availability
-  flagged).
+- ~~**Custom-scale analysis**~~ — **shipped** as the **Pc-set lab** view: a chromatic-rail
+  scale/pc-set editor that surfaces interval vector, prime form / set-class, transpositional &
+  inversional symmetry, complement, DFT "harmonic colour", modes, and the named scales/chords the
+  set is (or sits inside) — Push-3-available scales flagged and tap-to-apply to the explorer.
 ### Chord Anatomy & harmonic geometry *(shipped — this records the foundations + open threads)*
 
 The **Chord Anatomy** view (see Features) demystifies *why* chords sound related or different,

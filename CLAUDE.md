@@ -315,9 +315,21 @@ Roadmap; the remaining Tonality-engine upgrades are in the section above).
   tempo/meter we read it faithfully (no detector); the gap is *inferring* tempo+meter for files
   lacking reliable data — Tonality-engine territory, testable via the validation harness
   (When-in-Rome/SWD ship ground-truth meter). Needs a brief + a harness meter-test.
-- **Custom-scale analysis section** (impl side of the README roadmap item). The engine already
-  returns interval vector, `set_class_info`, symmetry, DFT magnitudes, `find_containers`/catalog —
-  wire a scale/pc-set editor to them; flag which results are Push-3-available scales.
+- **Custom-scale analysis (SHIPPED as the Pc-set lab).** The `pcset` view
+  (`src/components/PcSetLab.tsx`, maths in `src/lib/theory/pcset.ts`) is a chromatic-rail pc-set
+  editor + analyzer: build any set (or seed from the explorer's scale / current selection) and read
+  its **identity** (normal order, prime form, interval vector, mask, set-class steps),
+  **symmetry** (transpositional degree/period + inversional axis count), **complement**, **colour**
+  (the two chord-anatomy resultant swatches), the **catalog names** it matches (scales flagged
+  `·P3` = Push-3-available, tap a scale to apply it to the explorer), the scales it **sits inside**
+  (`scalesContaining`, tap-to-apply), and its **modes** (each rotation named where it matches a
+  catalog scale). Identity prefers the engine's `set_class_info` (prime form + IV-from-DFT-mags via
+  the same `useChordFacts` seam as anatomy; teal engine/local badge); symmetry/names/modes are
+  pure-local (a 12-step loop, not engine combinatorics — `pcset.ts` is Node-tested against known
+  sets). *Remaining, when the engine catalog gets bridge wrappers:* move `exactNames` /
+  `scalesContaining` onto the engine's `catalog_*` / `find_containers` (retires the local catalog
+  scan, per "Tonality at the core"); local `primeFormLocal` is a documented fallback that can
+  tie-break differently from Rahn on a few exotic set-classes (the engine's is authoritative).
 - **Chord Anatomy view (SHIPPED).** The chord interval-content idea is built as the **`anatomy`**
   view (`src/components/ChordAnatomy.tsx`, maths in `src/lib/theory/chord-anatomy.ts`, both
   React-free in the lib). Driven by `activePcs` + `chordRealizationMidi` like Bracelet/Tonnetz; a

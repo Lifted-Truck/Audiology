@@ -7,3 +7,4 @@ export * from "./analyze";
 export * from "./scale-detect";
 export * from "./roman";
 export * from "./chord-anatomy";
+export * from "./pcset";
