@@ -28,6 +28,9 @@ export interface Note {
   track?: string;
   /** Source track instrument name, if any (for the note inspector). */
   instrument?: string;
+  /** General MIDI program number (0..127) of the source track, if any — drives
+   *  the default per-channel instrument assignment in the audio subsystem. */
+  program?: number;
 }
 
 /** A parsed song: notes sorted ascending by onset, plus total duration. */

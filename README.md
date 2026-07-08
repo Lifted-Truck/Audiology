@@ -23,6 +23,12 @@ music-theory engine**.
 - **MIDI playback** — load a `.mid` file and watch it play on a piano-roll timeline with a
   moving playhead, a tempo-accurate **bar/time ruler**, follow-scroll, loop, tempo slider,
   and scrub/step controls.
+- **Per-channel instruments** — each MIDI channel plays through its own timbre from a bank of
+  oscillator presets (piano, organ, pluck, bass, strings, brass, flute, synth lead/pad…) plus a
+  synthesized **drum kit** for percussion channels. Instruments are auto-assigned from the file's
+  General MIDI programs on load and overridable per channel in the **Instruments** view (with a
+  "treat as drums" toggle for files that aren't GM-normalized). All synthesis is built-in — no
+  samples, no network.
 - **Theory-engine analysis** — with the Tonality engine running, a loaded file is analyzed
   for its key, **structural key-areas**, tonicizations (an orange **pivot lane** with Roman
   numerals), and per-segment chords. The chord strip toggles between **names / Roman
@@ -232,11 +238,12 @@ engineering threads"). The longer-horizon direction:
   **Greater modularity** items below are the enabling seams (drive the surfaces, publish/consume
   progress), and **spaced-repetition sequencing** is driven by **progress reports imported from a
   separate learning app** so it reflects real mastery, not in-app state alone. *(Being workshopped.)*
-  Two shared build items the first module surfaces (neither exists yet, both outlive CHROMA): a
-  **multi-timbre audio subsystem** (today there is one oscillator synth, `audio/synth.ts`; modules
-  need distinct timbres, masking, and millisecond-accurate scheduled onset) and a **telemetry sink**
-  for cohort studies (emission is easy; collection + consent/identity is real plumbing a
-  standalone frontend lacks — a natural fit for the Audiology MCP below).
+  Two shared build items the first module surfaces (both outlive CHROMA): a **multi-timbre audio
+  subsystem** — **now shipped** as the per-channel instrument bank (`audio/instruments.ts`:
+  oscillator presets + a synth drum kit); a training module still needs *masking* and
+  held-out-timbre transfer on top of it — and a **telemetry sink** for cohort studies (emission is
+  easy; collection + consent/identity is real plumbing a standalone frontend lacks — a natural fit
+  for the Audiology MCP below).
 - **An Audiology MCP** — expose Audiology's own capabilities (analysis surfaces, scale/chord
   identification, learning-mode progress) as an MCP server so other agents and apps can drive
   it and exchange data with it — distinct from the Tonality bridge, where Audiology is the

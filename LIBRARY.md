@@ -27,3 +27,24 @@ appeared during the eject and console verifications.
 | falsifier: A preview harness that resumes the AudioContext on a scripted gesture
 (time advances after a scripted ▶ click) would retire this.
 | supersedes: —
+
+[L0002] Audio-subsystem changes can't be heard headless — verify structurally
+| tier: candidate | added: 2026-07-06 | tags: preview-verify, architecture-seams
+| lesson: The preview MCP can't confirm actual SOUND (the AudioContext stays
+suspended under scripted gestures — see L0001), so you cannot verify a synth /
+timbre / drum change by listening. Verify it structurally instead: (1) Node-test
+the pure parts — the GM-program→preset mapping and any DSP parameter tables — since
+those are deterministic; (2) drive the routing/assignment UI in-browser and read
+back state (preset selects, drum toggles); (3) confirm the audio graph builds
+without throwing by auditioning and checking `preview_console_logs level:error` is
+clean (creating/starting oscillator + buffer nodes on a suspended context does not
+throw, so a clean console means the graph is well-formed). Build a tiny controlled
+multi-channel MIDI with @tonejs/midi for a fast, exact fixture rather than injecting
+a large real file's base64.
+| evidence: Multi-timbre subsystem (2026-07-06) — GM auto-assign Node-verified exact
+(piano/bass/pad/brass/strings/drums…), a 188-char 3-channel fixture drove the
+Instruments panel, preset-change + drums-override + audition all ran with a clean
+error console; no sound was ever audible in-harness.
+| falsifier: A preview harness that renders/exports audio (or resumes the context)
+so output can be asserted would replace this with direct audio verification.
+| supersedes: —

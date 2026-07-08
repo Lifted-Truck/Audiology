@@ -46,7 +46,9 @@ north star is to become **a GUI for the Tonality music-theory engine**.
   consume slice should be another instance, not a bespoke effect. (The file-analysis flow keeps
   its own wiring — it has UI state the seam doesn't model: spinner, error banner, manual re-run.)
 - **One synth, one clock.** A single `AudioContext`; all notes go through the `playMidi`
-  synth (`audio/synth.ts`). The transport schedules on `ctx.currentTime`.
+  synth (`audio/synth.ts`). The transport schedules on `ctx.currentTime`. Timbre is
+  per-channel: the synth routes each note to its channel's assigned preset (or the drum kit)
+  from the instrument bank (`audio/instruments.ts`); voices are still one graph, one clock.
 - **Time model.** Playback bridges *song-time* (`Note.time`, seconds) and *audio-time*
   (`ctx.currentTime`) with an **anchor pair**, and `tempoScale` is a **multiplier**
   (1 = as authored). Re-anchor at the current song position *before* changing tempo so
@@ -154,6 +156,22 @@ runnable (typecheck + build pass) after every change.
   visible layer re-blits via a `staticVersion` bump instead of duplicated deps (see Gotchas).
   Verified visually byte-identical + all three engine consumers live in-browser. This is the
   internal library boundary for the eventual surface-library split (see README Roadmap).
+
+- **Multi-timbre audio subsystem (SHIPPED).** Playback is no longer one oscillator: the
+  **instrument bank** (`audio/instruments.ts`, pure/deterministic — no samples/network) has ~10
+  oscillator melodic presets (piano…pad, each = osc mix + ADSR + optional lowpass, percussive vs
+  sustained) and a synthesized **drum kit** (kick/snare/hat/toms/cymbals from noise+osc bursts)
+  mapped from the GM percussion note numbers (`GM_DRUM_MAP`). `audio/synth.ts` holds a
+  channel→preset routing map + a drum-channel set + a `livePreset` (taps / "play chord" / Live);
+  `playMidi(midi,dur,when,gain,channel?,drum?)` routes per note (the transport passes
+  `n.channel`/`n.drum`). `lib/state/instruments.ts` `channelSummary` + `autoAssign` derive the
+  default assignment from each channel's **GM program** (`Note.program`, from
+  `track.instrument.number`); `gmProgramToPreset` maps GM families → presets. The **Instruments**
+  view (`components/InstrumentPanel.tsx`) shows each channel with a preset picker (auditioned on
+  change) + a "treat as drums" toggle for non-GM-normalized files, plus the live-sound picker.
+  App holds `channelPresets`/`drumChannels`/`livePreset`, auto-assigns on load, and pushes routing
+  to the synth via effects. *(Preview note: actual audio can't be heard headless — L0001; verified
+  via no-throw graph construction + Node-tested GM mapping + in-browser routing/UI.)*
 
 ### Migration complete
 All phases (0–5) plus Live play, MIDI key analysis, and Phase-4 playback wiring are done.

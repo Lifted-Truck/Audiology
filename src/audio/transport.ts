@@ -114,7 +114,9 @@ export function createTransport(ctx: AudioContext, synth: Synth): Transport {
       const n = notes[scheduleIdx];
       const delay = songToAudio(n.time) - ctx.currentTime;
       if (delay >= -LATE) {
-        synth.playMidi(n.midi, n.duration / scale, Math.max(0, delay), velToGain(n.velocity));
+        // Route timbre by the note's channel / drum flag (the synth resolves the
+        // per-channel preset or the drum kit).
+        synth.playMidi(n.midi, n.duration / scale, Math.max(0, delay), velToGain(n.velocity), n.channel, n.drum);
       }
       scheduleIdx++;
     }
