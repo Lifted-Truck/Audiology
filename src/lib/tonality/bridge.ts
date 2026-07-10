@@ -11,6 +11,15 @@
 
 import type { ScaleName } from "../theory/constants";
 
+/**
+ * The key-profile prior, pinned EXPLICITLY (not left to the engine default) per the
+ * cross-project key-grain-alignment contract (Wend ↔ Audiology). Margins are
+ * calibrated to the profile, so pinning it keeps our reading deterministic and
+ * comparable across projects. If this changes, re-check the `meanMargin` region-
+ * absorption gate in App (`windowedKeyBands`), whose 0.03 threshold is margin-scaled.
+ */
+export const TONALITY_PROFILE = "kk-1982.1";
+
 export interface NamingReading {
   rootPc: number;
   quality: string;
@@ -155,6 +164,7 @@ export async function analyzeMidi(
 ): Promise<unknown> {
   const p = new URLSearchParams();
   p.set("coalesce", coalesceWindowBeats != null ? String(coalesceWindowBeats) : "off");
+  p.set("profile", TONALITY_PROFILE); // pin the key-profile prior (contract anchor)
   if (opts.disambiguateRelativeKeys) p.set("disambiguate", "1");
   if (opts.smoothKeyRegions) p.set("smooth", "1");
   const r = await fetch("/__tonality/analyze_midi?" + p.toString(), {
@@ -226,6 +236,7 @@ export async function structuralKeys(
       events,
       window_beats: opts.windowBeats ?? 8.0,
       hop_beats: opts.hopBeats ?? 2.0,
+      profile_version: TONALITY_PROFILE, // pinned per the key-grain-alignment contract
       disambiguate_relative: opts.disambiguateRelative ?? false,
       smoothing: opts.smoothing ?? false,
     },

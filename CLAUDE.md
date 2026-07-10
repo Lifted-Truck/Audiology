@@ -269,6 +269,19 @@ key** (`spellInKey` — "Bb maj", not "A# maj"). Verified end-to-end in-browser:
 the official bridge, Bohemian Rhapsody analyzes through the adapter (inferred Bb major), the
 coalesce control reduces segmentation, and `name_pcs` works cross-origin to :8012.
 
+### Key profile pinned (done — cross-project alignment)
+`src/lib/tonality/bridge.ts` exports `TONALITY_PROFILE = "kk-1982.1"` and passes it as
+`profile_version` on **both** `structural_keys` and `midi_file_analysis` (via the `?profile=` query
+the Vite middleware forwards). We pin it **explicitly** rather than inheriting the engine default,
+per the Wend↔Audiology **key-grain-alignment contract** (`Tonality/integrations/key-grain-alignment.md`) —
+margins are profile-calibrated, so pinning keeps our reading deterministic and comparable. Two
+consequences, both verified: (1) the inferred-key card / console now report `kk-1982.1` (was
+`tkp-cbms.1`, the old inherited default); (2) **margins are smaller under kk-1982.1** — the
+`meanMargin < 0.03` absorption gate (below) still cleanly separates real regions (~0.10+) from
+spurious blips (~0.001), so it held without retuning. Note the profile choice can flip a structural
+*home* on genuinely ambiguous material (the C↔G fixture reads home = C under kk-1982.1, G under
+tkp-cbms.1) — that's the profile's honest call, not a bug. If the profile ever changes, re-check the 0.03 gate.
+
 ### Key-region confidence (done)
 The key-region strip **merges low-confidence regions into the prevailing key**: `keyRegionBands`
 absorbs any region whose `meanMargin < 0.03` into the previous band. Rationale: Tonality is
