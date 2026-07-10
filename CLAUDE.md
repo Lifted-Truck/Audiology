@@ -173,6 +173,19 @@ runnable (typecheck + build pass) after every change.
   to the synth via effects. *(Preview note: actual audio can't be heard headless — L0001; verified
   via no-throw graph construction + Node-tested GM mapping + in-browser routing/UI.)*
 
+- **Audiology MCP v1 (SHIPPED).** A Node **MCP server** exposing Audiology's analysis over the
+  pure core — the "Audiology as the face" roadmap thrust (see `docs/MCP.md`,
+  `docs/proposals/audiology-mcp.md`). `src/mcp/tools.ts` holds pure, transport-agnostic handlers +
+  a tool registry + a versioned envelope (`MCP_MODEL_VERSION`); `src/mcp/server.ts` is a thin stdio
+  wrapper (`@modelcontextprotocol/sdk`). Three v1 tools over `lib/theory`: `identify_chord`,
+  `set_class_info` (incl. the somatic colours / chirality Tonality doesn't serve), `scales_containing`.
+  Run with **`npm run mcp`** (tsx). **It's a Node subproject:** `src/mcp` is excluded from the
+  browser `tsconfig.json` and has its own `tsconfig.mcp.json` (Node types, TS-extension imports);
+  `npm run typecheck` runs BOTH configs. Handlers Node-tested; server smoke-tested over stdio
+  (initialize → tools/list → tools/call). *Next (v2):* extract headless SVG renderers
+  (`lib/render/*`) from the components → `render_*` tools (also serves the surface-library
+  direction); proxy Tonality where it owns the theory. An HTTP transport reuses the same registry.
+
 ### Migration complete
 All phases (0–5) plus Live play, MIDI key analysis, and Phase-4 playback wiring are done.
 The app is fully `.tsx`, strict-typed, component-split; the pure core stays React-free in
