@@ -111,6 +111,9 @@ function tonalityBridge(env: Record<string, string>): Plugin {
             body: JSON.stringify({
               path: tmp,
               coalesce_window_beats: coalesce,
+              // Pin the key-profile prior (key-grain-alignment contract); the client
+              // always sends it, but default defensively if an old client doesn't.
+              profile_version: qs.get("profile") || "kk-1982.1",
               disambiguate_relative_keys: qs.get("disambiguate") === "1",
               smooth_key_regions: qs.get("smooth") === "1",
             }),
