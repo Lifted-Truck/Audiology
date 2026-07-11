@@ -1,9 +1,10 @@
-# Audiology MCP (v1)
+# Audiology MCP + HTTP API (v1)
 
-An MCP server exposing Audiology's analysis capabilities over the pure, React-free
-core — so other agents/apps can call Audiology as the *face* (distinct from the
-Tonality bridge, where Audiology is the *consumer*). Design + roadmap:
-[`docs/proposals/audiology-mcp.md`](proposals/audiology-mcp.md).
+Audiology's analysis capabilities exposed over the pure, React-free core — so other
+agents/apps can call Audiology as the *face* (distinct from the Tonality bridge,
+where Audiology is the *consumer*). **One tool registry, two transports**: MCP over
+stdio (for agent hosts) and a loopback HTTP API (the direct path for apps like the
+education tool). Design + roadmap: [`docs/proposals/audiology-mcp.md`](proposals/audiology-mcp.md).
 
 **v1 scope:** analysis tools over `lib/theory`. Representation-as-SVG (`render_*`) and
 file/session tools are v2/v3 (they need the headless-renderer extraction).
@@ -11,8 +12,31 @@ file/session tools are v2/v3 (they need the headless-renderer extraction).
 ## Run
 
 ```bash
-npm run mcp        # tsx src/mcp/server.ts — stdio JSON-RPC
+npm run mcp        # tsx src/mcp/server.ts — stdio JSON-RPC (MCP)
+npm run api        # tsx src/mcp/http.ts  — loopback HTTP on 127.0.0.1:8013 (PORT=… overrides)
 ```
+
+### The HTTP API
+
+Deliberately mirrors Tonality's bridge conventions (we consume that bridge, so our
+consumers get identical ergonomics):
+
+```
+GET  /                 → { service, version, tools }        (the probe)
+GET  /tools            → { tools: [{name, description, inputSchema}] }
+POST /call/<tool>      → JSON arguments body
+                       → 200 { ok:true, audiology_mcp_version, tool, result }
+                       → 400 bad arguments · 404 unknown tool · 403 foreign Origin
+```
+
+```bash
+curl -s -X POST http://127.0.0.1:8013/call/set_class_info \
+  -H "Content-Type: application/json" -d '{"pcs":[0,4,7]}'
+```
+
+CORS is hardened the way Tonality's landed: **loopback web origins at any port** are
+allowed (echoed specifically, `Vary: Origin`, never `*`); **no-Origin callers**
+(curl, Node, native apps) pass; **foreign origins get 403**, not just a missing header.
 
 It runs in plain Node (no DOM). To wire it into an MCP client (Claude Desktop, an
 agent host, etc.), point the client at it as an stdio server:
