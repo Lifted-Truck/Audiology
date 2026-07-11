@@ -186,6 +186,17 @@ runnable (typecheck + build pass) after every change.
   (`lib/render/*`) from the components → `render_*` tools (also serves the surface-library
   direction); proxy Tonality where it owns the theory. An HTTP transport reuses the same registry.
 
+- **Score view (SHIPPED).** The loaded MIDI on a traditional **grand staff**, scrubbing exactly
+  like the roll (same second-based x-axis, follow-scroll, click/drag-to-seek, shared playhead,
+  amber sounding-note glow). A **proportional score**: pitch engraved conventionally (staff
+  position by spelled letter — `useFlats` changes position, A#4 vs Bb4; accidentals; ledger
+  lines; stems up/down by staff half), x IS time — no rhythmic glyphs/rests in v1. Split at
+  middle C (>=60 treble); drums excluded (unpitched). Maths React-free +
+  Node-tested in `lib/score/layout.ts` (12 invariants: line/ledger positions, spelling-dependent
+  steps, second-cluster offsets, drum exclusion); `components/ScoreView.tsx` reuses the roll's
+  2-layer + `staticVersion` canvas discipline. Unicode clefs (system fonts). *Later:* rhythm
+  glyphs/beaming (real engraving), key signatures (derive from follow-the-key), a percussion staff.
+
 ### Migration complete
 All phases (0–5) plus Live play, MIDI key analysis, and Phase-4 playback wiring are done.
 The app is fully `.tsx`, strict-typed, component-split; the pure core stays React-free in

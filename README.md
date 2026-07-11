@@ -23,6 +23,10 @@ music-theory engine**.
 - **MIDI playback** — load a `.mid` file and watch it play on a piano-roll timeline with a
   moving playhead, a tempo-accurate **bar/time ruler**, follow-scroll, loop, tempo slider,
   and scrub/step controls.
+- **Score view** — the loaded MIDI as a traditional grand staff (clefs, accidentals honoring the
+  sharp/flat setting, ledger lines, stems) that scrubs in lockstep with the piano roll: same time
+  axis, same playhead, click-to-seek, sounding notes glowing. Proportional notation in v1 (x is
+  time; rhythm glyphs are a later refinement).
 - **Per-channel instruments** — each MIDI channel plays through its own timbre from a bank of
   oscillator presets (piano, organ, pluck, bass, strings, brass, flute, synth lead/pad…) plus a
   synthesized **drum kit** for percussion channels. Instruments are auto-assigned from the file's
