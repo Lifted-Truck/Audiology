@@ -181,7 +181,9 @@ export function intervalVectorFromMagnitudes(mags: number[], cardinality: number
     let s = 0;
     for (let k = 0; k < 12; k++) s += P[k] * Math.cos((TAU * k * m) / 12);
     const ifunc = s / 12;
-    v[m - 1] = Math.round(m === 6 ? ifunc / 2 : ifunc);
+    // `|| 0` normalizes -0 → 0 (Math.round of a tiny negative residual is -0,
+    // which fails strict equality against the pairwise count).
+    v[m - 1] = Math.round(m === 6 ? ifunc / 2 : ifunc) || 0;
   }
   return v;
 }

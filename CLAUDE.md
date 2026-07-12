@@ -32,7 +32,12 @@ north star is to become **a GUI for the Tonality music-theory engine**.
   in `.claude/launch.json`, then `preview_screenshot` / `preview_resize` /
   `preview_eval` / `preview_console_logs`). After any UI extraction, screenshot and
   diff against the previous look — refactors should be visually identical.
-- Before declaring a phase done: `npm run typecheck` **and** `npm run build` must pass.
+- Before declaring a phase done: `npm run typecheck`, `npm test`, **and** `npm run build` must
+  pass. **CI enforces the same three** on every PR and push to main (`.github/workflows/ci.yml`).
+- Tests live in `tests/*.test.ts` (node:test via tsx) — Layer-0 deterministic invariants for the
+  pure libs (pcset, IV-from-DFT recovery, score layout) and the MCP tool contract (shape drift
+  there means `MCP_MODEL_VERSION` must bump). When an ad-hoc verification proves a pure-lib
+  invariant, COMMIT it here instead of throwing it away.
 
 ## Architecture invariants (do not violate)
 
