@@ -9,7 +9,8 @@
     "preview": "vite preview",
     "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.mcp.json",
     "mcp": "tsx src/mcp/server.ts",
-    "api": "tsx src/mcp/http.ts"
+    "api": "tsx src/mcp/http.ts",
+    "test": "node --import tsx --test \"tests/*.test.ts\""
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.29.0",
