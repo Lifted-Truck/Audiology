@@ -250,11 +250,15 @@ engineering threads"). The longer-horizon direction:
   held-out-timbre transfer on top of it — and a **telemetry sink** for cohort studies (emission is
   easy; collection + consent/identity is real plumbing a standalone frontend lacks — a natural fit
   for the Audiology MCP below).
-- **An Audiology MCP** *(next thrust — design in [`docs/proposals/audiology-mcp.md`](docs/proposals/audiology-mcp.md))* —
-  expose Audiology's own capabilities (analysis surfaces, scale/chord identification, and
-  **representation-as-SVG**: the bracelet/Tonnetz/circle/anatomy renders) as an MCP server other
-  agents and apps can drive — distinct from the Tonality bridge, where Audiology is the *consumer*.
-  Runs as a Node process over the pure React-free core; first consumer is the external learning app.
+- **Audiology as the face — the callable surface** *(v1 shipped; [`INTEGRATION.md`](INTEGRATION.md), [`docs/MCP.md`](docs/MCP.md))*.
+  Audiology's capabilities are exposed for other projects to consume — analysis over an **MCP
+  server** (`npm run mcp`) *and* a loopback **HTTP API** (`npm run api`), one versioned tool
+  registry, two transports; and the **integration protocol is published** (`INTEGRATION.md` + the
+  `integrations/` intake channel with the ball-state brief protocol), so a consumer repo — the
+  music-education app is consumer #1 — can start now against the contract and file briefs for gaps.
+  *Remaining:* **v2 representation-as-SVG** (`render_*`: bracelet/Tonnetz/circle/score/anatomy —
+  needs the headless-renderer extraction, which also serves the surface-library direction) and
+  **v3 audio-spec + session** tools.
 - **Greater modularity** — formalize the existing discipline (pure core, single engine-wire
   boundary, optional Views) into a real mode/surface plugin seam and a stable internal data
   model the MCP can publish. (The MCP proposal above is this seam's forcing function.)
