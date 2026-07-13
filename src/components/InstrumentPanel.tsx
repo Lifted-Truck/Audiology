@@ -38,19 +38,22 @@ function PresetSelect({ value, onChange }: { value: PresetKey; onChange: (k: Pre
 }
 
 export default function InstrumentPanel({
-  channels, channelPresets, drumChannels, livePreset,
+  channels, channelPresets, drumChannels, livePreset, activeChannels,
   onSetPreset, onToggleDrum, onSetLivePreset, onAuditionDrum,
 }: {
   channels: ChannelInfo[];
   channelPresets: Record<number, PresetKey>;
   drumChannels: number[];
   livePreset: PresetKey;
+  /** Channels sounding right now (from playback) — the row lights while active. */
+  activeChannels: number[];
   onSetPreset: (channel: number, key: PresetKey) => void;
   onToggleDrum: (channel: number, drum: boolean) => void;
   onSetLivePreset: (key: PresetKey) => void;
   onAuditionDrum: (midi: number) => void;
 }) {
   const drumSet = new Set(drumChannels);
+  const liveSet = new Set(activeChannels);
   const pad: React.CSSProperties = {
     padding: "3px 8px", fontSize: 10.5, cursor: "pointer", borderRadius: 5,
     border: `1px solid ${C.border2}`, background: "transparent", color: C.dim,
@@ -76,16 +79,31 @@ export default function InstrumentPanel({
           </div>
           {channels.map((c) => {
             const isDrum = drumSet.has(c.channel);
+            const live = liveSet.has(c.channel);
             const name = c.instrument || c.track || (c.channel === 9 ? "Percussion" : "—");
             return (
               <div
                 key={c.channel}
                 style={{
                   display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap",
-                  padding: "7px 9px", borderRadius: 7, border: `1px solid ${C.border}`, background: "#0d1117",
+                  padding: "7px 9px", borderRadius: 7,
+                  // The row lights while this channel is sounding, so you can see
+                  // which channel is which as the file plays.
+                  border: `1px solid ${live ? C.teal : C.border}`,
+                  background: live ? "rgba(45,212,191,.10)" : "#0d1117",
+                  boxShadow: live ? "0 0 10px rgba(45,212,191,.28)" : "none",
+                  transition: "background .05s linear, border-color .05s linear, box-shadow .05s linear",
                 }}
               >
-                <span style={{ fontFamily: "'JetBrains Mono', monospace", color: C.indigo, minWidth: 34 }}>
+                <span
+                  title={live ? "sounding now" : undefined}
+                  style={{
+                    width: 7, height: 7, borderRadius: "50%", flexShrink: 0,
+                    background: live ? C.teal : C.border2,
+                    boxShadow: live ? "0 0 6px rgba(45,212,191,.9)" : "none",
+                  }}
+                />
+                <span style={{ fontFamily: "'JetBrains Mono', monospace", color: live ? C.teal : C.indigo, minWidth: 34 }}>
                   {c.channel < 0 ? "ch·" : "ch" + (c.channel + 1)}
                 </span>
                 <span style={{ flex: "1 1 120px", minWidth: 90, color: C.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }} title={name}>
