@@ -331,4 +331,9 @@ illustrations and become a teaching surface.
 
 ## License
 
-TBD.
+**[PolyForm Noncommercial License 1.0.0](LICENSE.md)** — © 2026 Julian Smith (Lifted-Truck).
+Source-available for **noncommercial** use (personal, research, education, and other
+noncommercial purposes are permitted; charitable, educational, public-research, and government
+organizations count as noncommercial regardless of funding). Commercial use requires a separate
+licence — contact the author. This applies to Audiology as a whole and to consuming it via the
+[integration protocol](INTEGRATION.md) / the MCP + HTTP tools.
