@@ -13,6 +13,9 @@ north star is to become **a GUI for the Tonality music-theory engine**.
 > overview (what it is, features, architecture, the vision roadmap); CLAUDE.md is the
 > agent-facing operating guide (invariants, conventions, gotchas, current status, the
 > Tonality bridge mechanics, and the open engineering threads). Start here in a fresh thread.
+> **[INTEGRATION.md](INTEGRATION.md)** is the outward spec for projects that *consume* Audiology
+> (the MCP/HTTP tool registry + boundary rules); briefs from consumers land in `integrations/`.
+> Audiology is now both a Tonality *consumer* and a *provider* to its own consumers — same protocol.
 >
 > **Handoffs are ephemeral.** There is no permanent `HANDOFF.md` source of truth. When a
 > point in the dev process needs an explicit pass-off between agents, spawn a transient
