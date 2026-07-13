@@ -27,12 +27,30 @@ music-theory engine**.
   sharp/flat setting, ledger lines, stems) that scrubs in lockstep with the piano roll: same time
   axis, same playhead, click-to-seek, sounding notes glowing. Proportional notation in v1 (x is
   time; rhythm glyphs are a later refinement).
+
+  <p align="center">
+    <img src="docs/score.png" alt="Score view — the MIDI on a grand staff, scrubbing with the piano roll" width="780">
+  </p>
+  <sub>The loaded file on a grand staff above the piano roll — both share the time axis and playhead,
+  so scrubbing one scrubs the other; sounding notes glow.</sub>
+
 - **Per-channel instruments** — each MIDI channel plays through its own timbre from a bank of
   oscillator presets (piano, organ, pluck, bass, strings, brass, flute, synth lead/pad…) plus a
   synthesized **drum kit** for percussion channels. Instruments are auto-assigned from the file's
   General MIDI programs on load and overridable per channel in the **Instruments** view (with a
   "treat as drums" toggle for files that aren't GM-normalized). All synthesis is built-in — no
   samples, no network.
+
+  <p>
+    <img src="docs/instruments.png" alt="Instruments view — per-channel preset pickers + drum kit" width="540">
+  </p>
+  <sub>Per-channel instrument assignment, auto-set from the file's General MIDI programs — each
+  channel gets a preset picker; percussion channels route to the drum kit.</sub>
+
+- **Follow-the-key** — a transport toggle that auto-switches the explorer's root + scale to the
+  **local key under the playhead** as the file plays (the windowed key track, so it tracks
+  modulations the structural reduction absorbs), with the Circle-of-5ths view tracing the journey
+  and the MIDI-file-key card headlining the current local key.
 - **Theory-engine analysis** — with the Tonality engine running, a loaded file is analyzed
   for its key, **structural key-areas**, tonicizations (an orange **pivot lane** with Roman
   numerals), and per-segment chords. The chord strip toggles between **names / Roman
@@ -66,11 +84,30 @@ music-theory engine**.
   (including the low-confidence ones the strips absorb, with honest margins), and the **whole
   file** (every ranked key candidate, structural home, itemized MIDI-read losses). Engine-backed
   when connected, local fallbacks otherwise; a JSON toggle shows the raw objects.
+
+  <p>
+    <img src="docs/console.png" alt="Analysis console — verbose text/numbers at four scopes" width="540">
+  </p>
+  <sub>Everything the analysis knows, as copyable text/numbers, at four scopes (current chord ·
+  playhead instant · every region · whole file), with a raw-JSON toggle.</sub>
+
 - **Pc-set lab** — a chromatic-rail editor for building an arbitrary pitch-class set (or seeding
   one from the current scale / selection) and reading its full set-theory profile: normal order,
   prime form, interval vector, mask, transpositional + inversional symmetry, complement, DFT
-  colour, the catalog scales/chords it matches (Push-3-available scales flagged, tap to apply to
-  the explorer), the scales it sits inside, and its modes. Identity is engine-backed when connected.
+  colour, a **bracelet** (pitch-class clock, also an editor), the catalog scales/chords it matches
+  (Push-3-available scales flagged, tap to apply to the explorer), the scales it sits inside, and
+  its modes. Identity is engine-backed when connected.
+
+  <p>
+    <img src="docs/pcset.png" alt="Pc-set lab — bracelet + set-theory read-out for a pitch-class set" width="540">
+  </p>
+  <sub>The pc-set lab on the C-major set — the bracelet clock above the set-class read-out (prime
+  form, interval vector, symmetry, colour) and the named modes/scales it matches.</sub>
+
+- **Callable by other apps** — Audiology's analysis is exposed for other projects to consume, over
+  an **MCP server** (`npm run mcp`) and a loopback **HTTP API** (`npm run api`) — one versioned
+  tool registry, two transports — with a published [integration protocol](INTEGRATION.md). See
+  [`docs/MCP.md`](docs/MCP.md).
 
 ## A look at the surfaces
 
