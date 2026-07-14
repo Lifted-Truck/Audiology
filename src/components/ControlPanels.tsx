@@ -141,29 +141,33 @@ export default function ControlPanels(p: ControlPanelsProps) {
     </div>
   );
 
-  // Engine-backed reading (Live, bridge connected): chosen + role + alternatives.
+  // Engine-backed reading (Live, bridge connected). It ADDS to the local readout
+  // (candidates + voicing + position, still rendered) rather than replacing it:
+  // Tonality's contribution is the functional role, the ranked alternatives, and
+  // the ambiguity flag — the human-friendly voicing/position stays local (it's a
+  // property of the realized MIDI, which the engine doesn't see).
   const engineName = (r: { rootPc: number; quality: string }) => noteName(r.rootPc) + qualitySymbol(r.quality);
-  const renderEngineNaming = () => {
-    const en = p.engineNaming!;
+  const renderEngineFunctional = () => {
+    const en = p.engineNaming;
+    if (!en || !en.chosen) return null;
     return (
-      <div className="px-analysis-slot">
-        {keyCheckEl}
-        {en.chosen && (
-          <div className="px-cands">
-            <div className="px-cand primary">
-              <span className="px-cand-name">{engineName(en.chosen)}</span>
-              <span className="px-cand-sub">
-                {(en.chosen.functionalRole || "engine") + (en.isAmbiguous ? " · ambiguous" : "")}
-              </span>
-            </div>
-            {en.alternatives.slice(0, 3).map((a, i) => (
-              <div key={i} className="px-cand">
-                <span className="px-cand-name">{engineName(a)}</span>
-                <span className="px-cand-sub">{a.functionalRole || "alternative"}</span>
-              </div>
-            ))}
+      <div className="px-engine-read">
+        <div className="px-engine-lbl">
+          <span className="px-engine-dot" />
+          Tonality reading{en.isAmbiguous ? " · ambiguous" : ""}
+        </div>
+        <div className="px-cands">
+          <div className="px-cand primary engine">
+            <span className="px-cand-name">{engineName(en.chosen)}</span>
+            <span className="px-cand-sub">{en.chosen.functionalRole || "chosen"}</span>
           </div>
-        )}
+          {en.alternatives.slice(0, 3).map((a, i) => (
+            <div key={i} className="px-cand engine">
+              <span className="px-cand-name">{engineName(a)}</span>
+              <span className="px-cand-sub">{a.functionalRole || "alternative"}</span>
+            </div>
+          ))}
+        </div>
       </div>
     );
   };
@@ -502,7 +506,8 @@ export default function ControlPanels(p: ControlPanelsProps) {
               ))}
             </div>
 
-            {p.engineNaming && p.engineNaming.chosen ? renderEngineNaming() : renderAnalysis()}
+            {renderAnalysis()}
+            {renderEngineFunctional()}
           </div>
         )}
       </div>
