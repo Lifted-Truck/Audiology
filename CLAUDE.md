@@ -209,6 +209,23 @@ runnable (typecheck + build pass) after every change.
   2-layer + `staticVersion` canvas discipline. Unicode clefs (system fonts). *Later:* rhythm
   glyphs/beaming (real engraving), key signatures (derive from follow-the-key), a percussion staff.
 
+- **Patch / preset save-load (SHIPPED).** Save every mutable *setting* to a versioned JSON
+  patch file and load it back (**⤓ Save patch** / **⤒ Load patch** in the Views bar). The pure,
+  React-free, Node-tested core is **`src/lib/patch.ts`**: `PatchState` (the 32 config atoms —
+  scale/chord/label config, engine flags, which views are shown, and the per-channel instrument
+  assignment `channelPresets`/`drumChannels`/`livePreset`), `DEFAULT_PATCH`, `PATCH_VERSION` (1),
+  `toPatch` (stamps version + optional name), and **`sanitizePatch(raw)`** — coerces ANY parsed
+  JSON into a complete valid state, per-field (enums checked against the live `SCALES`/`QUALITIES`/
+  `PRESET_ORDER` catalogs, ints clamped, unknown/omitted fields → default), so an old or
+  hand-edited patch never crashes the app (full-replace load semantics). **Excluded by design:**
+  the loaded MIDI content + all derived analysis (`analysis`/`analyzing`/`engineNaming`/the song) —
+  a patch is settings, not a session. App's `buildPatch`/`applyPatch` are thin read/setter passes;
+  Save downloads a Blob, Load reads a File through the same sanitize gate. `tests/patch.test.ts`
+  (7 invariants: round-trip, empty→defaults, bad-enum-dropped, partial-fill, views key handling,
+  channelPresets filtering, coalesceWindow null/number). Verified end-to-end in-browser (mutate →
+  Save → mutate away → Load restores). *Next of the user's three-feature batch:* draggable/modular
+  display layout (persist positions into the patch), then an Ableton MIDI+tempo bridge.
+
 ### Migration complete
 All phases (0–5) plus Live play, MIDI key analysis, and Phase-4 playback wiring are done.
 The app is fully `.tsx`, strict-typed, component-split; the pure core stays React-free in

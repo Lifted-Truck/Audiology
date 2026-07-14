@@ -104,6 +104,12 @@ music-theory engine**.
   <sub>The pc-set lab on the C-major set — the bracelet clock above the set-class read-out (prime
   form, interval vector, symmetry, colour) and the named modes/scales it matches.</sub>
 
+- **Save & load patches** — snapshot every setting (scale/chord/label config, engine flags, which
+  views are shown, and the per-channel instrument assignment) to a versioned JSON **patch file**
+  and load it back (**Save patch** / **Load patch** in the Views bar). Loading validates every
+  field, so an old or hand-edited patch is coerced to a clean state rather than breaking the app. A
+  patch is *settings*, not a session — the loaded MIDI is kept separate.
+
 - **Callable by other apps** — Audiology's analysis is exposed for other projects to consume, over
   an **MCP server** (`npm run mcp`) and a loopback **HTTP API** (`npm run api`) — one versioned
   tool registry, two transports — with a published [integration protocol](INTEGRATION.md). See
