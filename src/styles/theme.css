@@ -164,6 +164,7 @@
 /* views toggle bar */
 .px-views{display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin-bottom:16px;}
 .px-views-cap{font-size:10px;letter-spacing:.2em;text-transform:uppercase;color:var(--mut);margin-right:3px;}
+.px-views-spacer{flex:1 1 16px;}
 .px-view-chip{padding:5px 12px;border-radius:20px;border:1px solid var(--line);background:#0e1117;color:var(--mut);font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:600;cursor:pointer;transition:all .12s;}
 .px-view-chip:hover{border-color:#2dd4bf;color:#bfeee6;}
 .px-view-chip.on{background:linear-gradient(180deg,#143b38,#0c2825);border-color:#2dd4bf;color:#7fffe9;box-shadow:0 0 10px rgba(45,212,191,.2);}

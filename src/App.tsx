@@ -20,6 +20,7 @@ import {
 } from "./lib/state";
 import type { ScaleContext, SurfaceSelection } from "./lib/state";
 import type { PresetKey } from "./audio/instruments";
+import { sanitizePatch, toPatch, type PatchState } from "./lib/patch";
 import { useAudioContext } from "./hooks/useAudioContext";
 import { useLiveInput } from "./hooks/useLiveInput";
 import { usePlayback } from "./hooks/usePlayback";
@@ -229,6 +230,54 @@ export default function App() {
     midiBytesRef.current = null;
     playback.unload();
   }, [playback.unload]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ----- patch / preset save-load -----------------------------------------
+  // A patch is a snapshot of every mutable *setting* (config + which views are
+  // shown + the per-channel instrument assignment) — NOT the loaded MIDI content
+  // or any derived analysis. lib/patch owns the pure shape + validation; here we
+  // just read state into it and apply a validated one back.
+  const buildPatch = useCallback((): PatchState => ({
+    root, scaleName, mode, fixed, layout, orient, labelMode, noteNot, degNot, degRef,
+    sound, interaction, chordOn, tapChord, adaptToScale, chordRootPc, chordQuality,
+    inversion, voicing, chordDisplay, selected, coalesceWindow, disambigRelKeys,
+    smoothRegions, keyStripMode, chordLabelMode, views, followKey, showScaleColors,
+    channelPresets, drumChannels, livePreset,
+  }), [
+    root, scaleName, mode, fixed, layout, orient, labelMode, noteNot, degNot, degRef,
+    sound, interaction, chordOn, tapChord, adaptToScale, chordRootPc, chordQuality,
+    inversion, voicing, chordDisplay, selected, coalesceWindow, disambigRelKeys,
+    smoothRegions, keyStripMode, chordLabelMode, views, followKey, showScaleColors,
+    channelPresets, drumChannels, livePreset,
+  ]);
+
+  const applyPatch = useCallback((p: PatchState) => {
+    setRoot(p.root); setScaleName(p.scaleName as ScaleName); setMode(p.mode); setFixed(p.fixed);
+    setLayout(p.layout); setOrient(p.orient); setLabelMode(p.labelMode); setNoteNot(p.noteNot);
+    setDegNot(p.degNot); setDegRef(p.degRef); setSound(p.sound); setInteraction(p.interaction);
+    setChordOn(p.chordOn); setTapChord(p.tapChord); setAdaptToScale(p.adaptToScale);
+    setChordRootPc(p.chordRootPc); setChordQuality(p.chordQuality as QualityKey);
+    setInversion(p.inversion); setVoicing(p.voicing as Voicing); setChordDisplay(p.chordDisplay);
+    setSelected(p.selected); setCoalesceWindow(p.coalesceWindow); setDisambigRelKeys(p.disambigRelKeys);
+    setSmoothRegions(p.smoothRegions); setKeyStripMode(p.keyStripMode); setChordLabelMode(p.chordLabelMode);
+    setViews(p.views); setFollowKey(p.followKey); setShowScaleColors(p.showScaleColors);
+    setChannelPresets(p.channelPresets); setDrumChannels(p.drumChannels); setLivePreset(p.livePreset);
+  }, []);
+
+  const savePatch = useCallback(() => {
+    const blob = new Blob([JSON.stringify(toPatch(buildPatch()), null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "audiology-patch.json";
+    a.click();
+    URL.revokeObjectURL(url);
+  }, [buildPatch]);
+
+  const loadPatch = useCallback(async (file: File) => {
+    try {
+      applyPatch(sanitizePatch(JSON.parse(await file.text())));
+    } catch { /* malformed JSON — ignore, keep current settings */ }
+  }, [applyPatch]);
 
   const loadAnalysis = useCallback(async (file: File) => {
     try {
@@ -578,6 +627,27 @@ export default function App() {
                 {label}
               </button>
             ))}
+            <span className="px-views-spacer" />
+            <button
+              className="px-view-chip"
+              onClick={savePatch}
+              title="Save all settings — scale, chord, labels, engine flags, which views are shown, and the per-channel instruments — to a patch file"
+            >
+              ⤓ Save patch
+            </button>
+            <label className="px-view-chip" title="Load a patch file (replaces all current settings)">
+              ⤒ Load patch
+              <input
+                type="file"
+                accept="application/json,.json"
+                style={{ display: "none" }}
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  if (f) loadPatch(f);
+                  e.target.value = "";
+                }}
+              />
+            </label>
           </div>
 
           {views.transport && (
