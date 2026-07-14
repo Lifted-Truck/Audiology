@@ -81,8 +81,10 @@ export interface ControlPanelsProps {
    *  (windowed) key under the playhead instead of the global inferred key. */
   followKey: boolean;
   segmentKey: { tonicPc: number; mode: string } | null;
-  /** Whether the Push grid is visible — its Layout card hides when it isn't. */
+  /** Whether the Push grid is visible — its config card hides when it isn't. */
   showLayout: boolean;
+  /** The Push grid's bottom-left (origin) pad — shown as a readout in its card. */
+  bottomLeft: { pc: number; midi: number };
   showScaleColors: boolean;
   setShowScaleColors: (b: boolean) => void;
   /** Engine-backed naming for the Live set (null = none / use local analyzer). */
@@ -299,7 +301,8 @@ export default function ControlPanels(p: ControlPanelsProps) {
 
       {p.showLayout && (
       <div className="px-card">
-        <h2 className="px-card-h">Layout</h2>
+        <h2 className="px-card-h">Push grid</h2>
+        <p className="px-card-note">How the Push grid maps notes onto its pads.</p>
         <Field label="Pad notes">
           <Seg options={[{ v: "inkey", l: "In Key" }, { v: "chromatic", l: "Chromatic" }]} value={p.mode} onChange={p.setMode} />
         </Field>
@@ -311,6 +314,9 @@ export default function ControlPanels(p: ControlPanelsProps) {
         </Field>
         <Field label="Direction">
           <Seg options={[{ v: "vert", l: "Vertical" }, { v: "horiz", l: "Horizontal" }]} value={p.orient} onChange={p.setOrient} />
+        </Field>
+        <Field label="Bottom-left pad">
+          <span className="px-pad-readout">{noteName(p.bottomLeft.pc)}<sub>{octOf(p.bottomLeft.midi)}</sub></span>
         </Field>
       </div>
       )}

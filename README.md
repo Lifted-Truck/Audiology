@@ -305,6 +305,33 @@ engineering threads"). The longer-horizon direction:
 - **Greater modularity** — formalize the existing discipline (pure core, single engine-wire
   boundary, optional Views) into a real mode/surface plugin seam and a stable internal data
   model the MCP can publish. (The MCP proposal above is this seam's forcing function.)
+- **The laboratory canvas** *(speculative / aspirational)* — evolve the fixed Views stack into a
+  freeform **workbench**: open a fresh project, choose a layout or drag surfaces into the canvas,
+  and place/size them freely (the layout persists into the patch/preset — building on the shipped
+  save-load). A **modular signal-flow** aspect follows naturally: route each MIDI channel to its
+  **own** piano roll / score / analysis surface so multiple streams are studied **in parallel**
+  (e.g. a per-channel roll wall). Only the surfaces on the canvas need to render, which opens
+  **performance optimizations** the always-on stack forecloses. Once surfaces are freely
+  composable, specific display arrangements can be **embedded in other systems** (the education
+  tool, a generative tool) as first-class configs. Possible consolidation: rather than a separate
+  education repo, **fold the education tools into Audiology** and let the top-level modes *be* the
+  product — e.g. **Learn**, **Analyze** (MIDI / Chords / Live), **Analyze DAW**, **MIDI Workshop**,
+  **Generate**. (Whether education stays a separate consumer of the Audiology MCP or is absorbed is
+  an open, deliberate call — not yet decided.)
+- **Lessons as a first-class file type** *(speculative / aspirational)* — a portable **lesson**
+  document bundling mixed media (text / audio / video), **flashcards**, and **interactive
+  walkthroughs**: e.g. *follow along with a MIDI track on your keyboard* where timing + note
+  correctness is scored through **Tonality** and an **agent** delivers feedback; **stepwise song
+  analyses**; guided drills. Lessons drive the surfaces above and read learner input through the
+  same live analysis path the app already uses. Long build; parked here as direction.
+- **Parallel interpretations — epistemic humility as a first-class surface** *(near-ish)* — an
+  optional view that shows **multiple** analytical readings **side by side** — not only Tonality's
+  single most-confident answer, but the ranked field with their margins/scores, and (where they
+  disagree) the local reading alongside the engine's. The engine already returns the plural
+  candidates + ambiguity flags (rule 7 of the integration policy: *consume plural outputs*); this
+  surfaces them honestly instead of collapsing to one. A core value across the projects:
+  **make uncertainty visible rather than hide it** — the same discipline as the key-region margin
+  gate and the honest sub-gate regions in the Analysis console, promoted to its own surface.
 - **Ian Ring parity** *(spec in [`docs/proposals/ian-ring-parity.md`](docs/proposals/ian-ring-parity.md))* —
   show, for any scale/pc-set, every representation and datum Ian Ring's site presents: a local
   property pack (hemitonia, imperfections, deep-scale, Myhill, maximal-evenness…), names + Forte
