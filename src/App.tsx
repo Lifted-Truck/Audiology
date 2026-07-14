@@ -605,12 +605,8 @@ export default function App() {
     <div className="px-root">
       <header className="px-head">
         <div className="px-head-l">
-          <div className="px-kicker">{"ABLETON PUSH 3 · NOTE MODE"}</div>
-          <h1 className="px-title">Scale &amp; Chord Explorer</h1>
-        </div>
-        <div className="px-readout">
-          <span className="px-ro-lbl">bottom-left pad</span>
-          <span className="px-ro-val">{noteName(bottomLeft.pc)}<sub>{octOf(bottomLeft.midi)}</sub></span>
+          <h1 className="px-title">Audiology</h1>
+          <div className="px-subtitle">Music-theory &amp; MIDI workbench</div>
         </div>
       </header>
 
@@ -906,7 +902,7 @@ export default function App() {
           chord={chord} highlightSel={highlightSel} liveNotes={liveNotes} litSet={litSet}
           live={live} song={playback.song} playMidi={playMidi} analysis={analysis}
           followKey={followKey} segmentKey={segmentKey}
-          showLayout={views.grid}
+          showLayout={views.grid} bottomLeft={bottomLeft}
           showScaleColors={showScaleColors} setShowScaleColors={setShowScaleColors}
           engineNaming={engineNaming} bridgeConnected={bridge.connected}
         />
