@@ -15,7 +15,7 @@
 |---|---|---|
 | **Analysis** — chord ID, set-class identity (incl. the somatic colours + chirality, our derivation layer), catalog scale/chord matches | MCP tools + HTTP API | ✅ **v1 shipped** |
 | **Pure theory core** (`lib/theory`, `geometry`, `lib/score`) | importable source (React-free) | ✅ stable, Node-tested |
-| **Representation** — bracelet / Tonnetz / circle / score / anatomy as portable SVG | `render_*` MCP tools | ○ **v2** (needs headless-renderer extraction) |
+| **Representation** — bracelet / keyboard / staff as portable SVG (Tonnetz / circle / anatomy pending) | `render_*` MCP tools | ✅ **v2 shipped** (`render_bracelet` / `render_keyboard` / `render_staff`) |
 | **Audio** — multi-timbre stimulus rendering | shared audio-spec (params) | ○ **v3** (`AudioContext` can't cross a process boundary — you render locally from a spec) |
 | **Session** — learning progress read/write | MCP tools | ○ **v3** (once the education surface exists) |
 
@@ -35,7 +35,7 @@ Both serve the identical versioned tool registry (`src/mcp/tools.ts`). Full deta
 - **MCP** (`npm run mcp` → stdio JSON-RPC) — for agent hosts (Claude Desktop, etc.).
 
 Every result is wrapped `{ audiology_mcp_version, tool, result }`. **Pin
-`audiology_mcp_version`** (currently `0.1.0`) — it bumps on any tool-shape change (a
+`audiology_mcp_version`** (currently `0.2.0`) — it bumps on any tool-shape change (a
 change is caught by `tests/mcp-tools.test.ts` in our CI).
 
 ### v1 tools

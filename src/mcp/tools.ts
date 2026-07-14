@@ -15,10 +15,12 @@ import {
   transpositionalSymmetry, inversionalAxes, complement, modesOf, exactNames,
   scalesContaining, chirality, consonanceF5, tonalColor, intervalColor,
 } from "../lib/theory";
+import { braceletSvg, keyboardSvg, staffSvg } from "../lib/render";
 
 /** Version of the published data model — stamped on every result so consumers can
- *  pin it (the versioned-contract discipline; bump on any shape change). */
-export const MCP_MODEL_VERSION = "0.1.0";
+ *  pin it (the versioned-contract discipline; bump on any shape change).
+ *  0.2.0: added the render_* tools (representation-as-SVG). */
+export const MCP_MODEL_VERSION = "0.2.0";
 
 const NAME = (pc: number) => SHARP[((pc % 12) + 12) % 12];
 const norm = (pcs: number[]) => [...new Set(pcs.map((p) => ((p % 12) + 12) % 12))].sort((a, b) => a - b);
@@ -155,5 +157,46 @@ export const TOOLS: ToolDef[] = [
     description: "Which catalog scales/chords a pc-set IS (exact) or sits inside, plus its modes.",
     inputSchema: pcsSchema,
     handler: scalesContainingTool,
+  },
+  {
+    name: "render_bracelet",
+    description: "Render a pitch-class set as a bracelet (pitch-class clock) — a portable, self-contained SVG string. `rootPc` marks a tonic; `useFlats` spells with flats.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        pcs: { type: "array", items: { type: "integer" }, description: "Pitch classes (folded to 0..11)" },
+        rootPc: { type: "integer", description: "Optional tonic to ring" },
+        useFlats: { type: "boolean" },
+      },
+      required: ["pcs"],
+    },
+    handler: (a: { pcs: number[]; rootPc?: number; useFlats?: boolean }) => braceletSvg(a.pcs, { rootPc: a.rootPc, useFlats: a.useFlats }),
+  },
+  {
+    name: "render_keyboard",
+    description: "Render a piano keyboard with notes highlighted — a portable SVG string. Highlight by `midis` (register-specific) and/or `pcs` (every octave); `lo`/`hi` set the MIDI range (default 60..83).",
+    inputSchema: {
+      type: "object",
+      properties: {
+        midis: { type: "array", items: { type: "integer" } },
+        pcs: { type: "array", items: { type: "integer" } },
+        lo: { type: "integer" },
+        hi: { type: "integer" },
+      },
+    },
+    handler: (a: { midis?: number[]; pcs?: number[]; lo?: number; hi?: number }) => keyboardSvg(a),
+  },
+  {
+    name: "render_staff",
+    description: "Engrave MIDI notes as one simultaneity (chord/interval) on a grand staff — a portable SVG string. Proportional notation, no rhythm glyphs. `useFlats` spells with flats.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        midis: { type: "array", items: { type: "integer" }, description: "MIDI note numbers to engrave together" },
+        useFlats: { type: "boolean" },
+      },
+      required: ["midis"],
+    },
+    handler: (a: { midis: number[]; useFlats?: boolean }) => staffSvg(a.midis, { useFlats: a.useFlats }),
   },
 ];

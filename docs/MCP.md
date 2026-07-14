@@ -1,4 +1,4 @@
-# Audiology MCP + HTTP API (v1)
+# Audiology MCP + HTTP API
 
 Audiology's analysis capabilities exposed over the pure, React-free core — so other
 agents/apps can call Audiology as the *face* (distinct from the Tonality bridge,
@@ -6,8 +6,8 @@ where Audiology is the *consumer*). **One tool registry, two transports**: MCP o
 stdio (for agent hosts) and a loopback HTTP API (the direct path for apps like the
 education tool). Design + roadmap: [`docs/proposals/audiology-mcp.md`](proposals/audiology-mcp.md).
 
-**v1 scope:** analysis tools over `lib/theory`. Representation-as-SVG (`render_*`) and
-file/session tools are v2/v3 (they need the headless-renderer extraction).
+**Scope:** analysis tools over `lib/theory` (v1) **+ representation-as-SVG** `render_*` (v2, the
+headless renderers in `lib/render/*`). File/session tools remain v3. Model version **0.2.0**.
 
 ## Run
 
@@ -64,12 +64,19 @@ change — the versioned-contract discipline).
 | `identify_chord` | `{ midis: int[] }` | Ranked chord candidates (name / inversion / bass), the pcs, and the realized voicing description. |
 | `set_class_info` | `{ pcs: int[] }` | Set-class identity — prime form, normal order, interval vector, mask, set-class steps, transpositional + inversional symmetry, chirality, `|f5|` consonance, complement, and the two **somatic colours** (Audiology's derivation layer, which Tonality doesn't serve). |
 | `scales_containing` | `{ pcs: int[] }` | Catalog scales/chords the set **is** (exact, Push-3 flagged), the scales it **sits inside**, and its **modes**. Local catalog (a later version proxies Tonality's `scale_names` for full breadth). |
+| `render_bracelet` | `{ pcs, rootPc?, useFlats? }` | The set as a **pitch-class clock** — a self-contained `{ svg, width, height }`. |
+| `render_keyboard` | `{ pcs?, midis?, lo?, hi? }` | A **piano keyboard** with notes highlighted — portable SVG. |
+| `render_staff` | `{ midis, useFlats? }` | The notes engraved as one simultaneity on a **grand staff** — portable SVG (reuses `lib/score/layout`). |
 
 ## Architecture
 
 - `src/mcp/tools.ts` — **pure, transport-agnostic handlers** + the tool registry +
-  the versioned envelope. Node-testable without a client; a future HTTP transport
-  reuses them unchanged.
+  the versioned envelope. Node-testable without a client; both transports reuse it.
+- `src/lib/render/*` — the **headless SVG renderers** (React-free, Node-safe string
+  builders) the `render_*` tools call. They reuse the app's pure geometry — the staff
+  builds on `lib/score/layout`, the keyboard on `geometry/piano` — so exported renders
+  match the on-screen surfaces. (The interactive React components aren't refactored onto
+  these yet; that dedup is the surface-library step.)
 - `src/mcp/server.ts` — a thin stdio wrapper (MCP SDK) that registers the handlers.
 - The MCP is a **Node subproject**: it has its own `tsconfig.mcp.json` (Node types,
   TS-extension imports), and `src/mcp` is excluded from the browser `tsconfig.json`.

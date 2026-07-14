@@ -187,14 +187,16 @@ runnable (typecheck + build pass) after every change.
   pure core — the "Audiology as the face" roadmap thrust (see `docs/MCP.md`,
   `docs/proposals/audiology-mcp.md`). `src/mcp/tools.ts` holds pure, transport-agnostic handlers +
   a tool registry + a versioned envelope (`MCP_MODEL_VERSION`); `src/mcp/server.ts` is a thin stdio
-  wrapper (`@modelcontextprotocol/sdk`). Three v1 tools over `lib/theory`: `identify_chord`,
-  `set_class_info` (incl. the somatic colours / chirality Tonality doesn't serve), `scales_containing`.
+  wrapper (`@modelcontextprotocol/sdk`). v1 tools over `lib/theory` (`identify_chord`,
+  `set_class_info` incl. the somatic colours / chirality Tonality doesn't serve, `scales_containing`)
+  + **v2 `render_*`** (`render_bracelet` / `render_keyboard` / `render_staff` — headless SVG string
+  builders in `src/lib/render/*` that reuse the pure geometry: staff on `lib/score/layout`, keyboard
+  on `geometry/piano`). `MCP_MODEL_VERSION` is **0.2.0**; `tests/mcp-tools.test.ts` pins the tool set.
   Run with **`npm run mcp`** (tsx). **It's a Node subproject:** `src/mcp` is excluded from the
   browser `tsconfig.json` and has its own `tsconfig.mcp.json` (Node types, TS-extension imports);
   `npm run typecheck` runs BOTH configs. Handlers Node-tested; server smoke-tested over stdio
-  (initialize → tools/list → tools/call). *Next (v2):* extract headless SVG renderers
-  (`lib/render/*`) from the components → `render_*` tools (also serves the surface-library
-  direction); proxy Tonality where it owns the theory. An HTTP transport reuses the same registry.
+  (initialize → tools/list → tools/call). *Next:* refactor the interactive React components onto `lib/render/*` (the surface-library dedup);
+  add `render_tonnetz`/`render_circle`/`render_anatomy`; proxy Tonality where it owns the theory.
 
 - **Score view (SHIPPED).** The loaded MIDI on a traditional **grand staff**, scrubbing exactly
   like the roll (same second-based x-axis, follow-scroll, click/drag-to-seek, shared playhead,

@@ -6,9 +6,30 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { identifyChord, setClassInfo, scalesContainingTool, envelope, TOOLS, MCP_MODEL_VERSION } from "../src/mcp/tools.ts";
 
-test("registry: three v1 tools, each with a schema and handler", () => {
-  assert.deepEqual(TOOLS.map((t) => t.name), ["identify_chord", "set_class_info", "scales_containing"]);
+test("model version is 0.2.0 (bumped when render_* landed)", () => {
+  assert.equal(MCP_MODEL_VERSION, "0.2.0");
+});
+
+test("registry: the published tool set (drift here ⇒ bump MCP_MODEL_VERSION)", () => {
+  assert.deepEqual(TOOLS.map((t) => t.name), [
+    "identify_chord", "set_class_info", "scales_containing",
+    "render_bracelet", "render_keyboard", "render_staff",
+  ]);
   assert.ok(TOOLS.every((t) => t.inputSchema && typeof t.handler === "function"));
+});
+
+test("render_* tools return self-contained SVG with dimensions", () => {
+  const byName = (n: string) => TOOLS.find((t) => t.name === n)!;
+  const b = byName("render_bracelet").handler({ pcs: [0, 4, 7] }) as { svg: string; width: number; height: number };
+  assert.ok(b.svg.startsWith("<svg") && b.svg.includes("</svg>") && b.width > 0 && b.height > 0);
+  assert.ok(b.svg.includes("<polygon")); // the set is joined into a bracelet
+  const k = byName("render_keyboard").handler({ pcs: [0, 4, 7], lo: 60, hi: 71 }) as { svg: string };
+  assert.ok(k.svg.startsWith("<svg") && k.svg.includes("<rect"));
+  const s = byName("render_staff").handler({ midis: [60, 64, 67, 71] }) as { svg: string };
+  assert.equal((s.svg.match(/<ellipse/g) || []).length, 4); // four noteheads
+  // spelling reaches the render
+  const flat = byName("render_staff").handler({ midis: [70], useFlats: true }) as { svg: string };
+  assert.ok(flat.svg.includes("♭"));
 });
 
 test("envelope stamps the model version and tool name", () => {
