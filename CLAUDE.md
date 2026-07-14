@@ -178,7 +178,9 @@ runnable (typecheck + build pass) after every change.
   view (`components/InstrumentPanel.tsx`) shows each channel with a preset picker (auditioned on
   change) + a "treat as drums" toggle for non-GM-normalized files, plus the live-sound picker.
   App holds `channelPresets`/`drumChannels`/`livePreset`, auto-assigns on load, and pushes routing
-  to the synth via effects. *(Preview note: actual audio can't be heard headless — L0001; verified
+  to the synth via effects. The Instruments view **lights each channel row** (teal dot + border +
+  glow) while that channel is sounding during playback — `playback.activeChannels` (derived from the
+  same per-frame `activeNotesAt` scan as `activeNotes`) drives it, so you can see which channel is which. *(Preview note: actual audio can't be heard headless — L0001; verified
   via no-throw graph construction + Node-tested GM mapping + in-browser routing/UI.)*
 
 - **Audiology MCP v1 (SHIPPED).** A Node **MCP server** exposing Audiology's analysis over the

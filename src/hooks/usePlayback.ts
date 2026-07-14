@@ -21,6 +21,9 @@ export interface Playback {
   loop: boolean;
   /** MIDI numbers sounding right now — feeds Grid/Piano/Analyzer highlighting. */
   activeNotes: number[];
+  /** Channels sounding right now (undefined-channel notes bucket to -1) — feeds
+   *  the per-channel activity lighting in the Instruments view. */
+  activeChannels: number[];
   /** Parse + load a MIDI file from an ArrayBuffer. */
   load(data: ArrayBuffer, name?: string): void;
   /** Eject the loaded file: stop playback and return to the no-song state. */
@@ -114,13 +117,20 @@ export function usePlayback(audio: AudioHandle): Playback {
 
   // Sounding notes, recomputed as the position advances. Read from the transport
   // (live ctx.currentTime) so highlighting stays in sync with what's audible.
-  const activeNotes = useMemo(() => {
+  // One scan per frame yields both the sounding MIDI numbers and the set of
+  // channels currently sounding (for per-channel activity lighting).
+  const activeNoteObjs = useMemo(() => {
     const t = transportRef.current;
     if (!t || !song) return [];
-    return t.activeNotes().map((n) => n.midi);
+    return t.activeNotes();
     // currentTime drives the recompute cadence; song bounds it.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentTime, song]);
+  const activeNotes = useMemo(() => activeNoteObjs.map((n) => n.midi), [activeNoteObjs]);
+  const activeChannels = useMemo(
+    () => [...new Set(activeNoteObjs.map((n) => n.channel ?? -1))].sort((a, b) => a - b),
+    [activeNoteObjs]
+  );
 
   return {
     song,
@@ -130,6 +140,7 @@ export function usePlayback(audio: AudioHandle): Playback {
     tempoScale,
     loop,
     activeNotes,
+    activeChannels,
     load,
     unload,
     play,

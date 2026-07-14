@@ -786,6 +786,7 @@ export default function App() {
                   channelPresets={channelPresets}
                   drumChannels={drumChannels}
                   livePreset={livePreset}
+                  activeChannels={playback.activeChannels}
                   onSetPreset={(ch, key) => { setChannelPresets((p) => ({ ...p, [ch]: key })); if (sound) getSynth().previewPreset(key); }}
                   onToggleDrum={(ch, drum) => setDrumChannels((d) => (drum ? [...new Set([...d, ch])] : d.filter((x) => x !== ch)))}
                   onSetLivePreset={(key) => { setLivePreset(key); if (sound) getSynth().previewPreset(key); }}
