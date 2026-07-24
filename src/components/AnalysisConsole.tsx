@@ -142,6 +142,11 @@ export default function AnalysisConsole({
         ["trichord (step-gap)", triCh == null ? "— (not a trichord)" : f3(triCh)],
       ],
     };
+    // Local realization read — computed regardless of engine. Its inversion/position
+    // and voicing are properties of the sounding MIDI that name_pcs (pcs only) can't
+    // report, so they're surfaced ALONGSIDE the engine naming, never replaced by it.
+    const localRes = analyzeSelection(realizationMidi.length >= 2 ? realizationMidi : uniq.map((p) => 60 + p), noteName);
+    const localCands = "candidates" in localRes ? localRes.candidates : [];
     const nameRows: Row[] = [];
     if (naming && naming.chosen) {
       const n = naming.chosen;
@@ -150,14 +155,29 @@ export default function AnalysisConsole({
         nameRows.push([`alt ${i + 1}`, noteName(a.rootPc) + qualitySymbol(a.quality) + ` · ${a.functionalRole ?? "—"} · score ${f3(a.score)}`])
       );
     } else {
-      const res = analyzeSelection(realizationMidi.length >= 2 ? realizationMidi : uniq.map((p) => 60 + p), noteName);
-      if ("candidates" in res) res.candidates.forEach((c, i) => nameRows.push([i === 0 ? "chosen (local)" : `alt ${i}`, c.name + (c.sub ? " · " + c.sub : "")]));
+      if (localCands.length) localCands.forEach((c, i) => nameRows.push([i === 0 ? "chosen (local)" : `alt ${i}`, c.name + (c.sub ? " · " + c.sub : "")]));
       else nameRows.push(["naming", "no reading (local)"]);
     }
     const nameSec: Section = { title: "naming · " + (naming && naming.chosen ? "engine (name_pcs)" : "local fallback"), rows: nameRows };
+
+    // Voicing / inversion — always local, always shown when there's a realization,
+    // even (especially) when the engine is on and driving the naming above.
+    const sections: Section[] = [identity, dftSec, chir, nameSec];
+    if (realizationMidi.length >= 2 && localCands.length) {
+      const primary = localCands.find((c) => c.primary) ?? localCands[0];
+      const bass = "bassPc" in localRes && localRes.bassPc != null ? NOTE[((localRes.bassPc % 12) + 12) % 12] : "—";
+      sections.push({
+        title: "voicing · local (realization)",
+        rows: [
+          ["chord", primary ? primary.name + (primary.sub ? " · " + primary.sub : "") : "—"],
+          ["bass / inversion", bass + (primary?.sub ? " · " + primary.sub : "")],
+          ["voicing", "voicing" in localRes && localRes.voicing ? localRes.voicing : "—"],
+        ],
+      });
+    }
     return {
-      sections: [identity, dftSec, chir, nameSec],
-      raw: { pcs: uniq, realizationMidi, facts: eng, naming },
+      sections,
+      raw: { pcs: uniq, realizationMidi, facts: eng, naming, local: localRes },
     };
   }, [uniq, facts, naming, realizationMidi, rootPc, noteName]);
 

@@ -127,6 +127,14 @@
 .px-cand-sub{font-size:10px;color:var(--mut);letter-spacing:.04em;text-align:right;}
 .px-voicing{display:flex;align-items:center;gap:8px;margin-top:7px;font-size:11px;color:#c7d2fe;letter-spacing:.02em;}
 .px-voicing-lbl{font-size:9px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--mut);}
+/* Engine (Tonality) reading — ADDED beneath the local readout, teal-accented so it
+   reads as an addition, not a replacement of the amber local candidates. */
+.px-engine-read{margin-top:12px;padding-top:11px;border-top:1px dashed var(--line);}
+.px-engine-lbl{display:flex;align-items:center;gap:7px;font-size:9px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#5eead4;}
+.px-engine-dot{width:6px;height:6px;border-radius:50%;background:#5eead4;box-shadow:0 0 7px #5eead4;}
+.px-engine-read .px-cand.engine{border-color:#164e46;background:#0c1614;}
+.px-engine-read .px-cand.primary.engine{border-color:#2dd4bf;background:linear-gradient(180deg,#07241f,#04120f);}
+.px-engine-read .px-cand.engine .px-cand-name{color:#5eead4;}
 .px-analyze-btns{display:flex;gap:8px;margin-top:12px;}
 .px-clear{padding:10px 16px;border-radius:9px;border:1px solid var(--line);background:#0e1117;color:var(--mut);font-family:'JetBrains Mono',monospace;font-weight:700;font-size:12px;cursor:pointer;}
 .px-clear:hover{border-color:#ef4444;color:#fca5a5;}
