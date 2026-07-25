@@ -324,14 +324,14 @@ engineering threads"). The longer-horizon direction:
   correctness is scored through **Tonality** and an **agent** delivers feedback; **stepwise song
   analyses**; guided drills. Lessons drive the surfaces above and read learner input through the
   same live analysis path the app already uses. Long build; parked here as direction.
-- **Parallel interpretations — epistemic humility as a first-class surface** *(near-ish)* — an
-  optional view that shows **multiple** analytical readings **side by side** — not only Tonality's
-  single most-confident answer, but the ranked field with their margins/scores, and (where they
-  disagree) the local reading alongside the engine's. The engine already returns the plural
-  candidates + ambiguity flags (rule 7 of the integration policy: *consume plural outputs*); this
-  surfaces them honestly instead of collapsing to one. A core value across the projects:
-  **make uncertainty visible rather than hide it** — the same discipline as the key-region margin
-  gate and the honest sub-gate regions in the Analysis console, promoted to its own surface.
+- ~~**Parallel interpretations — epistemic humility as a first-class surface**~~ — **v1 shipped**
+  as the **Interpretations** view: the current chord's readings side by side, uncollapsed —
+  Tonality's **ranked field** with each score as a visible **confidence bar** plus the **margin**
+  between the top two, the **local analyzer's** candidates in a parallel column, an honest banner
+  when the engine flags a **near-tie** (`is_ambiguous`) or when the two analyzers **disagree**.
+  A diminished 7th, for instance, reads as four parallel spellings rather than one verdict.
+  Consumes plural outputs (integration policy rule 7) instead of collapsing to one. *Next:*
+  competing **key** interpretations at the playhead, where the margin data is richest.
 - **Ian Ring parity** *(spec in [`docs/proposals/ian-ring-parity.md`](docs/proposals/ian-ring-parity.md))* —
   show, for any scale/pc-set, every representation and datum Ian Ring's site presents: a local
   property pack (hemitonia, imperfections, deep-scale, Myhill, maximal-evenness…), names + Forte

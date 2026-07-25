@@ -34,6 +34,7 @@ import Bracelet from "./components/Bracelet";
 import Tonnetz from "./components/Tonnetz";
 import ChordAnatomy from "./components/ChordAnatomy";
 import AnalysisConsole from "./components/AnalysisConsole";
+import Interpretations from "./components/Interpretations";
 import PcSetLab from "./components/PcSetLab";
 import InstrumentPanel from "./components/InstrumentPanel";
 import CircleOfFifths from "./components/CircleOfFifths";
@@ -53,7 +54,7 @@ import type {
 // memo (and rebuild the roll's static layer) whenever no tonicizations exist.
 const NO_TONICIZATIONS: Tonicization[] = [];
 
-type ViewKey = "transport" | "grid" | "pianoRoll" | "score" | "piano" | "bracelet" | "tonnetz" | "circle" | "anatomy" | "console" | "pcset" | "instruments";
+type ViewKey = "transport" | "grid" | "pianoRoll" | "score" | "piano" | "bracelet" | "tonnetz" | "circle" | "anatomy" | "console" | "interpret" | "pcset" | "instruments";
 const VIEW_DEFS: { key: ViewKey; label: string }[] = [
   { key: "transport", label: "Transport" },
   { key: "pianoRoll", label: "Piano roll" },
@@ -65,6 +66,7 @@ const VIEW_DEFS: { key: ViewKey; label: string }[] = [
   { key: "circle", label: "Circle of 5ths" },
   { key: "anatomy", label: "Chord anatomy" },
   { key: "console", label: "Analysis console" },
+  { key: "interpret", label: "Interpretations" },
   { key: "pcset", label: "Pc-set lab" },
   { key: "instruments", label: "Instruments" },
 ];
@@ -123,7 +125,7 @@ export default function App() {
 
   // Optional visual modules — each surface can be shown or hidden.
   const [views, setViews] = useState<Record<ViewKey, boolean>>({
-    transport: true, grid: true, pianoRoll: true, score: false, piano: true, bracelet: true, tonnetz: true, circle: false, anatomy: false, console: false, pcset: false, instruments: false,
+    transport: true, grid: true, pianoRoll: true, score: false, piano: true, bracelet: true, tonnetz: true, circle: false, anatomy: false, console: false, interpret: false, pcset: false, instruments: false,
   });
   // Follow-the-key: auto-switch the explorer's root+scale to the current playback
   // segment's local key as the playhead moves. Off by default; only meaningful
@@ -496,7 +498,7 @@ export default function App() {
   // chord for the console; in Live these inputs equal the sounding notes, same
   // call as before). 80ms debounce; null → the local analyzer fallback.
   const engineNaming = useEngineFacts<ChordNaming>({
-    enabled: (isLive || views.console) && bridge.connected && activePcs.length >= 2,
+    enabled: (isLive || views.console || views.interpret) && bridge.connected && activePcs.length >= 2,
     key:
       bridge.baseUrl + "|" + activePcs.join(",") + "|" + chordRealizationMidi.join(",") + "|" + root + "|" + scaleName + "|" + useFlats,
     debounceMs: 80,
@@ -818,6 +820,21 @@ export default function App() {
                   tonicizationSpans={tonicizationSpans}
                   structuralHome={structuralHome}
                   chordRegions={chordRegions}
+                  bridgeConnected={bridge.connected}
+                  noteName={noteName}
+                />
+              </div>
+            </div>
+          )}
+
+          {views.interpret && (
+            <div className="px-stage-block">
+              <div className="px-block-cap">Interpretations</div>
+              <div className="px-diagram">
+                <Interpretations
+                  pcs={activePcs}
+                  realizationMidi={chordRealizationMidi}
+                  naming={engineNaming}
                   bridgeConnected={bridge.connected}
                   noteName={noteName}
                 />

@@ -226,6 +226,23 @@ runnable (typecheck + build pass) after every change.
   Save → mutate away → Load restores). *Next of the user's three-feature batch:* draggable/modular
   display layout (persist positions into the patch), then an Ableton MIDI+tempo bridge.
 
+- **Interpretations view (SHIPPED) — the epistemic-humility surface.** The `interpret` view
+  (`src/components/Interpretations.tsx`) shows the current chord's readings **side by side,
+  uncollapsed**, instead of a single verdict: a **Tonality column** (chosen + every alternative,
+  each score drawn as a **confidence bar** normalized to the top score, plus the **margin** between
+  the top two and each reading's functional role) and a parallel **local-analyzer column** (its
+  candidates with position/inversion + the voicing line). Honest banners: the engine's own
+  `is_ambiguous` near-tie flag, and a "readings differ" note when the two analyzers' top picks
+  disagree (compared on the base name, ignoring the `/bass` slash). Offline it degrades visibly —
+  local column only + "start the engine for ranked confidence". Driven by `activePcs` +
+  `chordRealizationMidi` + the shared `engineNaming` (its `useEngineFacts` gate now includes
+  `views.interpret`, alongside `isLive || views.console`). No new engine calls — it consumes the
+  plural outputs already flowing (integration policy rule 7). Verified in-browser with the live
+  bridge: a **dim7** renders four parallel readings (C°7 2.50 · margin 1.50, A°7 1.00, D#°7 0.00,
+  F#°7 0.00) against the local column's four inversions. *Next:* competing **key** interpretations
+  at the playhead (the margin data is richest there); this is where the epistemic-clarity value
+  gets its most useful surface.
+
 ### Migration complete
 All phases (0–5) plus Live play, MIDI key analysis, and Phase-4 playback wiring are done.
 The app is fully `.tsx`, strict-typed, component-split; the pure core stays React-free in

@@ -16,7 +16,7 @@ export const PATCH_VERSION = 1;
 // loaded patch are dropped; missing ones fall to the default.
 export const VIEW_KEYS = [
   "transport", "grid", "pianoRoll", "score", "piano", "bracelet", "tonnetz",
-  "circle", "anatomy", "console", "pcset", "instruments",
+  "circle", "anatomy", "console", "interpret", "pcset", "instruments",
 ] as const;
 export type ViewKey = (typeof VIEW_KEYS)[number];
 
@@ -64,7 +64,7 @@ export interface Patch extends PatchState {
 export const DEFAULT_VIEWS: Record<ViewKey, boolean> = {
   transport: true, grid: true, pianoRoll: true, score: false, piano: true,
   bracelet: true, tonnetz: true, circle: false, anatomy: false, console: false,
-  pcset: false, instruments: false,
+  interpret: false, pcset: false, instruments: false,
 };
 
 export const DEFAULT_PATCH: PatchState = {
