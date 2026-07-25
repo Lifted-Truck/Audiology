@@ -110,6 +110,15 @@ music-theory engine**.
   field, so an old or hand-edited patch is coerced to a clean state rather than breaking the app. A
   patch is *settings*, not a session — the loaded MIDI is kept separate.
 
+- **Bundles — a patch travelling with its MIDI** — **Save bundle** writes a single `.zip`
+  containing the patch *and* the loaded MIDI file, so a preset can be shared as a piece and the
+  recipient opens exactly what you had. **Load bundle** restores the settings and loads the MIDI in
+  one step (the bundle's instrument assignment survives the load-time GM auto-assign). It's an
+  ordinary ZIP — any archiver can open it — and it's written deterministically, so identical
+  inputs produce byte-identical archives. Bundles read back even if someone unzipped and re-zipped
+  them with a normal (compressing) archiver, and a missing or malformed part opens to defaults
+  with a visible warning rather than failing.
+
 - **Callable by other apps** — Audiology's analysis is exposed for other projects to consume, over
   an **MCP server** (`npm run mcp`) and a loopback **HTTP API** (`npm run api`) — one versioned
   tool registry, two transports — with a published [integration protocol](INTEGRATION.md). See

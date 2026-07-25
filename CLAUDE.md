@@ -243,6 +243,26 @@ runnable (typecheck + build pass) after every change.
   at the playhead (the margin data is richest there); this is where the epistemic-clarity value
   gets its most useful surface.
 
+- **Bundles — patch + MIDI as one shareable .zip (SHIPPED).** `src/lib/bundle.ts` (pure,
+  React-free, Node-tested) writes/reads a `.zip` holding `bundle.json` (manifest: version, paths),
+  `patch.json` (byte-identical to a standalone patch) and `midi/<name>.mid`. **We write the ZIP
+  ourselves** rather than take a dependency — payloads are small, so STORE (no compression) is
+  fine and the writer is ~80 lines; reading accepts **STORE *and* DEFLATE** (via
+  `DecompressionStream("deflate-raw")`) because a recipient may unzip and re-zip with a normal
+  archiver. **No wall-clock read** — entries carry a fixed DOS timestamp (1980-01-01), so identical
+  inputs give byte-identical archives (the reproducible-core rule; there's a test pinning it).
+  `readBundle` is tolerant like `sanitizePatch`: missing/malformed parts yield defaults **plus a
+  warning surfaced in the UI**, never a crash. **Load-order gotcha (handled):** loading the
+  bundle's MIDI re-triggers the `channels`→`autoAssign` effect, which would clobber the bundle's
+  saved instruments — so `loadBundle` parks them in `pendingInstrumentsRef` and that effect honours
+  it once instead of deriving from GM. Also note MIDI bytes come back as a **subarray view** into
+  the archive; `loadBundle` `.slice()`s before handing to `playback.load` (a bare `.buffer` would
+  hand over the whole zip). Oracles: 8 Node tests including **python `zipfile` opening what we
+  write** (`testzip()` CRC check) and **reading a python-DEFLATE archive** — a self-consistent
+  reader would happily round-trip an archive no other tool can open. Verified in-browser
+  end-to-end: Lydian + organ + 8 views + a MIDI → Save bundle → disturb everything and eject the
+  MIDI → Load bundle → all restored; the app-produced zip then opened in python's `zipfile`.
+
 ### Migration complete
 All phases (0–5) plus Live play, MIDI key analysis, and Phase-4 playback wiring are done.
 The app is fully `.tsx`, strict-typed, component-split; the pure core stays React-free in
