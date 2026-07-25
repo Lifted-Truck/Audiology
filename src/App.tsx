@@ -21,6 +21,7 @@ import {
 import type { ScaleContext, SurfaceSelection } from "./lib/state";
 import type { PresetKey } from "./audio/instruments";
 import { sanitizePatch, toPatch, type PatchState } from "./lib/patch";
+import { buildBundle, readBundle } from "./lib/bundle";
 import { useAudioContext } from "./hooks/useAudioContext";
 import { useLiveInput } from "./hooks/useLiveInput";
 import { usePlayback } from "./hooks/usePlayback";
@@ -53,6 +54,16 @@ import type {
 // Stable empty fallback — a fresh [] per render would churn every downstream
 // memo (and rebuild the roll's static layer) whenever no tonicizations exist.
 const NO_TONICIZATIONS: Tonicization[] = [];
+
+/** Hand a blob to the browser as a download (patches, bundles). */
+function download(blob: Blob, filename: string) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
 
 type ViewKey = "transport" | "grid" | "pianoRoll" | "score" | "piano" | "bracelet" | "tonnetz" | "circle" | "anatomy" | "console" | "interpret" | "pcset" | "instruments";
 const VIEW_DEFS: { key: ViewKey; label: string }[] = [
@@ -147,6 +158,8 @@ export default function App() {
   // Per-channel instrument assignment for playback (audio subsystem). Auto-set
   // from the file's GM programs on load; overridable in the Instruments view.
   // `livePreset` is the sound for pad taps / "play chord" / Live mode.
+  // Result of the last patch/bundle save or load (warnings, or why it failed).
+  const [bundleNote, setBundleNote] = useState<string | null>(null);
   const [channelPresets, setChannelPresets] = useState<Record<number, PresetKey>>({});
   const [drumChannels, setDrumChannels] = useState<number[]>([]);
   const [livePreset, setLivePreset] = useState<PresetKey>("piano");
@@ -208,7 +221,18 @@ export default function App() {
   // Per-channel instrument subsystem. The song's channels + their GM metadata,
   // the default assignment (auto-set on load), and the routing pushed to the synth.
   const channels = useMemo(() => channelSummary(playback.song), [playback.song]);
+  // A bundle carries its own instrument assignment, but loading its MIDI re-triggers
+  // this auto-assign — which would clobber it. So a bundle load parks the saved
+  // assignment here and the effect honours it once, instead of deriving from GM.
+  const pendingInstrumentsRef = useRef<{ presets: Record<number, PresetKey>; drums: number[] } | null>(null);
   useEffect(() => {
+    const pending = pendingInstrumentsRef.current;
+    if (pending) {
+      pendingInstrumentsRef.current = null;
+      setChannelPresets(pending.presets);
+      setDrumChannels(pending.drums);
+      return;
+    }
     const { presets, drums } = autoAssign(channels);
     setChannelPresets(presets);
     setDrumChannels(drums);
@@ -266,20 +290,46 @@ export default function App() {
   }, []);
 
   const savePatch = useCallback(() => {
-    const blob = new Blob([JSON.stringify(toPatch(buildPatch()), null, 2)], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "audiology-patch.json";
-    a.click();
-    URL.revokeObjectURL(url);
+    download(new Blob([JSON.stringify(toPatch(buildPatch()), null, 2)], { type: "application/json" }), "audiology-patch.json");
   }, [buildPatch]);
 
   const loadPatch = useCallback(async (file: File) => {
     try {
       applyPatch(sanitizePatch(JSON.parse(await file.text())));
-    } catch { /* malformed JSON — ignore, keep current settings */ }
+      setBundleNote(null);
+    } catch { setBundleNote("That patch file couldn't be read — settings unchanged."); }
   }, [applyPatch]);
+
+  // ----- bundles: a patch travelling with its MIDI, as one .zip ------------
+  const saveBundle = useCallback(() => {
+    const bytes = midiBytesRef.current;
+    const zip = buildBundle({
+      patch: buildPatch(),
+      midi: bytes ? { name: playback.song?.name ?? "song", bytes } : null,
+    });
+    download(new Blob([zip as BlobPart], { type: "application/zip" }), "audiology-bundle.zip");
+    setBundleNote(bytes ? null : "Saved settings only — no MIDI file is loaded.");
+  }, [buildPatch, playback.song]);
+
+  const loadBundle = useCallback(async (file: File) => {
+    try {
+      const { patch, midi, warnings } = await readBundle(await file.arrayBuffer());
+      // Park the bundle's instruments so the song-load auto-assign doesn't overwrite
+      // them (see pendingInstrumentsRef), then apply settings, then the MIDI.
+      if (midi) pendingInstrumentsRef.current = { presets: patch.channelPresets, drums: patch.drumChannels };
+      applyPatch(patch);
+      if (midi) {
+        // bytes is a view into the archive — slice() copies it into its own buffer.
+        const buf = midi.bytes.slice().buffer as ArrayBuffer;
+        midiBytesRef.current = buf;
+        playback.load(buf, midi.name);
+      }
+      setBundleNote(warnings.length ? "Opened with warnings: " + warnings.join("; ") : null);
+    } catch (e) {
+      pendingInstrumentsRef.current = null;
+      setBundleNote(e instanceof Error ? "Couldn't open that bundle: " + e.message : "Couldn't open that bundle.");
+    }
+  }, [applyPatch, playback.load]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const loadAnalysis = useCallback(async (file: File) => {
     try {
@@ -646,7 +696,33 @@ export default function App() {
                 }}
               />
             </label>
+            <button
+              className="px-view-chip"
+              onClick={saveBundle}
+              title="Save a bundle — the patch AND the loaded MIDI together in one .zip, so it can be shared as a piece"
+            >
+              ⤓ Save bundle{playback.song ? "" : " (no MIDI)"}
+            </button>
+            <label className="px-view-chip" title="Open a bundle (.zip) — restores the settings and loads its MIDI">
+              ⤒ Load bundle
+              <input
+                type="file"
+                accept="application/zip,.zip"
+                style={{ display: "none" }}
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  if (f) loadBundle(f);
+                  e.target.value = "";
+                }}
+              />
+            </label>
           </div>
+          {bundleNote && (
+            <div className="px-bundle-note" role="status">
+              {bundleNote}
+              <button className="px-bundle-note-x" onClick={() => setBundleNote(null)} aria-label="Dismiss">×</button>
+            </div>
+          )}
 
           {views.transport && (
             <div className="px-stage-block">
