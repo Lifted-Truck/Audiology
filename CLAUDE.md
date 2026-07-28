@@ -492,6 +492,18 @@ Roadmap; the remaining Tonality-engine upgrades are in the section above).
   view; interactive note-picking on the wheels/map; the **MIDI chord-colour timeline** (roll toggle
   tinting chord segments by their somatic colour as the song plays, drums excluded — engine segments
   available, standalone needs local segmentation).
+- **Two key sources, and they are NOT interchangeable (regression trap).** `keyRegionBands` is the
+  *windowed* per-window evidence track; `keyBands` is the *displayed* strip (structural reduction by
+  default, windowed when the Key: toggle says so). **Follow-the-key (`segmentKey`) must use the
+  windowed track** — the structural reduction absorbs tonicizations, so following it would never
+  track a modulation. **The circle's journey trace (`visitedKeys`) must use the displayed
+  `keyBands`** — so the Key: structural/windowed toggle governs it and the default stays legible.
+  These two lines sit adjacent and look interchangeable; `3419abe` (the follow-key fix) moved
+  `visitedKeys` onto `keyRegionBands` along with `segmentKey`, which turned the circle into ~92
+  arrows for a performed 6-minute file (Bohemian Rhapsody) and made the toggle inert. Measured
+  after the revert: **structural 5 arrows, windowed 92**. Note the `meanMargin < 0.03` gate barely
+  helps here — for that file the median windowed margin is ~0.105, so only 14 of 108 regions are
+  absorbed; the gate separates *spurious blips* (~0.001), not a genuinely busy windowed track.
 - **Confirm the drum grey reads distinctly** from the in-key/out-of-key note colours on the roll.
 - **Validation-harness PR (Tonality repo).** The `--ab-profile` / `--ab-profile-regions` harness
   modes depend on the engine's `profile_version` kwarg (#85). Open the harness PR once #85 + the
