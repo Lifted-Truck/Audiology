@@ -471,15 +471,19 @@ export default function App() {
   const hasStructural = structuralKeyBands.length > 0;
   const keyBands = keyStripMode === "structural" && hasStructural ? structuralKeyBands : keyRegionBands;
 
-  // Follow-the-key: the local key under the playhead, plus the distinct keys the
-  // piece visits (for the circle-of-fifths journey trace). This tracks the
-  // *windowed* local-key track (`keyRegionBands`), NOT the displayed `keyBands` —
-  // the default structural reduction absorbs tonicizations into one home key (a
-  // C→G modulation collapses to a single G-major area), so following that strip
-  // would never track the modulation. The windowed track is literally "the current
-  // key in the file at this moment", which is what follow-the-key means.
+  // Follow-the-key tracks the *windowed* local-key track (`keyRegionBands`), NOT the
+  // displayed `keyBands` — the default structural reduction absorbs tonicizations into
+  // one home key (a C→G modulation collapses to a single G-major area), so following
+  // that strip would never track the modulation. The windowed track is literally "the
+  // current key in the file at this moment", which is what follow-the-key means.
   const segmentKey = useMemo(() => segmentKeyAt(keyRegionBands, playback.currentTime), [keyRegionBands, playback.currentTime]);
-  const visitedKeys = useMemo(() => visitedKeysOf(keyRegionBands), [keyRegionBands]);
+  // The circle's journey trace deliberately does NOT share that source. It follows the
+  // *displayed* strip, so the Key: structural/windowed toggle actually governs it and
+  // the default stays legible: the windowed track is a per-window evidence view (a
+  // performed 6-minute file yields ~100 regions — an unreadable tangle of arrows),
+  // while the structural reduction is the handful of real key areas. Wiring this to
+  // keyRegionBands alongside segmentKey is exactly the regression 3419abe introduced.
+  const visitedKeys = useMemo(() => visitedKeysOf(keyBands), [keyBands]);
   const canFollowKey = keyRegionBands.length > 0;
   // When following, snap root+scale to the segment key (only major/minor map onto a
   // selectable scale). Keyed on the segment key's identity so it fires at key-area
