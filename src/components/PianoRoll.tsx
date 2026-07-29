@@ -143,6 +143,9 @@ export default function PianoRoll({
   const [tip, setTip] = useState<{ x: number; y: number; text: string } | null>(null);
   // Pinned note inspector (alt/option-click a note). null = hidden.
   const [inspect, setInspect] = useState<{ note: Note; x: number; y: number } | null>(null);
+  // Transient hover preview — same card, follows the cursor, no pinning. The pinned
+  // inspector always wins so a hover can't yank a card you deliberately parked.
+  const [hover, setHover] = useState<{ note: Note; x: number; y: number } | null>(null);
   // Expandable row height — taller lanes are easier to read and click.
   const [expanded, setExpanded] = useState(false);
   const laneH = expanded ? LANE_H_EXPANDED : LANE_H_COMPACT;
@@ -439,6 +442,7 @@ export default function PianoRoll({
     }
     draggingRef.current = true;
     setTip(null);
+    setHover(null);
     setInspect(null); // a plain seek dismisses the inspector
     // Clicking a note (or any note of a chord) snaps the scrubber to its onset;
     // clicking empty space seeks to the cursor time. Dragging then scrubs freely.
@@ -447,13 +451,23 @@ export default function PianoRoll({
   const onMove = (e: React.MouseEvent) => {
     if (draggingRef.current) {
       onSeek(timeFromEvent(e.clientX));
+      setHover(null); // scrubbing shouldn't trail a preview card
       return;
     }
     const rect = canvasRef.current?.getBoundingClientRect();
     if (!rect) return;
     const yLocal = e.clientY - rect.top;
+    // Strip labels win above the note area (they occupy the header bands, which hold
+    // no notes), so the two hover affordances never compete for the same pixels.
     const text = labelAt(yLocal, e.clientX);
-    setTip(text ? { x: e.clientX - rect.left, y: yLocal, text } : null);
+    if (text) {
+      setTip({ x: e.clientX - rect.left, y: yLocal, text });
+      setHover(null);
+      return;
+    }
+    setTip(null);
+    const note = noteAt(e.clientX, yLocal);
+    setHover(note ? { note, x: e.clientX - rect.left, y: yLocal } : null);
   };
   const onUp = () => {
     draggingRef.current = false;
@@ -461,6 +475,7 @@ export default function PianoRoll({
   const onLeave = () => {
     draggingRef.current = false;
     setTip(null);
+    setHover(null);
   };
 
   return (
@@ -479,8 +494,11 @@ export default function PianoRoll({
           {tip.text}
         </div>
       )}
-      {inspect && song && (() => {
-        const n = inspect.note;
+      {/* One card, two triggers: hover previews it, ⌥-click pins it (pinned wins). */}
+      {(inspect ?? hover) && song && (() => {
+        const at = (inspect ?? hover)!;
+        const pinned = !!inspect;
+        const n = at.note;
         const pc = ((n.midi % 12) + 12) % 12;
         const { bar, beat } = song.timeToBarBeat(n.time);
         const band = keyBandAt(n.time);
@@ -505,14 +523,17 @@ export default function PianoRoll({
         // Keep the popout fully in view: flip left/above the cursor when it would
         // overflow the roll, then clamp. (~206×150 incl. padding/border.)
         const PW = 206, PH = 150, GAP = 10;
-        const left = inspect.x + GAP + PW <= width ? inspect.x + GAP : inspect.x - PW - GAP;
-        const top = inspect.y + GAP + PH <= height ? inspect.y + GAP : inspect.y - PH - GAP;
+        const left = at.x + GAP + PW <= width ? at.x + GAP : at.x - PW - GAP;
+        const top = at.y + GAP + PH <= height ? at.y + GAP : at.y - PH - GAP;
         const clamp = (v: number, max: number) => Math.max(4, Math.min(v, Math.max(4, max)));
         return (
-          <div className="px-roll-inspect" style={{ left: clamp(left, width - PW - 4), top: clamp(top, height - PH - 4) }}>
+          <div
+            className={"px-roll-inspect" + (pinned ? "" : " preview")}
+            style={{ left: clamp(left, width - PW - 4), top: clamp(top, height - PH - 4) }}
+          >
             <div className="px-roll-inspect-head">
               <span>{noteName(n.midi)}<span className="px-roll-inspect-midi"> · MIDI {n.midi}</span></span>
-              <button className="px-roll-inspect-x" onClick={() => setInspect(null)} title="Close">×</button>
+              {pinned && <button className="px-roll-inspect-x" onClick={() => setInspect(null)} title="Close">×</button>}
             </div>
             {rows.map(([k, v]) => (
               <div className="px-roll-inspect-row" key={k}>
@@ -541,7 +562,7 @@ export default function PianoRoll({
           {expanded ? "⤡ Compact" : "⤢ Expand"}
         </button>
       )}
-      {song && !inspect && <div className="px-roll-hint">⌥-click a note to inspect</div>}
+      {song && !inspect && !hover && <div className="px-roll-hint">hover a note to inspect · ⌥-click to pin</div>}
       {!song && <div className="px-roll-empty">Load a MIDI file to see the piano roll.</div>}
     </div>
   );

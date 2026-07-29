@@ -456,6 +456,9 @@ export default function App() {
 
   // Pitch-class views (bracelet / Tonnetz) backdrop: the current scale's pcs.
   const scalePcs = useMemo(() => new Set(pattern.map((i) => mod(root + i, 12))), [pattern, root]);
+  // Same set as a plain array for the circle (which recedes out-of-scale keys). A
+  // 12-pc "scale" (Chromatic) filters nothing, so pass none and skip the dimming.
+  const circleScalePcs = useMemo(() => (scalePcs.size >= 12 ? undefined : [...scalePcs]), [scalePcs]);
 
   // Analysis-derived strips — the derivation logic lives in lib/state (pure,
   // React-free, testable); these memos just wire state into the selectors.
@@ -857,6 +860,7 @@ export default function App() {
                       visited={visitedKeys}
                       homeKey={structuralHome ?? (analysis ? { tonicPc: analysis.key.tonicPc, mode: analysis.key.mode } : null)}
                       noteNot={noteNot}
+                      scalePcs={circleScalePcs}
                       onPick={(pc, minor) => { setFollowKey(false); setRoot(pc); setScaleName(minor ? "Minor" : "Major"); }}
                     />
                   </div>
