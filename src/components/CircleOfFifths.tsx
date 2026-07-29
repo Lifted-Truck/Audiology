@@ -39,6 +39,7 @@ export default function CircleOfFifths({
   visited = [],
   homeKey = null,
   noteNot = "auto",
+  scalePcs,
   onPick,
 }: {
   tonicPc: number;
@@ -46,6 +47,8 @@ export default function CircleOfFifths({
   visited?: Key[];
   homeKey?: Key | null;
   noteNot?: "auto" | "sharp" | "flat";
+  /** The selected scale's pitch classes — keys outside it recede. Omit for no filtering. */
+  scalePcs?: number[];
   onPick: (tonicPc: number, isMinor: boolean) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
@@ -68,6 +71,8 @@ export default function CircleOfFifths({
   };
 
   const visitedSet = new Set(visited.map((v) => `${minorOf(v) ? "m" : "M"}:${v.tonicPc}`));
+  // Empty = no scale filtering (everything reads at full strength).
+  const scaleSet = new Set(scalePcs ?? []);
   const sameKey = (a: Key | null, pc: number, minor: boolean) => !!a && a.tonicPc === pc && minorOf(a) === minor;
 
   // Modulation path: shorten each segment to the node edges so the arrowhead lands
@@ -85,13 +90,20 @@ export default function CircleOfFifths({
     const isCurrent = pc === tonicPc && minor === isMinor;
     const isHome = sameKey(homeKey, pc, minor);
     const isVisited = visitedSet.has(`${minor ? "m" : "M"}:${pc}`);
+    // Recede the keys that don't belong to the selected scale, so the chart reflects
+    // the current MODE rather than reading as a static reference chart. A key belongs
+    // when its whole tonic triad is in the scale — which generalizes past major/minor:
+    // C Dorian lights Cm/Dm/F/Gm/B♭, C Major lights C/Dm/Em/F/G/Am. Never dim a key
+    // that's carrying information (current, the file's home, or on the journey path).
+    const inScale = !scaleSet.size || (minor ? [0, 3, 7] : [0, 4, 7]).every((iv) => scaleSet.has((pc + iv) % 12));
+    const dim = !inScale && !isCurrent && !isHome && !isVisited;
     let fill = "#0d1016", stroke = "#2a3340", txt = "#5b6675", sw = 1.2;
     if (isVisited) { fill = "#0a2825"; stroke = "#2dd4bf"; txt = "#5eead4"; sw = 1.5; }
     if (isCurrent) { fill = "#1d2540"; stroke = "#a5b4fc"; txt = "#eef2ff"; sw = 2.4; }
     const r = minor ? G.nrMin : G.nrMaj;
     const showSig = expanded && !minor; // signature on majors (minors share the relative)
     return (
-      <g key={`${minor ? "m" : "M"}${pc}`} className="px-node" onClick={() => onPick(pc, minor)}>
+      <g key={`${minor ? "m" : "M"}${pc}`} className="px-node" opacity={dim ? 0.26 : 1} onClick={() => onPick(pc, minor)}>
         {isHome && <circle cx={x} cy={y} r={r + (isCurrent ? 6 : 3)} fill="none" stroke="#fcd34d" strokeWidth={2} strokeDasharray="3 2.5" />}
         {isCurrent && <circle cx={x} cy={y} r={r + 3} fill="none" stroke="#a5b4fc" strokeWidth={1.5} />}
         <circle cx={x} cy={y} r={r} fill={fill} stroke={stroke} strokeWidth={sw} />

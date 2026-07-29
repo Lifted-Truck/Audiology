@@ -492,6 +492,24 @@ Roadmap; the remaining Tonality-engine upgrades are in the section above).
   view; interactive note-picking on the wheels/map; the **MIDI chord-colour timeline** (roll toggle
   tinting chord segments by their somatic colour as the song plays, drums excluded — engine segments
   available, standalone needs local segmentation).
+- **Note inspector: hover previews, ⌥-click pins (one card, two triggers).** `PianoRoll` holds both
+  `hover` and `inspect`; the pinned card always wins so a hover can't yank one you parked, and the
+  same render path draws both (`.preview` adds `pointer-events:none` so the preview never blocks the
+  note under the cursor). Strip labels keep their own tooltip and win above the note area (they
+  occupy the header bands, which hold no notes), so the two hover affordances never fight. Perf was
+  the open question — `noteAt` linear-scans the note list per `mousemove` and each hit re-renders —
+  measured **0.31 ms/move on Bohemian Rhapsody**, so no throttling needed; revisit only if that
+  scan shows up in a profile.
+- **Circle of 5ths is mode-aware.** Keys whose *whole tonic triad* isn't in the selected scale
+  recede to opacity 0.26. Using the triad (not just the tonic pc) generalizes past major/minor:
+  C Major lights C/Dm/Em/F/G/Am, C Dorian lights Cm/Dm/E♭/F/Gm/B♭, C Minor lights
+  Cm/E♭/Fm/Gm/A♭/B♭. Chromatic (12 pcs) passes `undefined` and filters nothing. **Never dims a node
+  carrying information** — current key, the file's home key, or anything on the journey path — so a
+  modulation to an out-of-scale key stays visible. Consequence worth knowing: under a mode the
+  current-key marker still sits on the *major* node (`isMinor` is a literal `scaleName === "Minor"`),
+  so C Dorian shows the C-major node lit by the current-key exemption even though C major isn't
+  diatonic to it. That's deliberate — the ring means "your tonic is C"; moving it to the parent key
+  (B♭) would make selecting a mode feel like it teleported you.
 - **Two key sources, and they are NOT interchangeable (regression trap).** `keyRegionBands` is the
   *windowed* per-window evidence track; `keyBands` is the *displayed* strip (structural reduction by
   default, windowed when the Key: toggle says so). **Follow-the-key (`segmentKey`) must use the
