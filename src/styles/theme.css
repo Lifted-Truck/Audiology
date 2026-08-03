@@ -329,3 +329,9 @@
 /* Hover preview of the note card — same layout, lighter and click-through so it
    never blocks the note under the cursor (the pinned card stays interactive). */
 .px-roll-inspect.preview{pointer-events:none;opacity:.96;border-color:#2a3340;box-shadow:0 10px 26px -12px rgba(0,0,0,.85);}
+
+/* Circle of 5ths: scale-filter toggle + its legend. The red dot reuses the app's
+   existing "out of scale" colour, so a lit-but-borrowed key reads consistently. */
+.px-cof-filter{right:38px;}
+.px-cof-legend{display:flex;align-items:center;gap:7px;margin-top:8px;font-size:10px;line-height:1.35;color:var(--mut);}
+.px-cof-legend-dot{width:7px;height:7px;border-radius:50%;background:#f87171;flex:none;box-shadow:0 0 6px rgba(248,113,113,.5);}

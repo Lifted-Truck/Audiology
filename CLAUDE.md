@@ -500,16 +500,23 @@ Roadmap; the remaining Tonality-engine upgrades are in the section above).
   the open question — `noteAt` linear-scans the note list per `mousemove` and each hit re-renders —
   measured **0.31 ms/move on Bohemian Rhapsody**, so no throttling needed; revisit only if that
   scan shows up in a profile.
-- **Circle of 5ths is mode-aware.** Keys whose *whole tonic triad* isn't in the selected scale
-  recede to opacity 0.26. Using the triad (not just the tonic pc) generalizes past major/minor:
-  C Major lights C/Dm/Em/F/G/Am, C Dorian lights Cm/Dm/E♭/F/Gm/B♭, C Minor lights
-  Cm/E♭/Fm/Gm/A♭/B♭. Chromatic (12 pcs) passes `undefined` and filters nothing. **Never dims a node
-  carrying information** — current key, the file's home key, or anything on the journey path — so a
-  modulation to an out-of-scale key stays visible. Consequence worth knowing: under a mode the
-  current-key marker still sits on the *major* node (`isMinor` is a literal `scaleName === "Minor"`),
-  so C Dorian shows the C-major node lit by the current-key exemption even though C major isn't
-  diatonic to it. That's deliberate — the ring means "your tonic is C"; moving it to the parent key
-  (B♭) would make selecting a mode feel like it teleported you.
+- **Circle of 5ths is mode-aware, behind a toggle, and flags borrowed keys.** Keys whose *whole
+  tonic triad* isn't in the selected scale recede to opacity 0.26. Using the triad (not just the
+  tonic pc) generalizes past major/minor: C Major lights C/Dm/Em/F/G/Am, C Dorian lights
+  Cm/Dm/E♭/F/Gm/B♭, C Minor lights Cm/E♭/Fm/Gm/A♭/B♭. Chromatic (12 pcs) passes `undefined`.
+  - **Toggle** (`◑`/`○` beside the expand button) → `circleScaleFilter` in App, persisted in
+    patches (additive + tolerant, so old patches just default it on). Off = the plain 24-key
+    reference chart.
+  - **It never dims a node carrying information** — current key, the file's home key, anything on
+    the journey path. But that means a lit node has *two possible meanings*, so the out-of-scale
+    ones get a **red dot badge** (reusing the app's existing "out of scale" colour) plus a legend
+    line and a `<title>`. Without it, "in your scale" and "borrowed from elsewhere" looked
+    identical — the same collapse-two-meanings-into-one-signal problem the Interpretations view
+    exists to avoid. Verified: C Minor over the C→G fixture flags **C** (current key) and **G**
+    (home key) while the six genuinely diatonic keys stay unflagged.
+  - Note the current-key marker still sits on the *major* node under a mode (`isMinor` is a literal
+    `scaleName === "Minor"`), so C Dorian lights C-major via the exemption — now visibly flagged
+    rather than silently blending in.
 - **Two key sources, and they are NOT interchangeable (regression trap).** `keyRegionBands` is the
   *windowed* per-window evidence track; `keyBands` is the *displayed* strip (structural reduction by
   default, windowed when the Key: toggle says so). **Follow-the-key (`segmentKey`) must use the

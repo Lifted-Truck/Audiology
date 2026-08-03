@@ -50,6 +50,8 @@ export interface PatchState {
   views: Record<ViewKey, boolean>;
   followKey: boolean;
   showScaleColors: boolean;
+  /** Circle of 5ths: fade keys outside the selected scale. */
+  circleScaleFilter: boolean;
   channelPresets: Record<number, PresetKey>;
   drumChannels: number[];
   livePreset: PresetKey;
@@ -74,7 +76,8 @@ export const DEFAULT_PATCH: PatchState = {
   chordRootPc: 0, chordQuality: "maj7", inversion: 0, voicing: "close", chordDisplay: "tones",
   selected: [], coalesceWindow: 0.5, disambigRelKeys: false, smoothRegions: false,
   keyStripMode: "structural", chordLabelMode: "names", views: { ...DEFAULT_VIEWS },
-  followKey: false, showScaleColors: true, channelPresets: {}, drumChannels: [], livePreset: "piano",
+  followKey: false, showScaleColors: true, circleScaleFilter: true,
+  channelPresets: {}, drumChannels: [], livePreset: "piano",
 };
 
 // ----- validators --------------------------------------------------------------
@@ -137,7 +140,7 @@ export function sanitizePatch(raw: unknown): PatchState {
     chordRootPc: int(r.chordRootPc, d.chordRootPc, 0, 11),
     chordQuality: oneOf(r.chordQuality, QUALITY_KEYS, d.chordQuality),
     inversion: int(r.inversion, d.inversion, 0, 6),
-    voicing: oneOf(r.voicing, ["close", "drop2", "drop3", "spread"], d.voicing),
+    voicing: oneOf(r.voicing, ["close", "drop2", "drop3", "spread", "wide"], d.voicing),
     chordDisplay: oneOf(r.chordDisplay, ["tones", "voicing"], d.chordDisplay),
     selected: intArr(r.selected, d.selected, 0, 127),
     // null = "off / exact"; else a beats window (0..8). Anything else → default.
@@ -154,6 +157,7 @@ export function sanitizePatch(raw: unknown): PatchState {
     views,
     followKey: bool(r.followKey, d.followKey),
     showScaleColors: bool(r.showScaleColors, d.showScaleColors),
+    circleScaleFilter: bool(r.circleScaleFilter, d.circleScaleFilter),
     channelPresets: sanitizePresets(r.channelPresets),
     drumChannels: intArr(r.drumChannels, d.drumChannels, -1, 15),
     livePreset: oneOf(r.livePreset, PRESET_ORDER, d.livePreset),

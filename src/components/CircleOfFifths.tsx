@@ -40,6 +40,8 @@ export default function CircleOfFifths({
   homeKey = null,
   noteNot = "auto",
   scalePcs,
+  scaleFilter = true,
+  onScaleFilterChange,
   onPick,
 }: {
   tonicPc: number;
@@ -49,6 +51,9 @@ export default function CircleOfFifths({
   noteNot?: "auto" | "sharp" | "flat";
   /** The selected scale's pitch classes — keys outside it recede. Omit for no filtering. */
   scalePcs?: number[];
+  /** Whether the scale filter is applied (the ◑ toggle). */
+  scaleFilter?: boolean;
+  onScaleFilterChange?: (v: boolean) => void;
   onPick: (tonicPc: number, isMinor: boolean) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
@@ -71,8 +76,10 @@ export default function CircleOfFifths({
   };
 
   const visitedSet = new Set(visited.map((v) => `${minorOf(v) ? "m" : "M"}:${v.tonicPc}`));
-  // Empty = no scale filtering (everything reads at full strength).
-  const scaleSet = new Set(scalePcs ?? []);
+  // Empty = no scale filtering (everything reads at full strength). The ◑ toggle and a
+  // 12-pc scale (Chromatic, passed as undefined) both land here.
+  const scaleSet = new Set(scaleFilter ? scalePcs ?? [] : []);
+  const filtering = scaleSet.size > 0;
   const sameKey = (a: Key | null, pc: number, minor: boolean) => !!a && a.tonicPc === pc && minorOf(a) === minor;
 
   // Modulation path: shorten each segment to the node edges so the arrowhead lands
@@ -95,8 +102,14 @@ export default function CircleOfFifths({
     // when its whole tonic triad is in the scale — which generalizes past major/minor:
     // C Dorian lights Cm/Dm/F/Gm/B♭, C Major lights C/Dm/Em/F/G/Am. Never dim a key
     // that's carrying information (current, the file's home, or on the journey path).
-    const inScale = !scaleSet.size || (minor ? [0, 3, 7] : [0, 4, 7]).every((iv) => scaleSet.has((pc + iv) % 12));
+    const inScale = !filtering || (minor ? [0, 3, 7] : [0, 4, 7]).every((iv) => scaleSet.has((pc + iv) % 12));
     const dim = !inScale && !isCurrent && !isHome && !isVisited;
+    // A node can be lit for two very different reasons: it belongs to the current
+    // scale, OR it's exempt because it carries information (current / home / on the
+    // journey) while sitting OUTSIDE the scale. Those must not look identical — flag
+    // the second kind so "borrowed from another mode" is legible at a glance. Red is
+    // already the app's "out of scale" colour, so this reuses that vocabulary.
+    const outOfScaleButShown = !inScale && !dim && filtering;
     let fill = "#0d1016", stroke = "#2a3340", txt = "#5b6675", sw = 1.2;
     if (isVisited) { fill = "#0a2825"; stroke = "#2dd4bf"; txt = "#5eead4"; sw = 1.5; }
     if (isCurrent) { fill = "#1d2540"; stroke = "#a5b4fc"; txt = "#eef2ff"; sw = 2.4; }
@@ -118,6 +131,12 @@ export default function CircleOfFifths({
             {sigLabel(pc)}
           </text>
         )}
+        {outOfScaleButShown && (
+          <>
+            <circle cx={x + r * 0.72} cy={y - r * 0.72} r={3.4} fill="#f87171" stroke="#0a0c10" strokeWidth={1} />
+            <title>{keyName(pc, minor)} is outside {"the selected scale"} — shown because it's the current key, the file's home key, or on the modulation path</title>
+          </>
+        )}
       </g>
     );
   };
@@ -129,6 +148,17 @@ export default function CircleOfFifths({
         title={expanded ? "Less detail" : "Expand — key signatures"}>
         {expanded ? "⤡" : "⤢"}
       </button>
+      {onScaleFilterChange && scalePcs && scalePcs.length > 0 && (
+        <button
+          className={"px-cof-expand px-cof-filter" + (scaleFilter ? " on" : "")}
+          onClick={() => onScaleFilterChange(!scaleFilter)}
+          title={scaleFilter
+            ? "Scale filter ON — keys outside the selected scale recede. Click to show all 24 equally."
+            : "Scale filter OFF — all 24 keys shown equally. Click to fade keys outside the selected scale."}
+        >
+          {scaleFilter ? "◑" : "○"}
+        </button>
+      )}
       <svg viewBox={`0 0 ${G.vb} ${G.vb}`} className="px-bracelet-svg" role="img" aria-label="circle of fifths">
         <defs>
           <marker id="cof-arrow" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse">
@@ -158,6 +188,12 @@ export default function CircleOfFifths({
           </g>
         ))}
       </svg>
+      {filtering && (
+        <div className="px-cof-legend">
+          <span className="px-cof-legend-dot" />
+          outside the scale — shown as the current key, home key, or on the path
+        </div>
+      )}
     </div>
   );
 }
