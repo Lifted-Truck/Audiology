@@ -35,6 +35,17 @@ test("invalid enum / out-of-range values fall back to defaults", () => {
   assert.equal(p.livePreset, DEFAULT_PATCH.livePreset);
 });
 
+test("every declared enum value survives sanitize (the validator must not lag the type)", () => {
+  // Regression: `voicing` gained "wide" in the type while sanitizePatch's allowed
+  // list still ended at "spread", so a wide voicing silently loaded back as close.
+  for (const v of ["close", "drop2", "drop3", "spread", "wide"] as const) {
+    assert.equal(sanitizePatch({ voicing: v }).voicing, v, `voicing "${v}" should round-trip`);
+  }
+  for (const m of ["structural", "windowed"] as const) assert.equal(sanitizePatch({ keyStripMode: m }).keyStripMode, m);
+  for (const c of ["names", "roman", "both"] as const) assert.equal(sanitizePatch({ chordLabelMode: c }).chordLabelMode, c);
+  for (const i of ["build", "analyze", "live"] as const) assert.equal(sanitizePatch({ interaction: i }).interaction, i);
+});
+
 test("partial patch fills the rest from defaults; unknown fields ignored", () => {
   const p = sanitizePatch({ followKey: true, bogusField: 123 });
   assert.equal(p.followKey, true);

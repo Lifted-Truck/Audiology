@@ -158,6 +158,9 @@ export default function App() {
   // Per-channel instrument assignment for playback (audio subsystem). Auto-set
   // from the file's GM programs on load; overridable in the Instruments view.
   // `livePreset` is the sound for pad taps / "play chord" / Live mode.
+  // Circle-of-5ths scale filter: fade keys outside the selected scale. A display
+  // setting, so it rides in patches like the rest.
+  const [circleScaleFilter, setCircleScaleFilter] = useState(true);
   // Result of the last patch/bundle save or load (warnings, or why it failed).
   const [bundleNote, setBundleNote] = useState<string | null>(null);
   const [channelPresets, setChannelPresets] = useState<Record<number, PresetKey>>({});
@@ -267,13 +270,13 @@ export default function App() {
     sound, interaction, chordOn, tapChord, adaptToScale, chordRootPc, chordQuality,
     inversion, voicing, chordDisplay, selected, coalesceWindow, disambigRelKeys,
     smoothRegions, keyStripMode, chordLabelMode, views, followKey, showScaleColors,
-    channelPresets, drumChannels, livePreset,
+    circleScaleFilter, channelPresets, drumChannels, livePreset,
   }), [
     root, scaleName, mode, fixed, layout, orient, labelMode, noteNot, degNot, degRef,
     sound, interaction, chordOn, tapChord, adaptToScale, chordRootPc, chordQuality,
     inversion, voicing, chordDisplay, selected, coalesceWindow, disambigRelKeys,
     smoothRegions, keyStripMode, chordLabelMode, views, followKey, showScaleColors,
-    channelPresets, drumChannels, livePreset,
+    circleScaleFilter, channelPresets, drumChannels, livePreset,
   ]);
 
   const applyPatch = useCallback((p: PatchState) => {
@@ -286,6 +289,7 @@ export default function App() {
     setSelected(p.selected); setCoalesceWindow(p.coalesceWindow); setDisambigRelKeys(p.disambigRelKeys);
     setSmoothRegions(p.smoothRegions); setKeyStripMode(p.keyStripMode); setChordLabelMode(p.chordLabelMode);
     setViews(p.views); setFollowKey(p.followKey); setShowScaleColors(p.showScaleColors);
+    setCircleScaleFilter(p.circleScaleFilter);
     setChannelPresets(p.channelPresets); setDrumChannels(p.drumChannels); setLivePreset(p.livePreset);
   }, []);
 
@@ -861,6 +865,8 @@ export default function App() {
                       homeKey={structuralHome ?? (analysis ? { tonicPc: analysis.key.tonicPc, mode: analysis.key.mode } : null)}
                       noteNot={noteNot}
                       scalePcs={circleScalePcs}
+                      scaleFilter={circleScaleFilter}
+                      onScaleFilterChange={setCircleScaleFilter}
                       onPick={(pc, minor) => { setFollowKey(false); setRoot(pc); setScaleName(minor ? "Minor" : "Major"); }}
                     />
                   </div>
