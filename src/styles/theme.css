@@ -335,3 +335,11 @@
 .px-cof-filter{right:38px;}
 .px-cof-legend{display:flex;align-items:center;gap:7px;margin-top:8px;font-size:10px;line-height:1.35;color:var(--mut);}
 .px-cof-legend-dot{width:7px;height:7px;border-radius:50%;background:#f87171;flex:none;box-shadow:0 0 6px rgba(248,113,113,.5);}
+
+/* Interpretations — the KEY section (competing readings at the playhead). */
+.px-interp-keys{display:flex;flex-direction:column;gap:8px;margin-top:16px;padding-top:14px;border-top:1px dashed var(--line);}
+.px-interp-col-h.mt{margin-top:8px;}
+.px-interp-keyrow{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+@media (max-width:620px){.px-interp-keyrow{grid-template-columns:1fr;}}
+.px-interp-keycell{display:flex;flex-direction:column;gap:3px;padding:9px 12px;border-radius:9px;border:1px solid var(--line);background:#0e1117;}
+.px-interp-sub.weak{color:#f87171;}

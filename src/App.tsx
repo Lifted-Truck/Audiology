@@ -927,6 +927,10 @@ export default function App() {
                   naming={engineNaming}
                   bridgeConnected={bridge.connected}
                   noteName={noteName}
+                  analysis={analysis}
+                  keyBands={keyBands}
+                  currentTime={playback.currentTime}
+                  hasSong={!!playback.song}
                 />
               </div>
             </div>
