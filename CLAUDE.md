@@ -263,6 +263,24 @@ runnable (typecheck + build pass) after every change.
   end-to-end: Lydian + organ + 8 views + a MIDI → Save bundle → disturb everything and eject the
   MIDI → Load bundle → all restored; the app-produced zip then opened in python's `zipfile`.
 
+- **Competing KEY interpretations at the playhead (SHIPPED)** — the Interpretations view's second
+  half, and the strongest use of the epistemic-clarity value so far. `keyReadingAt(analysis,
+  keyBands, t)` (pure, in `lib/state/analysis.ts`, Node-tested) returns the engine's **raw windowed
+  reading** for the instant, the **band actually drawn**, and whether they **disagree** — because
+  the displayed strip routinely shows a key the engine did not read there, for two quite different
+  reasons that the UI now states distinctly:
+  1. **Below the confidence gate** — `windowedKeyBands` absorbed a low-margin blip (cites the real
+     margin and `KEY_MARGIN_GATE`, now exported so the number the UI quotes can't drift from the
+     number the gate uses).
+  2. **Structural reduction** — the structural strip folds a *confident* modulation into the
+     surrounding key area. Verified on `fixtures/sample-modulating.mid`: the strip reads C maj for
+     the whole file while the engine confidently reads **G maj (margin 0.122)** across the middle —
+     a real modulation the default strip was hiding with no indication.
+  Plus the **whole-file ranked key candidates** with score bars, the top-two margin, and the profile
+  version (G maj 0.905 · E min 0.677 · C maj 0.605 … on that fixture — the runners-up were being
+  discarded entirely before). The key section renders independently of the chord section, since it
+  depends on the playhead + analysis rather than on a held chord.
+
 ### Migration complete
 All phases (0–5) plus Live play, MIDI key analysis, and Phase-4 playback wiring are done.
 The app is fully `.tsx`, strict-typed, component-split; the pure core stays React-free in

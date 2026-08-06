@@ -339,8 +339,11 @@ engineering threads"). The longer-horizon direction:
   between the top two, the **local analyzer's** candidates in a parallel column, an honest banner
   when the engine flags a **near-tie** (`is_ambiguous`) or when the two analyzers **disagree**.
   A diminished 7th, for instance, reads as four parallel spellings rather than one verdict.
-  Consumes plural outputs (integration policy rule 7) instead of collapsing to one. *Next:*
-  competing **key** interpretations at the playhead, where the margin data is richest.
+  It also shows the competing **key** readings at the playhead: the engine's raw reading for that
+  window beside the band actually drawn, and — when they differ — *why*, distinguishing a
+  low-confidence blip absorbed by the margin gate from a confident modulation folded away by the
+  structural reduction. Plus the whole file's ranked key candidates with their scores and margin.
+  Consumes plural outputs (integration policy rule 7) instead of collapsing to one.
 - **Ian Ring parity** *(spec in [`docs/proposals/ian-ring-parity.md`](docs/proposals/ian-ring-parity.md))* —
   show, for any scale/pc-set, every representation and datum Ian Ring's site presents: a local
   property pack (hemitonia, imperfections, deep-scale, Myhill, maximal-evenness…), names + Forte

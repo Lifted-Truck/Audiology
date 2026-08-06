@@ -12,8 +12,9 @@
 // richest — are the noted v2 extension.
 
 import { useMemo } from "react";
-import { analyzeSelection } from "../lib/theory";
-import { qualitySymbol, type ChordNaming } from "../lib/tonality";
+import { analyzeSelection, spellInKey } from "../lib/theory";
+import { qualitySymbol, type ChordNaming, type FileAnalysis } from "../lib/tonality";
+import { keyReadingAt, KEY_MARGIN_GATE, type KeyBand } from "../lib/state";
 
 interface Props {
   /** Current chord's pitch classes (folded). */
@@ -24,13 +25,27 @@ interface Props {
   naming: ChordNaming | null;
   bridgeConnected: boolean;
   noteName: (pc: number) => string;
+  /** Engine file analysis — drives the competing-KEY readings. */
+  analysis: FileAnalysis | null;
+  /** The key strip actually drawn on the roll (structural or windowed). */
+  keyBands: KeyBand[];
+  currentTime: number;
+  hasSong: boolean;
 }
 
 /** Strip an inversion slash ("C/E" → "C") so engine (pc-level) and local
  *  (realization-level) names can be loosely compared for agreement. */
 const baseName = (n: string) => n.split("/")[0].trim();
 
-export default function Interpretations({ pcs, realizationMidi, naming, bridgeConnected, noteName }: Props) {
+export default function Interpretations({
+  pcs, realizationMidi, naming, bridgeConnected, noteName,
+  analysis, keyBands, currentTime, hasSong,
+}: Props) {
+  const keyRead = useMemo(() => keyReadingAt(analysis, keyBands, currentTime), [analysis, keyBands, currentTime]);
+  const keyLabel = (tonicPc: number, mode: string) => spellInKey(tonicPc, tonicPc, mode) + (mode === "major" ? " maj" : mode === "minor" ? " min" : " " + mode);
+  const keyCands = analysis?.key.candidates ?? [];
+  const keyMax = keyCands.reduce((m, c) => Math.max(m, c.score), 0) || 1;
+
   const local = useMemo(
     () => analyzeSelection(realizationMidi.length >= 2 ? realizationMidi : pcs.map((p) => 60 + p), noteName),
     [pcs, realizationMidi, noteName]
@@ -47,10 +62,90 @@ export default function Interpretations({ pcs, realizationMidi, naming, bridgeCo
   const locTop = localReadings.find((c) => c.primary)?.name ?? localReadings[0]?.name ?? null;
   const disagree = engTop != null && locTop != null && baseName(engTop) !== baseName(locTop);
 
+  // The KEY section stands on its own — it depends on the playhead + file analysis,
+  // not on a chord being held — so it renders even when there's nothing to name.
+  const keySection = hasSong && (
+    <section className="px-interp-keys">
+      <h3 className="px-interp-col-h">
+        <span className="px-interp-dot engine" />
+        Key at the playhead
+      </h3>
+
+      {!analysis && (
+        <p className="px-interp-none">
+          No engine analysis — start the engine (or load a Tonality JSON) to see competing key readings.
+        </p>
+      )}
+
+      {analysis && keyRead.overridden && (
+        <div className="px-interp-ambig">
+          <span className="px-interp-ambig-dot" />
+          The strip shows <strong>{keyRead.displayed && keyLabel(keyRead.displayed.tonicPc, keyRead.displayed.mode)}</strong>{" "}
+          here, but Tonality read this window as{" "}
+          <strong>{keyRead.raw && keyLabel(keyRead.raw.tonicPc, keyRead.raw.mode)}</strong>
+          {keyRead.belowGate ? (
+            <> — absorbed because its margin ({keyRead.raw?.meanMargin.toFixed(4)}) is under the {KEY_MARGIN_GATE} confidence gate.</>
+          ) : (
+            <> — the structural reduction folds it into the surrounding key area.</>
+          )}
+        </div>
+      )}
+
+      {analysis && (
+        <div className="px-interp-keyrow">
+          <div className="px-interp-keycell">
+            <span className="px-interp-sub">shown on the strip</span>
+            <span className="px-interp-name">
+              {keyRead.displayed ? keyLabel(keyRead.displayed.tonicPc, keyRead.displayed.mode) : "—"}
+            </span>
+          </div>
+          <div className="px-interp-keycell">
+            <span className="px-interp-sub">Tonality, this window</span>
+            <span className="px-interp-name">
+              {keyRead.raw ? keyLabel(keyRead.raw.tonicPc, keyRead.raw.mode) : "—"}
+            </span>
+            {keyRead.raw && (
+              <span className={"px-interp-sub" + (keyRead.belowGate ? " weak" : "")}>
+                margin {keyRead.raw.meanMargin.toFixed(4)}
+                {keyRead.belowGate && " · below the confidence gate"}
+              </span>
+            )}
+          </div>
+        </div>
+      )}
+
+      {keyCands.length > 0 && (
+        <>
+          <h3 className="px-interp-col-h mt">
+            <span className="px-interp-dot engine" />
+            Whole file — ranked key candidates
+          </h3>
+          {keyCands.slice(0, 6).map((c, i) => (
+            <div key={i} className={"px-interp-card engine" + (i === 0 ? " top" : "")}>
+              <div className="px-interp-row">
+                <span className="px-interp-name">{keyLabel(c.tonicPc, c.mode)}</span>
+                <span className="px-interp-score">{c.score.toFixed(3)}</span>
+              </div>
+              <div className="px-interp-meter">
+                <span className="px-interp-meter-fill" style={{ width: Math.max(2, Math.round((Math.max(0, c.score) / keyMax) * 100)) + "%" }} />
+              </div>
+              {i === 0 && (
+                <div className="px-interp-sub">
+                  margin over runner-up {analysis?.key.margin.toFixed(4)} · profile {analysis?.key.profileVersion}
+                </div>
+              )}
+            </div>
+          ))}
+        </>
+      )}
+    </section>
+  );
+
   if (pcs.length < 2) {
     return (
       <div className="px-interp">
         <p className="px-interp-lead">Play or build a chord (2+ notes) to see how it can be read.</p>
+        {keySection}
       </div>
     );
   }
@@ -132,6 +227,8 @@ export default function Interpretations({ pcs, realizationMidi, naming, bridgeCo
           )}
         </section>
       </div>
+
+      {keySection}
     </div>
   );
 }

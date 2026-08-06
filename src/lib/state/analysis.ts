@@ -44,9 +44,22 @@ const keyModeWord = (m: string) => (m === "major" ? " maj" : m === "minor" ? " m
  * regardless of the root the user has selected) and carries tonicPc/mode so the
  * chord strip below can match its spelling.
  */
+/**
+ * Confidence gate on a windowed region's mean margin: below this we treat the
+ * engine's reading as "no real key change here" and absorb it into the prevailing
+ * key. Exported because the Interpretations view *names* this number when it
+ * explains an override — a threshold the UI cites must not be duplicated.
+ *
+ * Calibration note: this cleanly separates spurious blips (~0.001) from real
+ * regions (~0.10+), but it is NOT a general noise filter — on performed material
+ * the median windowed margin can sit well above it (~0.105 on Bohemian Rhapsody,
+ * where only 14 of 108 regions are absorbed). Re-check it if the key profile changes.
+ */
+export const KEY_MARGIN_GATE = 0.03;
+
 export function windowedKeyBands(analysis: FileAnalysis | null): KeyBand[] {
   if (!analysis) return [];
-  const MIN_MARGIN = 0.03; // below this, treat as "no real key change here"
+  const MIN_MARGIN = KEY_MARGIN_GATE;
   const merged: typeof analysis.keyRegions = [];
   for (const r of analysis.keyRegions) {
     if (merged.length && r.meanMargin < MIN_MARGIN) {
@@ -98,6 +111,33 @@ export function structuralKeyBandsOf(song: Song | null, structuralAreas: Structu
 export function segmentKeyAt(keyBands: KeyBand[], t: number): { tonicPc: number; mode: string } | null {
   const b = keyBands.find((band) => t >= band.startSec && t < band.endSec);
   return b && b.tonicPc != null && b.mode ? { tonicPc: b.tonicPc, mode: b.mode } : null;
+}
+
+/**
+ * Every competing key reading at one instant — the epistemic-humility surface's
+ * data. Deliberately reports what the *displayed* strip hides:
+ *  - `raw`      the engine's own windowed reading for the window under the playhead,
+ *               INCLUDING sub-gate ones the strip silently absorbed.
+ *  - `displayed` the band actually drawn there (structural reduction or gated windowed).
+ *  - `overridden` true when those two disagree — i.e. the app is showing a key the
+ *               engine did not read for this instant, which the user deserves to know.
+ *  - `belowGate` true when `raw`'s margin fell under KEY_MARGIN_GATE (why it was absorbed).
+ *
+ * A null `raw` with a non-null `displayed` is normal for the structural strip (it is
+ * derived from key areas, not windows), so `overridden` requires both to exist.
+ */
+export interface KeyReadingAt {
+  raw: FileAnalysis["keyRegions"][number] | null;
+  displayed: KeyBand | null;
+  overridden: boolean;
+  belowGate: boolean;
+}
+
+export function keyReadingAt(analysis: FileAnalysis | null, keyBands: KeyBand[], t: number): KeyReadingAt {
+  const raw = analysis?.keyRegions.find((r) => t >= r.startSec && t < r.endSec) ?? null;
+  const displayed = keyBands.find((b) => t >= b.startSec && t < b.endSec) ?? null;
+  const overridden = !!raw && !!displayed && (raw.tonicPc !== displayed.tonicPc || raw.mode !== displayed.mode);
+  return { raw, displayed, overridden, belowGate: !!raw && raw.meanMargin < KEY_MARGIN_GATE };
 }
 
 /** The distinct keys the piece visits, in order (for the circle's journey trace). */
