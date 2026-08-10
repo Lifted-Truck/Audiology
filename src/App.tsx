@@ -22,6 +22,10 @@ import type { ScaleContext, SurfaceSelection } from "./lib/state";
 import type { PresetKey } from "./audio/instruments";
 import { sanitizePatch, toPatch, type PatchState } from "./lib/patch";
 import { buildBundle, readBundle } from "./lib/bundle";
+import {
+  DEFAULT_BLOCK_ORDER, DEFAULT_BLOCK_WIDTHS, BLOCK_LABELS, moveBlock,
+  type BlockKey, type BlockWidth,
+} from "./lib/layout";
 import { useAudioContext } from "./hooks/useAudioContext";
 import { useLiveInput } from "./hooks/useLiveInput";
 import { usePlayback } from "./hooks/usePlayback";
@@ -161,6 +165,13 @@ export default function App() {
   // Circle-of-5ths scale filter: fade keys outside the selected scale. A display
   // setting, so it rides in patches like the rest.
   const [circleScaleFilter, setCircleScaleFilter] = useState(true);
+  // Stage layout: the draggable arrangement of the surface blocks. Defaults are
+  // the historical order at full width, so an upgrade renders identically.
+  const [blockOrder, setBlockOrder] = useState<BlockKey[]>([...DEFAULT_BLOCK_ORDER]);
+  const [blockWidths, setBlockWidths] = useState<Record<BlockKey, BlockWidth>>({ ...DEFAULT_BLOCK_WIDTHS });
+  // Which block is being dragged, and which it's hovering over (for the drop line).
+  const [dragBlock, setDragBlock] = useState<BlockKey | null>(null);
+  const [dragOverBlock, setDragOverBlock] = useState<BlockKey | null>(null);
   // Result of the last patch/bundle save or load (warnings, or why it failed).
   const [bundleNote, setBundleNote] = useState<string | null>(null);
   const [channelPresets, setChannelPresets] = useState<Record<number, PresetKey>>({});
@@ -270,13 +281,13 @@ export default function App() {
     sound, interaction, chordOn, tapChord, adaptToScale, chordRootPc, chordQuality,
     inversion, voicing, chordDisplay, selected, coalesceWindow, disambigRelKeys,
     smoothRegions, keyStripMode, chordLabelMode, views, followKey, showScaleColors,
-    circleScaleFilter, channelPresets, drumChannels, livePreset,
+    circleScaleFilter, blockOrder, blockWidths, channelPresets, drumChannels, livePreset,
   }), [
     root, scaleName, mode, fixed, layout, orient, labelMode, noteNot, degNot, degRef,
     sound, interaction, chordOn, tapChord, adaptToScale, chordRootPc, chordQuality,
     inversion, voicing, chordDisplay, selected, coalesceWindow, disambigRelKeys,
     smoothRegions, keyStripMode, chordLabelMode, views, followKey, showScaleColors,
-    circleScaleFilter, channelPresets, drumChannels, livePreset,
+    circleScaleFilter, blockOrder, blockWidths, channelPresets, drumChannels, livePreset,
   ]);
 
   const applyPatch = useCallback((p: PatchState) => {
@@ -290,6 +301,7 @@ export default function App() {
     setSmoothRegions(p.smoothRegions); setKeyStripMode(p.keyStripMode); setChordLabelMode(p.chordLabelMode);
     setViews(p.views); setFollowKey(p.followKey); setShowScaleColors(p.showScaleColors);
     setCircleScaleFilter(p.circleScaleFilter);
+    setBlockOrder(p.blockOrder); setBlockWidths(p.blockWidths);
     setChannelPresets(p.channelPresets); setDrumChannels(p.drumChannels); setLivePreset(p.livePreset);
   }, []);
 
@@ -659,6 +671,59 @@ export default function App() {
     if (chordOn) setChordRootPc(pc);
   };
 
+  // ----- stage layout: drag to arrange -------------------------------------
+  // Blocks stay in source order in the JSX; CSS `order` does the rearranging, so
+  // adding a surface never has to touch the drag machinery. Only the grip is
+  // draggable — the surfaces themselves own their drags (the roll scrubs, the
+  // Tonnetz pans), and making whole blocks draggable would steal those gestures.
+  const blockClass = (k: BlockKey) =>
+    "px-stage-block" +
+    (blockWidths[k] === "half" ? " half" : "") +
+    (dragBlock === k ? " dragging" : "") +
+    (dragOverBlock === k && dragBlock !== k ? " dragover" : "");
+
+  const blockDrag = (k: BlockKey) => ({
+    style: { order: blockOrder.indexOf(k) },
+    onDragOver: (e: React.DragEvent) => {
+      if (!dragBlock) return;
+      e.preventDefault();
+      if (dragOverBlock !== k) setDragOverBlock(k);
+    },
+    onDrop: (e: React.DragEvent) => {
+      e.preventDefault();
+      if (dragBlock) setBlockOrder((o) => moveBlock(o, dragBlock, k));
+      setDragBlock(null);
+      setDragOverBlock(null);
+    },
+  });
+
+  const blockHandle = (k: BlockKey) => (
+    <div className="px-block-tools">
+      <button
+        className="px-block-width"
+        onClick={() => setBlockWidths((w) => ({ ...w, [k]: w[k] === "half" ? "full" : "half" }))}
+        title={blockWidths[k] === "half" ? `${BLOCK_LABELS[k]}: half width — click for full` : `${BLOCK_LABELS[k]}: full width — click for half`}
+      >
+        {blockWidths[k] === "half" ? "◧" : "▭"}
+      </button>
+      <div
+        className="px-block-grip"
+        draggable
+        onDragStart={(e) => {
+          setDragBlock(k);
+          e.dataTransfer.effectAllowed = "move";
+          e.dataTransfer.setData("text/plain", k); // Firefox needs a payload to start a drag
+        }}
+        onDragEnd={() => { setDragBlock(null); setDragOverBlock(null); }}
+        title={`Drag to move ${BLOCK_LABELS[k]}`}
+        role="button"
+        aria-label={`Move ${BLOCK_LABELS[k]}`}
+      >
+        ⠿
+      </div>
+    </div>
+  );
+
   const layoutNote =
     layout === "seq"
       ? "Sequential — every note in order, no duplicates."
@@ -736,7 +801,8 @@ export default function App() {
           )}
 
           {views.transport && (
-            <div className="px-stage-block">
+            <div className={blockClass("transport")} {...blockDrag("transport")}>
+              {blockHandle("transport")}
               <div className="px-block-cap">Transport</div>
               <TransportBar
                 playback={playback}
@@ -766,7 +832,8 @@ export default function App() {
           )}
 
           {views.pianoRoll && (
-            <div className="px-stage-block">
+            <div className={blockClass("pianoRoll")} {...blockDrag("pianoRoll")}>
+              {blockHandle("pianoRoll")}
               <div className="px-block-cap px-block-cap-row">
                 <span>Piano roll</span>
                 <span className="px-roll-toggles">
@@ -811,7 +878,8 @@ export default function App() {
           )}
 
           {views.score && (
-            <div className="px-stage-block">
+            <div className={blockClass("score")} {...blockDrag("score")}>
+              {blockHandle("score")}
               <div className="px-block-cap">Score</div>
               <ScoreView
                 song={playback.song}
@@ -826,21 +894,24 @@ export default function App() {
           )}
 
           {views.grid && (
-            <div className="px-stage-block">
+            <div className={blockClass("grid")} {...blockDrag("grid")}>
+              {blockHandle("grid")}
               <div className="px-block-cap">Push grid</div>
               <Grid rows={grid} styleOf={padStyle} label={padMain} labelMode={labelMode} onPad={onPad} />
             </div>
           )}
 
           {views.piano && (
-            <div className="px-stage-block">
+            <div className={blockClass("piano")} {...blockDrag("piano")}>
+              {blockHandle("piano")}
               <div className="px-block-cap">Piano · C2 – C6</div>
               <Piano whites={piano.whites} blacks={piano.blacks} accentOf={keyAccent} label={padMain} labelMode={labelMode} onPad={onPad} />
             </div>
           )}
 
           {(views.bracelet || views.tonnetz || views.circle) && (
-            <div className="px-stage-block">
+            <div className={blockClass("diagrams")} {...blockDrag("diagrams")}>
+              {blockHandle("diagrams")}
               <div className="px-block-cap">Diagrams</div>
               <div className="px-diagrams">
                 {views.bracelet && (
@@ -876,7 +947,8 @@ export default function App() {
           )}
 
           {views.anatomy && (
-            <div className="px-stage-block">
+            <div className={blockClass("anatomy")} {...blockDrag("anatomy")}>
+              {blockHandle("anatomy")}
               <div className="px-block-cap">Chord anatomy</div>
               <div className="px-diagram">
                 <ChordAnatomy
@@ -892,7 +964,8 @@ export default function App() {
           )}
 
           {views.console && (
-            <div className="px-stage-block">
+            <div className={blockClass("console")} {...blockDrag("console")}>
+              {blockHandle("console")}
               <div className="px-block-cap">Analysis console</div>
               <div className="px-diagram">
                 <AnalysisConsole
@@ -918,7 +991,8 @@ export default function App() {
           )}
 
           {views.interpret && (
-            <div className="px-stage-block">
+            <div className={blockClass("interpret")} {...blockDrag("interpret")}>
+              {blockHandle("interpret")}
               <div className="px-block-cap">Interpretations</div>
               <div className="px-diagram">
                 <Interpretations
@@ -937,7 +1011,8 @@ export default function App() {
           )}
 
           {views.pcset && (
-            <div className="px-stage-block">
+            <div className={blockClass("pcset")} {...blockDrag("pcset")}>
+              {blockHandle("pcset")}
               <div className="px-block-cap">Pc-set lab</div>
               <div className="px-diagram">
                 <PcSetLab
@@ -955,7 +1030,8 @@ export default function App() {
           )}
 
           {views.instruments && (
-            <div className="px-stage-block">
+            <div className={blockClass("instruments")} {...blockDrag("instruments")}>
+              {blockHandle("instruments")}
               <div className="px-block-cap">Instruments</div>
               <div className="px-diagram">
                 <InstrumentPanel

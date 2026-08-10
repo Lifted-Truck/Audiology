@@ -110,6 +110,11 @@ music-theory engine**.
   field, so an old or hand-edited patch is coerced to a clean state rather than breaking the app. A
   patch is *settings*, not a session — the loaded MIDI is kept separate.
 
+- **Arrange the stage** — every surface block has a **grip** to drag it into a new position and a
+  **width toggle** so it can sit half-width beside another. The arrangement saves with the patch, so
+  a workspace laid out for score study reopens that way. Defaults are the familiar single column;
+  half-width blocks collapse back to full on narrow screens.
+
 - **Bundles — a patch travelling with its MIDI** — **Save bundle** writes a single `.zip`
   containing the patch *and* the loaded MIDI file, so a preset can be shared as a piece and the
   recipient opens exactly what you had. **Load bundle** restores the settings and loads the MIDI in
