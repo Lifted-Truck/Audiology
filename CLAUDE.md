@@ -565,7 +565,10 @@ Roadmap; the remaining Tonality-engine upgrades are in the section above).
   - **It never dims a node carrying information** — current key, the file's home key, anything on
     the journey path. But that means a lit node has *two possible meanings*, so the out-of-scale
     ones get a **red dot badge** (reusing the app's existing "out of scale" colour) plus a legend
-    line and a `<title>`. Without it, "in your scale" and "borrowed from elsewhere" looked
+    line and a `<title>`. **The legend renders only when a flag is actually on screen, and names
+    the flagged keys** — gating it on `filtering` alone put a legend for an invisible marker on the
+    default view (a diatonic scale with no file loaded flags nothing, because the current key is in
+    its own scale). Without the flag itself, "in your scale" and "borrowed from elsewhere" looked
     identical — the same collapse-two-meanings-into-one-signal problem the Interpretations view
     exists to avoid. Verified: C Minor over the C→G fixture flags **C** (current key) and **G**
     (home key) while the six genuinely diatonic keys stay unflagged.
