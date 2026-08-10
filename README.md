@@ -276,6 +276,17 @@ engineering threads"). The longer-horizon direction:
   that boundary so the port stays painless rather than a rewrite. *(Interim: a convenience desktop
   launcher — [`docs/DESKTOP.md`](docs/DESKTOP.md), `scripts/launch-audiology.command` — starts the
   dev server + opens the app from a double-click icon; the real native app is the Tauri work above.)*
+- **Audiology as a DAW plugin** *(design proposal: [`docs/proposals/audiology-plugin.md`](docs/proposals/audiology-plugin.md))* —
+  a VST3/AU **audio effect that takes MIDI in** (AU type `aumf`), bringing the app's surfaces and
+  analysis to whatever is playing in Live, with the host's own tempo and transport. Architecturally
+  it is mostly assembly: a lock-free MIDI FIFO off the audio thread, a worker doing the analysis,
+  and the **existing React app in a WebView** consuming the *same* versioned
+  `{audiology_mcp_version, tool, result}` envelope the MCP and HTTP transports already serve — the
+  plugin is simply a third transport, which is what the headless-renderer and React-free-core work
+  was for. Ships against the local TS core first and swaps in Tonality's C++ port per slice, so
+  neither blocks the other. Would live in a **sibling repo** consuming both providers. *(This
+  supersedes the earlier "Ableton MIDI bridge + tempo sync" idea — inside a plugin the host clock is
+  free.)*
 - **A modular surface for music education.** The larger aim: Audiology's interactive surfaces
   (grid, piano, roll, bracelet/Tonnetz/circle, Chord Anatomy) plus Tonality's determinations become
   reusable **building blocks** that a variety of interactive teaching programs can drive — Audiology
