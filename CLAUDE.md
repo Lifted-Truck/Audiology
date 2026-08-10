@@ -281,6 +281,29 @@ runnable (typecheck + build pass) after every change.
   discarded entirely before). The key section renders independently of the chord section, since it
   depends on the playhead + analysis rather than on a held chord.
 
+- **Stage layout — drag to arrange (SHIPPED).** The stage surfaces are draggable and resizable:
+  a **grip** (⠿) on each block reorders by drag, a **width toggle** (▭/◧) makes a block half-width so
+  two sit side by side, and both persist in the patch. `src/lib/layout.ts` is the pure core (11
+  `BLOCK_KEYS`; bracelet/tonnetz/circle share one `diagrams` block — splitting those is the next step
+  toward the freeform canvas, and the block list is the seam that keeps it local). **Defaults render
+  byte-identically to before** (historical order, all full width), so nothing moves on upgrade.
+  - **The load-bearing invariant** is `sanitizeBlockOrder`: whatever a patch says, the result is a
+    **permutation of every block** — unknown keys dropped, duplicates collapsed to first occurrence,
+    missing keys appended in default order. A stored order that dropped a key would silently make
+    that surface unreachable (its view toggle would turn on and nothing would appear). Node-tested,
+    including an exhaustive all-pairs `moveBlock` sweep that asserts the permutation never breaks.
+  - **Mechanism: CSS `order`, not JSX reordering.** Blocks stay in source order; only the `order`
+    style changes. Adding a surface therefore never touches the drag machinery.
+  - **Gotcha this introduced (fixed, keep the invariant):** making `.px-stage` a grid meant its
+    *non-block* children (`.px-views`, `.px-legend`) inherited `order:0` and sorted **in among the
+    blocks** — the legend jumped from the bottom of the stage to just under Transport. They're now
+    pinned (`order:-1` / `order:9999`). **Any new direct child of `.px-stage` must pin its own
+    order.** Note the DOM-level check passed while this was broken; only the screenshot caught it.
+  - **Only the grip is draggable**, never the whole block — the surfaces own their own drags (the
+    roll scrubs, the Tonnetz pans), and a block-level drag would steal those gestures.
+  - Half-width collapses back to full below 900px, so the arrangement degrades to the familiar
+    single column on narrow screens.
+
 ### Migration complete
 All phases (0–5) plus Live play, MIDI key analysis, and Phase-4 playback wiring are done.
 The app is fully `.tsx`, strict-typed, component-split; the pure core stays React-free in

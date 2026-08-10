@@ -21,7 +21,7 @@
 .px-ro-val sub{font-size:13px;color:var(--mut);font-weight:600;}
 
 .px-body{display:flex;gap:22px;align-items:flex-start;flex-wrap:wrap;}
-.px-stage{flex:1 1 560px;min-width:300px;max-width:1000px;}
+.px-stage{flex:1 1 560px;min-width:300px;max-width:1000px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 18px;align-content:start;}
 .px-grid{display:grid;grid-template-columns:repeat(8,1fr);gap:7px;padding:14px;border-radius:16px;border:1px solid var(--line);background:linear-gradient(180deg,#0d1016,#070809);box-shadow:inset 0 1px 0 rgba(255,255,255,.03),0 18px 40px -20px rgba(0,0,0,.9);aspect-ratio:1/1;}
 .px-pad{position:relative;border-radius:9px;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;font-family:'JetBrains Mono',monospace;font-weight:700;font-size:15px;transition:transform .07s ease,box-shadow .12s ease,background .12s ease;outline:none;-webkit-tap-highlight-color:transparent;padding:0;}
 .px-pad:hover{transform:translateY(-1px);}
@@ -30,7 +30,21 @@
 .px-pad-oct{font-size:8.5px;font-weight:500;opacity:.55;line-height:1;margin-top:2px;}
 .px-pad-voice{position:absolute;top:4px;left:6px;font-size:9px;font-weight:700;color:#0a0c10;background:#fde68a;border-radius:50%;width:13px;height:13px;display:flex;align-items:center;justify-content:center;line-height:1;}
 
-.px-stage-block{margin-bottom:18px;}
+.px-stage-block{margin-bottom:18px;position:relative;grid-column:span 2;min-width:0;}
+/* Half-width blocks pair up on wide screens; below the breakpoint everything is
+   full width again, so the arrangement degrades to the familiar single column. */
+.px-stage-block.half{grid-column:span 1;}
+@media (max-width:900px){.px-stage-block.half{grid-column:span 2;}}
+.px-stage-block.dragging{opacity:.45;}
+.px-stage-block.dragover{box-shadow:-3px 0 0 0 #2dd4bf, 0 0 0 1px rgba(45,212,191,.35);border-radius:4px;}
+/* The grip + width toggle sit top-right of each block, quiet until hover. */
+.px-block-tools{position:absolute;top:-2px;right:0;z-index:3;display:flex;align-items:center;gap:4px;opacity:0;transition:opacity .12s;}
+.px-stage-block:hover .px-block-tools,.px-stage-block.dragging .px-block-tools{opacity:1;}
+.px-block-grip{cursor:grab;user-select:none;padding:1px 5px;border-radius:6px;border:1px solid var(--line);background:rgba(7,8,9,.82);color:var(--mut);font-size:12px;line-height:1.3;}
+.px-block-grip:hover{border-color:#2dd4bf;color:#5eead4;}
+.px-block-grip:active{cursor:grabbing;}
+.px-block-width{padding:1px 5px;border-radius:6px;border:1px solid var(--line);background:rgba(7,8,9,.82);color:var(--mut);font-size:11px;line-height:1.3;cursor:pointer;}
+.px-block-width:hover{border-color:#a5b4fc;color:#c7d2fe;}
 .px-block-cap{font-size:10px;letter-spacing:.2em;text-transform:uppercase;color:var(--mut);margin-bottom:9px;}
 .px-block-cap-row{display:flex;align-items:center;justify-content:space-between;gap:10px;}
 .px-roll-toggles{display:flex;gap:7px;align-items:center;}
@@ -53,7 +67,7 @@
 .px-key-oct{font-size:8px;font-weight:500;opacity:.6;margin-top:2px;}
 .px-wkey .px-pad-voice,.px-bkey .px-pad-voice{top:6px;left:50%;transform:translateX(-50%);}
 
-.px-legend{display:flex;gap:14px;flex-wrap:wrap;align-items:center;margin-top:14px;font-size:11px;color:var(--mut);}
+.px-legend{display:flex;gap:14px;flex-wrap:wrap;align-items:center;margin-top:14px;font-size:11px;color:var(--mut);grid-column:span 2;order:9999;}
 .px-leg-item{display:flex;align-items:center;gap:6px;}
 .px-leg-dot{width:11px;height:11px;border-radius:3px;display:inline-block;}
 .px-legend-note{margin-left:auto;color:#5eead4;font-size:10.5px;}
@@ -174,7 +188,10 @@
 .px-roll-hint{position:absolute;left:8px;bottom:6px;z-index:2;pointer-events:none;color:var(--mut);font-size:9.5px;font-weight:600;letter-spacing:.03em;opacity:.6;}
 
 /* views toggle bar */
-.px-views{display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin-bottom:16px;}
+/* The stage is an ordered grid, so its non-block children must be pinned to the
+   ends explicitly — otherwise they inherit order:0 and sort in among the blocks
+   (the legend lands in the middle of the stack). */
+.px-views{display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin-bottom:16px;grid-column:span 2;order:-1;}
 .px-views-cap{font-size:10px;letter-spacing:.2em;text-transform:uppercase;color:var(--mut);margin-right:3px;}
 .px-views-spacer{flex:1 1 16px;}
 .px-view-chip{padding:5px 12px;border-radius:20px;border:1px solid var(--line);background:#0e1117;color:var(--mut);font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:600;cursor:pointer;transition:all .12s;}
