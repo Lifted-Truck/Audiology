@@ -44,6 +44,7 @@ import PcSetLab from "./components/PcSetLab";
 import InstrumentPanel from "./components/InstrumentPanel";
 import CircleOfFifths from "./components/CircleOfFifths";
 import ControlPanels from "./components/ControlPanels";
+import ViewsPanel from "./components/ViewsPanel";
 import { parseTonalityAnalysis, shiftAnalysis, nameChord, analyzeMidi, scaleToEngineKey, structuralKeys, modeToScaleName, type FileAnalysis, type ChordNaming, type StructuralArea, type Tonicization } from "./lib/tonality";
 import { useBridge } from "./hooks/useBridge";
 import { useChordFacts } from "./hooks/useChordFacts";
@@ -70,21 +71,6 @@ function download(blob: Blob, filename: string) {
 }
 
 type ViewKey = "transport" | "grid" | "pianoRoll" | "score" | "piano" | "bracelet" | "tonnetz" | "circle" | "anatomy" | "console" | "interpret" | "pcset" | "instruments";
-const VIEW_DEFS: { key: ViewKey; label: string }[] = [
-  { key: "transport", label: "Transport" },
-  { key: "pianoRoll", label: "Piano roll" },
-  { key: "score", label: "Score" },
-  { key: "grid", label: "Push grid" },
-  { key: "piano", label: "Piano" },
-  { key: "bracelet", label: "Bracelet" },
-  { key: "tonnetz", label: "Tonnetz" },
-  { key: "circle", label: "Circle of 5ths" },
-  { key: "anatomy", label: "Chord anatomy" },
-  { key: "console", label: "Analysis console" },
-  { key: "interpret", label: "Interpretations" },
-  { key: "pcset", label: "Pc-set lab" },
-  { key: "instruments", label: "Instruments" },
-];
 
 export default function App() {
   const [root, setRoot] = useState(0);
@@ -170,6 +156,7 @@ export default function App() {
   const [blockOrder, setBlockOrder] = useState<BlockKey[]>([...DEFAULT_BLOCK_ORDER]);
   const [blockWidths, setBlockWidths] = useState<Record<BlockKey, BlockWidth>>({ ...DEFAULT_BLOCK_WIDTHS });
   // Which block is being dragged, and which it's hovering over (for the drop line).
+  const [viewsOpen, setViewsOpen] = useState(true);
   const [dragBlock, setDragBlock] = useState<BlockKey | null>(null);
   const [dragOverBlock, setDragOverBlock] = useState<BlockKey | null>(null);
   // Result of the last patch/bundle save or load (warnings, or why it failed).
@@ -281,13 +268,13 @@ export default function App() {
     sound, interaction, chordOn, tapChord, adaptToScale, chordRootPc, chordQuality,
     inversion, voicing, chordDisplay, selected, coalesceWindow, disambigRelKeys,
     smoothRegions, keyStripMode, chordLabelMode, views, followKey, showScaleColors,
-    circleScaleFilter, blockOrder, blockWidths, channelPresets, drumChannels, livePreset,
+    circleScaleFilter, viewsOpen, blockOrder, blockWidths, channelPresets, drumChannels, livePreset,
   }), [
     root, scaleName, mode, fixed, layout, orient, labelMode, noteNot, degNot, degRef,
     sound, interaction, chordOn, tapChord, adaptToScale, chordRootPc, chordQuality,
     inversion, voicing, chordDisplay, selected, coalesceWindow, disambigRelKeys,
     smoothRegions, keyStripMode, chordLabelMode, views, followKey, showScaleColors,
-    circleScaleFilter, blockOrder, blockWidths, channelPresets, drumChannels, livePreset,
+    circleScaleFilter, viewsOpen, blockOrder, blockWidths, channelPresets, drumChannels, livePreset,
   ]);
 
   const applyPatch = useCallback((p: PatchState) => {
@@ -301,7 +288,7 @@ export default function App() {
     setSmoothRegions(p.smoothRegions); setKeyStripMode(p.keyStripMode); setChordLabelMode(p.chordLabelMode);
     setViews(p.views); setFollowKey(p.followKey); setShowScaleColors(p.showScaleColors);
     setCircleScaleFilter(p.circleScaleFilter);
-    setBlockOrder(p.blockOrder); setBlockWidths(p.blockWidths);
+    setViewsOpen(p.viewsOpen); setBlockOrder(p.blockOrder); setBlockWidths(p.blockWidths);
     setChannelPresets(p.channelPresets); setDrumChannels(p.drumChannels); setLivePreset(p.livePreset);
   }, []);
 
@@ -740,59 +727,62 @@ export default function App() {
 
       <div className="px-body">
         <section className="px-stage">
-          <div className="px-views">
-            <span className="px-views-cap">Views</span>
-            {VIEW_DEFS.map(({ key, label }) => (
-              <button
-                key={key}
-                className={"px-view-chip" + (views[key] ? " on" : "")}
-                onClick={() => toggleView(key)}
+          <ViewsPanel
+            order={blockOrder}
+            widths={blockWidths}
+            views={views}
+            open={viewsOpen}
+            onOpenChange={setViewsOpen}
+            onToggleView={(v) => toggleView(v as ViewKey)}
+            onSetWidth={(k, w) => setBlockWidths((prev) => ({ ...prev, [k]: w }))}
+            onMove={(dragged, before) => setBlockOrder((o) => moveBlock(o, dragged, before))}
+            dragKey={dragBlock}
+            overKey={dragOverBlock}
+            onDragKey={setDragBlock}
+            onOverKey={setDragOverBlock}
+            actions={<>
+                          <button
+                className="px-layers-action"
+                onClick={savePatch}
+                title="Save all settings — scale, chord, labels, engine flags, which views are shown, and the per-channel instruments — to a patch file"
               >
-                {label}
+                ⤓ Save patch
               </button>
-            ))}
-            <span className="px-views-spacer" />
-            <button
-              className="px-view-chip"
-              onClick={savePatch}
-              title="Save all settings — scale, chord, labels, engine flags, which views are shown, and the per-channel instruments — to a patch file"
-            >
-              ⤓ Save patch
-            </button>
-            <label className="px-view-chip" title="Load a patch file (replaces all current settings)">
-              ⤒ Load patch
-              <input
-                type="file"
-                accept="application/json,.json"
-                style={{ display: "none" }}
-                onChange={(e) => {
-                  const f = e.target.files?.[0];
-                  if (f) loadPatch(f);
-                  e.target.value = "";
-                }}
-              />
-            </label>
-            <button
-              className="px-view-chip"
-              onClick={saveBundle}
-              title="Save a bundle — the patch AND the loaded MIDI together in one .zip, so it can be shared as a piece"
-            >
-              ⤓ Save bundle{playback.song ? "" : " (no MIDI)"}
-            </button>
-            <label className="px-view-chip" title="Open a bundle (.zip) — restores the settings and loads its MIDI">
-              ⤒ Load bundle
-              <input
-                type="file"
-                accept="application/zip,.zip"
-                style={{ display: "none" }}
-                onChange={(e) => {
-                  const f = e.target.files?.[0];
-                  if (f) loadBundle(f);
-                  e.target.value = "";
-                }}
-              />
-            </label>
-          </div>
+              <label className="px-layers-action" title="Load a patch file (replaces all current settings)">
+                ⤒ Load patch
+                <input
+                  type="file"
+                  accept="application/json,.json"
+                  style={{ display: "none" }}
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    if (f) loadPatch(f);
+                    e.target.value = "";
+                  }}
+                />
+              </label>
+              <button
+                className="px-layers-action"
+                onClick={saveBundle}
+                title="Save a bundle — the patch AND the loaded MIDI together in one .zip, so it can be shared as a piece"
+              >
+                ⤓ Save bundle{playback.song ? "" : " (no MIDI)"}
+              </button>
+              <label className="px-layers-action" title="Open a bundle (.zip) — restores the settings and loads its MIDI">
+                ⤒ Load bundle
+                <input
+                  type="file"
+                  accept="application/zip,.zip"
+                  style={{ display: "none" }}
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    if (f) loadBundle(f);
+                    e.target.value = "";
+                  }}
+                />
+              </label>
+            </>}
+          />
           {bundleNote && (
             <div className="px-bundle-note" role="status">
               {bundleNote}

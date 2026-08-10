@@ -110,8 +110,11 @@ music-theory engine**.
   field, so an old or hand-edited patch is coerced to a clean state rather than breaking the app. A
   patch is *settings*, not a session — the loaded MIDI is kept separate.
 
-- **Arrange the stage** — every surface block has a **grip** to drag it into a new position and a
-  **width toggle** so it can sit half-width beside another. The arrangement saves with the patch, so
+- **Views panel + stage arrangement** — the surfaces are listed in a collapsible **Layers-style
+  panel** in the order they appear on the stage; each row has a visibility toggle, a **grip** to
+  drag it into a new position, and a **width toggle** so it can sit half-width beside another
+  (Bracelet / Tonnetz / Circle appear as a group under *Diagrams*). Dragging in the panel and
+  dragging on the stage are the same operation, so the two never disagree. The arrangement saves with the patch, so
   a workspace laid out for score study reopens that way. Defaults are the familiar single column;
   half-width blocks collapse back to full on narrow screens.
 

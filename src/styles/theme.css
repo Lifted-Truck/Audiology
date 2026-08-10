@@ -190,13 +190,7 @@
 /* views toggle bar */
 /* The stage is an ordered grid, so its non-block children must be pinned to the
    ends explicitly — otherwise they inherit order:0 and sort in among the blocks
-   (the legend lands in the middle of the stack). */
-.px-views{display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin-bottom:16px;grid-column:span 2;order:-1;}
-.px-views-cap{font-size:10px;letter-spacing:.2em;text-transform:uppercase;color:var(--mut);margin-right:3px;}
-.px-views-spacer{flex:1 1 16px;}
-.px-view-chip{padding:5px 12px;border-radius:20px;border:1px solid var(--line);background:#0e1117;color:var(--mut);font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:600;cursor:pointer;transition:all .12s;}
-.px-view-chip:hover{border-color:#2dd4bf;color:#bfeee6;}
-.px-view-chip.on{background:linear-gradient(180deg,#143b38,#0c2825);border-color:#2dd4bf;color:#7fffe9;box-shadow:0 0 10px rgba(45,212,191,.2);}
+   (the legend lands in the middle of the stack). See .px-layers and .px-legend. */
 
 /* diagrams (bracelet / tonnetz) */
 .px-diagrams{display:flex;flex-wrap:wrap;gap:14px;}
@@ -360,3 +354,40 @@
 @media (max-width:620px){.px-interp-keyrow{grid-template-columns:1fr;}}
 .px-interp-keycell{display:flex;flex-direction:column;gap:3px;padding:9px 12px;border-radius:9px;border:1px solid var(--line);background:#0e1117;}
 .px-interp-sub.weak{color:#f87171;}
+
+
+/* ----- Views panel (Layers-style list of the stage's surfaces) -----
+   A direct child of .px-stage, so it pins its own grid order (see the note on
+   .px-views) — otherwise it sorts in among the blocks. */
+.px-layers{grid-column:span 2;order:-1;margin-bottom:16px;border:1px solid var(--line);border-radius:11px;background:linear-gradient(180deg,rgba(255,255,255,.02),rgba(255,255,255,0));}
+.px-layers-head{display:flex;align-items:center;gap:7px;flex-wrap:wrap;padding:8px 10px;}
+.px-layers-toggle{display:flex;align-items:center;gap:7px;background:none;border:none;padding:2px 4px;cursor:pointer;color:#cdd6e4;font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.2em;text-transform:uppercase;}
+.px-layers-toggle:hover{color:#5eead4;}
+.px-layers-caret{font-size:9px;color:var(--mut);}
+.px-layers-count{font-size:9.5px;letter-spacing:.04em;color:var(--mut);text-transform:none;}
+.px-layers-action{margin-left:0;padding:5px 10px;border-radius:999px;border:1px solid var(--line);background:#0e1117;color:var(--mut);font-family:'JetBrains Mono',monospace;font-size:10.5px;cursor:pointer;transition:all .12s;}
+.px-layers-action:hover{border-color:#2dd4bf;color:#bfeee6;}
+.px-layers-head > .px-layers-action:first-of-type{margin-left:auto;}
+
+.px-layers-list{list-style:none;margin:0;padding:0 6px 7px;display:flex;flex-direction:column;gap:1px;}
+.px-layer{border-radius:7px;border:1px solid transparent;}
+.px-layer.dragging{opacity:.45;}
+.px-layer.dragover{box-shadow:inset 3px 0 0 0 #2dd4bf;background:rgba(45,212,191,.06);}
+.px-layer-row{display:flex;align-items:center;gap:7px;padding:3px 6px;}
+.px-layer:hover .px-layer-row{background:rgba(255,255,255,.03);border-radius:7px;}
+.px-layer-grip{cursor:grab;user-select:none;color:#3d4652;font-size:11px;line-height:1;padding:2px;}
+.px-layer:hover .px-layer-grip{color:var(--mut);}
+.px-layer-grip:active{cursor:grabbing;}
+.px-layer-eye{background:none;border:none;cursor:pointer;color:#3d4652;font-size:11px;line-height:1;padding:2px;}
+.px-layer-eye.on{color:#5eead4;}
+.px-layer-eye:hover{color:#bfeee6;}
+.px-layer-name{flex:1;min-width:0;font-size:11.5px;color:var(--mut);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.px-layer.on .px-layer-name{color:#e8edf4;}
+.px-layer-width{background:none;border:none;cursor:pointer;color:#3d4652;font-size:11px;line-height:1;padding:2px 3px;}
+.px-layer:hover .px-layer-width{color:var(--mut);}
+.px-layer-width:hover{color:#c7d2fe;}
+.px-layer-kids{display:flex;flex-wrap:wrap;gap:4px;padding:0 6px 5px 30px;}
+.px-layer-kid{display:inline-flex;align-items:center;gap:5px;padding:2px 8px;border-radius:999px;border:1px solid var(--line);background:#0e1117;color:var(--mut);font-family:'JetBrains Mono',monospace;font-size:10px;cursor:pointer;transition:all .12s;}
+.px-layer-kid.on{border-color:#2dd4bf;color:#7fffe9;background:linear-gradient(180deg,#143b38,#0c2825);}
+.px-layer-kid:hover{border-color:#2dd4bf;}
+.px-layer-kid-dot{font-size:8px;}
