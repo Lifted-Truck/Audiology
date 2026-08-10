@@ -36,6 +36,37 @@ export const BLOCK_LABELS: Record<BlockKey, string> = {
 /** The order the stage has always rendered in — the default, so nothing moves on upgrade. */
 export const DEFAULT_BLOCK_ORDER: BlockKey[] = [...BLOCK_KEYS];
 
+/**
+ * Which view toggles live in each block. Mostly 1:1, except `diagrams`, which
+ * holds three surfaces in a shared row — so the layers panel renders it as a group
+ * with three child toggles.
+ *
+ * Invariant (tested): this covers **every** ViewKey exactly once. A view missing
+ * here would have no toggle in the panel and become unreachable; a view listed
+ * twice would render two toggles that fight over one piece of state.
+ */
+export const BLOCK_VIEWS: Record<BlockKey, readonly string[]> = {
+  transport: ["transport"],
+  pianoRoll: ["pianoRoll"],
+  score: ["score"],
+  grid: ["grid"],
+  piano: ["piano"],
+  diagrams: ["bracelet", "tonnetz", "circle"],
+  anatomy: ["anatomy"],
+  console: ["console"],
+  interpret: ["interpret"],
+  pcset: ["pcset"],
+  instruments: ["instruments"],
+};
+
+/** Labels for the individual view toggles (blocks that group more than one). */
+export const VIEW_LABELS: Record<string, string> = {
+  transport: "Transport", pianoRoll: "Piano roll", score: "Score", grid: "Push grid",
+  piano: "Piano", bracelet: "Bracelet", tonnetz: "Tonnetz", circle: "Circle of 5ths",
+  anatomy: "Chord anatomy", console: "Analysis console", interpret: "Interpretations",
+  pcset: "Pc-set lab", instruments: "Instruments",
+};
+
 export type BlockWidth = "full" | "half";
 
 /** Everything full-width = today's single-column stage, exactly. */

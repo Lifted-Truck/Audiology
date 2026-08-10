@@ -281,6 +281,20 @@ runnable (typecheck + build pass) after every change.
   discarded entirely before). The key section renders independently of the chord section, since it
   depends on the playhead + analysis rather than on a held chord.
 
+- **Views panel — a Layers list (SHIPPED).** The flat chip bar is gone; `components/ViewsPanel.tsx`
+  renders the surfaces as a **collapsible Layers-style list in stage order**. Each row: drag grip,
+  visibility toggle, name, width toggle. `diagrams` renders as a **group** (bracelet / Tonnetz /
+  circle as child chips); its parent eye turns the whole group off, or restores all of it.
+  - **Why it replaced the chips:** once blocks became draggable, the chip bar listed views in a
+    FIXED order that no longer matched the stage — two orders that could disagree. The panel reads
+    the same `blockOrder` and reorders via the same `moveBlock`, so they *cannot* diverge.
+  - `BLOCK_VIEWS` (lib/layout) maps block → view keys, with a **tested invariant that it covers
+    every ViewKey exactly once** — a missing view would have no toggle anywhere (unreachable), a
+    duplicated one would render two toggles fighting over one piece of state.
+  - Collapsing hides the rows but keeps the patch/bundle actions in the header. `viewsOpen` rides in
+    the patch like every other display setting.
+  - The panel is a direct child of `.px-stage`, so it **pins its own grid order** (`order:-1`) —
+    see the gotcha below; this is the rule in action.
 - **Stage layout — drag to arrange (SHIPPED).** The stage surfaces are draggable and resizable:
   a **grip** (⠿) on each block reorders by drag, a **width toggle** (▭/◧) makes a block half-width so
   two sit side by side, and both persist in the patch. `src/lib/layout.ts` is the pure core (11

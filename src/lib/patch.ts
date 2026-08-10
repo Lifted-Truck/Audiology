@@ -53,6 +53,8 @@ export interface PatchState {
   showScaleColors: boolean;
   /** Circle of 5ths: fade keys outside the selected scale. */
   circleScaleFilter: boolean;
+  /** Views (layers) panel expanded? */
+  viewsOpen: boolean;
   /** Stage layout: block order + per-block width (the draggable arrangement). */
   blockOrder: BlockKey[];
   blockWidths: Record<BlockKey, BlockWidth>;
@@ -81,7 +83,7 @@ export const DEFAULT_PATCH: PatchState = {
   selected: [], coalesceWindow: 0.5, disambigRelKeys: false, smoothRegions: false,
   keyStripMode: "structural", chordLabelMode: "names", views: { ...DEFAULT_VIEWS },
   followKey: false, showScaleColors: true, circleScaleFilter: true,
-  blockOrder: [...DEFAULT_BLOCK_ORDER], blockWidths: { ...DEFAULT_BLOCK_WIDTHS },
+  viewsOpen: true, blockOrder: [...DEFAULT_BLOCK_ORDER], blockWidths: { ...DEFAULT_BLOCK_WIDTHS },
   channelPresets: {}, drumChannels: [], livePreset: "piano",
 };
 
@@ -163,6 +165,7 @@ export function sanitizePatch(raw: unknown): PatchState {
     followKey: bool(r.followKey, d.followKey),
     showScaleColors: bool(r.showScaleColors, d.showScaleColors),
     circleScaleFilter: bool(r.circleScaleFilter, d.circleScaleFilter),
+    viewsOpen: bool(r.viewsOpen, d.viewsOpen),
     blockOrder: sanitizeBlockOrder(r.blockOrder),
     blockWidths: sanitizeBlockWidths(r.blockWidths),
     channelPresets: sanitizePresets(r.channelPresets),

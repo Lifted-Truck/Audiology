@@ -6,9 +6,10 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
-  BLOCK_KEYS, DEFAULT_BLOCK_ORDER, DEFAULT_BLOCK_WIDTHS,
+  BLOCK_KEYS, DEFAULT_BLOCK_ORDER, DEFAULT_BLOCK_WIDTHS, BLOCK_VIEWS, VIEW_LABELS,
   sanitizeBlockOrder, sanitizeBlockWidths, moveBlock,
 } from "../src/lib/layout.ts";
+import { VIEW_KEYS } from "../src/lib/patch.ts";
 
 const isPermutation = (o: readonly string[]) =>
   o.length === BLOCK_KEYS.length && new Set(o).size === BLOCK_KEYS.length && o.every((k) => (BLOCK_KEYS as readonly string[]).includes(k));
@@ -55,6 +56,21 @@ test("round-trip: a valid order survives sanitize unchanged", () => {
   const custom = ["interpret", "pianoRoll", "transport", ...DEFAULT_BLOCK_ORDER.filter(
     (k) => !["interpret", "pianoRoll", "transport"].includes(k))] as typeof DEFAULT_BLOCK_ORDER;
   assert.deepEqual(sanitizeBlockOrder(custom), custom);
+});
+
+test("BLOCK_VIEWS covers every view exactly once (no unreachable/duplicated toggle)", () => {
+  const listed = Object.values(BLOCK_VIEWS).flat();
+  // Every view has exactly one toggle somewhere in the panel...
+  assert.equal(new Set(listed).size, listed.length, "a view is listed in two blocks: " + listed.join(","));
+  // ...and the set is exactly the app's view keys — neither missing nor inventing.
+  assert.deepEqual([...listed].sort(), [...VIEW_KEYS].sort());
+  // Every block accounts for at least one view (an empty block would render a
+  // layer row that toggles nothing).
+  for (const k of BLOCK_KEYS) assert.ok(BLOCK_VIEWS[k].length >= 1, `${k} has no views`);
+});
+
+test("every view and block has a human label (no blank rows in the panel)", () => {
+  for (const v of VIEW_KEYS) assert.ok(VIEW_LABELS[v], `no VIEW_LABELS entry for ${v}`);
 });
 
 test("widths: defaults are all full (today's single-column stage)", () => {
