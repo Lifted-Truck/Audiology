@@ -93,23 +93,39 @@ export default function CircleOfFifths({
     return { x1, y1, x2, y2, mx: (x1 + x2) / 2, my: (y1 + y2) / 2, n: k + 1 };
   });
 
+  // Recede the keys that don't belong to the selected scale, so the chart reflects the
+  // current MODE rather than reading as a static reference chart. A key belongs when its
+  // whole tonic triad is in the scale — which generalizes past major/minor: C Dorian
+  // lights Cm/Dm/F/Gm/B♭, C Major lights C/Dm/Em/F/G/Am.
+  const triadInScale = (pc: number, minor: boolean) =>
+    !filtering || (minor ? [0, 3, 7] : [0, 4, 7]).every((iv) => scaleSet.has((pc + iv) % 12));
+
+  // Never dim a key that's carrying information. But that means a LIT node has two
+  // possible meanings — "in your scale" vs "borrowed from elsewhere" — so the second
+  // kind gets a red flag (reusing the app's existing out-of-scale colour).
+  const isExempt = (pc: number, minor: boolean) =>
+    (pc === tonicPc && minor === isMinor) ||
+    sameKey(homeKey, pc, minor) ||
+    visitedSet.has(`${minor ? "m" : "M"}:${pc}`);
+  const flaggedNode = (pc: number, minor: boolean) =>
+    filtering && !triadInScale(pc, minor) && isExempt(pc, minor);
+
+  // Only explain the flag when a flag is actually on screen, and name the keys it's
+  // on. In the common case (a diatonic scale, no file loaded) the current key IS in
+  // scale and nothing is flagged — a legend for an absent marker is just confusing.
+  const flaggedNames: string[] = [];
+  for (let pc = 0; pc < 12; pc++) {
+    for (const minor of [false, true]) if (flaggedNode(pc, minor)) flaggedNames.push(keyName(pc, minor));
+  }
+  const anyFlagged = flaggedNames.length > 0;
+
   const node = (pc: number, minor: boolean, [x, y]: [number, number]) => {
     const isCurrent = pc === tonicPc && minor === isMinor;
     const isHome = sameKey(homeKey, pc, minor);
     const isVisited = visitedSet.has(`${minor ? "m" : "M"}:${pc}`);
-    // Recede the keys that don't belong to the selected scale, so the chart reflects
-    // the current MODE rather than reading as a static reference chart. A key belongs
-    // when its whole tonic triad is in the scale — which generalizes past major/minor:
-    // C Dorian lights Cm/Dm/F/Gm/B♭, C Major lights C/Dm/Em/F/G/Am. Never dim a key
-    // that's carrying information (current, the file's home, or on the journey path).
-    const inScale = !filtering || (minor ? [0, 3, 7] : [0, 4, 7]).every((iv) => scaleSet.has((pc + iv) % 12));
+    const inScale = triadInScale(pc, minor);
     const dim = !inScale && !isCurrent && !isHome && !isVisited;
-    // A node can be lit for two very different reasons: it belongs to the current
-    // scale, OR it's exempt because it carries information (current / home / on the
-    // journey) while sitting OUTSIDE the scale. Those must not look identical — flag
-    // the second kind so "borrowed from another mode" is legible at a glance. Red is
-    // already the app's "out of scale" colour, so this reuses that vocabulary.
-    const outOfScaleButShown = !inScale && !dim && filtering;
+    const outOfScaleButShown = flaggedNode(pc, minor);
     let fill = "#0d1016", stroke = "#2a3340", txt = "#5b6675", sw = 1.2;
     if (isVisited) { fill = "#0a2825"; stroke = "#2dd4bf"; txt = "#5eead4"; sw = 1.5; }
     if (isCurrent) { fill = "#1d2540"; stroke = "#a5b4fc"; txt = "#eef2ff"; sw = 2.4; }
@@ -188,10 +204,14 @@ export default function CircleOfFifths({
           </g>
         ))}
       </svg>
-      {filtering && (
+      {filtering && anyFlagged && (
         <div className="px-cof-legend">
           <span className="px-cof-legend-dot" />
-          outside the scale — shown as the current key, home key, or on the path
+          <span>
+            <strong>{flaggedNames.join(", ")}</strong>{" "}
+            {flaggedNames.length > 1 ? "are" : "is"} outside the selected scale — kept visible as
+            the current key, the file&apos;s home key, or a key on the modulation path.
+          </span>
         </div>
       )}
     </div>
