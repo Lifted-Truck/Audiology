@@ -180,11 +180,89 @@ export default function Interpretations({
             <span className="px-interp-dot engine" />
             Tonality {bridgeConnected ? "· ranked by score" : "· offline"}
           </h3>
-          {engineReadings.length === 0 && (
+          {engineReadings.length === 0 && !naming?.unmatched && (
             <p className="px-interp-none">
               {bridgeConnected ? "No engine reading for this set." : "Engine offline — start it for ranked confidence + alternatives."}
             </p>
           )}
+
+          {/* No registered chord quality matches — but the engine still knows plenty
+              about the set. Two kinds of reading, deliberately kept apart: what it
+              CONTAINS (partial readings of what was played) vs what it ALMOST IS
+              (one pc swap away). Collapsing them would answer the wrong question. */}
+          {engineReadings.length === 0 && naming?.unmatched && (() => {
+            const u = naming.unmatched;
+            const q = (r: { rootPc: number; quality: string }) => noteName(r.rootPc) + qualitySymbol(r.quality);
+            return (
+              <div className="px-unmatched">
+                <p className="px-interp-none">
+                  No registered chord quality matches this set — the engine won&apos;t invent one. Here is
+                  what it does know:
+                </p>
+
+                <div className="px-unmatched-ident">
+                  prime form [{u.primeForm.join(" ")}] · normal order [{u.normalOrder.join(" ")}] ·
+                  interval vector [{u.intervalVector.join(" ")}]
+                </div>
+
+                {u.qualitySubsets.length > 0 && (
+                  <>
+                    <div className="px-unmatched-h">contains</div>
+                    {u.qualitySubsets.map((s, i) => (
+                      <div key={i} className="px-interp-card engine">
+                        <div className="px-interp-row">
+                          <span className="px-interp-name">{q(s)}</span>
+                          <span className="px-interp-score">
+                            + {s.addedPcs.map((p) => noteName(p)).join(" ")}
+                          </span>
+                        </div>
+                        <div className="px-interp-sub">
+                          a {q(s)} plus {s.addedPcs.length === 1 ? "an unexplained tone" : "unexplained tones"}
+                        </div>
+                      </div>
+                    ))}
+                  </>
+                )}
+
+                {u.nearQualities.length > 0 && (
+                  <>
+                    <div className="px-unmatched-h">
+                      one note away
+                      {u.nearQualityCount > u.nearQualities.length && (
+                        <span className="px-unmatched-more"> · showing {u.nearQualities.length} of {u.nearQualityCount}</span>
+                      )}
+                    </div>
+                    <div className="px-unmatched-chips">
+                      {u.nearQualities.map((n, i) => (
+                        <span key={i} className="px-unmatched-chip" title={`Swap ${noteName(n.swapFromPc)} → ${noteName(n.swapToPc)}`}>
+                          {q(n)}
+                          <span className="px-unmatched-swap">{noteName(n.swapFromPc)}→{noteName(n.swapToPc)}</span>
+                        </span>
+                      ))}
+                    </div>
+                  </>
+                )}
+
+                {u.containingScales.length > 0 && (
+                  <>
+                    <div className="px-unmatched-h">
+                      sits inside
+                      {u.containingScaleCount > u.containingScales.length && (
+                        <span className="px-unmatched-more"> · showing {u.containingScales.length} of {u.containingScaleCount}</span>
+                      )}
+                    </div>
+                    <div className="px-unmatched-chips">
+                      {u.containingScales.map((c, i) => (
+                        <span key={i} className={"px-unmatched-chip scale" + (i === 0 ? " lead" : "")}>
+                          {noteName(c.rootPc)} {c.name}
+                        </span>
+                      ))}
+                    </div>
+                  </>
+                )}
+              </div>
+            );
+          })()}
           {engineReadings.map((r, i) => {
             const pct = Math.max(2, Math.round((Math.max(0, r.score) / maxScore) * 100));
             return (

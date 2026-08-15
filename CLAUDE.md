@@ -263,6 +263,20 @@ runnable (typecheck + build pass) after every change.
   end-to-end: Lydian + organ + 8 views + a MIDI → Save bundle → disturb everything and eject the
   MIDI → Load bundle → all restored; the app-produced zip then opened in python's `zipfile`.
 
+- **Unnamed-chord readings (SHIPPED — consumes Tonality gap 33).** When `name_pcs` returns no
+  `chosen`, it now carries **`unmatched`**, and the Interpretations view renders it instead of the
+  old dead-end "No engine reading for this set." Reported from a live session: chords like
+  F-C-G♯-B produced *"no suggested analyses"* — the engine correctly refuses to invent a quality,
+  but everything else it knows was being dropped on the floor. Now shown: set-class identity
+  (prime form / normal order / IV), **contains** (`quality_subsets` — partial readings of what was
+  played: "an F° plus an unexplained tone"), **one note away** (`near_qualities`, each with its
+  `swap_from_pc`→`swap_to_pc` diff), and **sits inside** (`containing_scales`, tightest first).
+  - **Keep "contains" and "one note away" visually distinct** — they answer different questions
+    (what it *is* partially, vs what it *almost* is). Collapsing them would answer neither.
+  - Capped lists always render their **true totals** ("showing 12 of 15") — the engine's
+    no-silent-caps discipline, mirrored in the UI.
+  - `unmatched` is **additive and null for every named chord**, so the matched path is untouched;
+    `bridge.ts` tolerates its absence for engines predating gap 33.
 - **Competing KEY interpretations at the playhead (SHIPPED)** — the Interpretations view's second
   half, and the strongest use of the epistemic-clarity value so far. `keyReadingAt(analysis,
   keyBands, t)` (pure, in `lib/state/analysis.ts`, Node-tested) returns the engine's **raw windowed
