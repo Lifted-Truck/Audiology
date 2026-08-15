@@ -391,3 +391,16 @@
 .px-layer-kid.on{border-color:#2dd4bf;color:#7fffe9;background:linear-gradient(180deg,#143b38,#0c2825);}
 .px-layer-kid:hover{border-color:#2dd4bf;}
 .px-layer-kid-dot{font-size:8px;}
+
+/* Interpretations — the "no registered quality" branch (engine gap 33). Keeps
+   "contains" (partial readings of what was played) visually distinct from
+   "one note away" (what it almost is) — they answer different questions. */
+.px-unmatched{display:flex;flex-direction:column;gap:7px;}
+.px-unmatched-ident{font-size:10px;line-height:1.5;color:var(--mut);padding:6px 9px;border-radius:7px;border:1px solid var(--line);background:#0b0e13;}
+.px-unmatched-h{font-size:9px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:#5eead4;margin-top:4px;}
+.px-unmatched-more{font-weight:600;letter-spacing:.04em;text-transform:none;color:var(--mut);}
+.px-unmatched-chips{display:flex;flex-wrap:wrap;gap:5px;}
+.px-unmatched-chip{display:inline-flex;align-items:baseline;gap:5px;padding:3px 9px;border-radius:999px;border:1px solid var(--line);background:#0e1117;color:#cdd6e4;font-size:11px;}
+.px-unmatched-swap{font-size:9px;color:var(--mut);}
+.px-unmatched-chip.scale{border-color:#243244;color:#c7d2fe;}
+.px-unmatched-chip.scale.lead{border-color:#5eead4;color:#7fffe9;}

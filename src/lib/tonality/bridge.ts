@@ -29,10 +29,32 @@ export interface NamingReading {
   score: number;
 }
 
+/**
+ * What the engine knows about a set it can NOT name (gap 33). Present only when
+ * `chosen` is null — the engine's point being that it can never truly have "no
+ * identity" for a pc set, only no registered *chord quality*. Two distinct kinds
+ * of reading live here and shouldn't be conflated in the UI:
+ *   quality_subsets — partial readings of what WAS played ("an F dim, plus a C")
+ *   near_qualities  — what it ALMOST is, one pc swap away (an actionable diff)
+ * Lists are capped but carry true totals, per the engine's no-silent-caps rule.
+ */
+export interface UnmatchedInfo {
+  primeForm: number[];
+  normalOrder: number[];
+  intervalVector: number[];
+  qualitySubsets: { rootPc: number; quality: string; pcs: number[]; addedPcs: number[] }[];
+  nearQualities: { rootPc: number; quality: string; pcs: number[]; swapFromPc: number; swapToPc: number }[];
+  nearQualityCount: number;
+  containingScales: { name: string; rootPc: number; cardinality: number; isExact: boolean }[];
+  containingScaleCount: number;
+}
+
 export interface ChordNaming {
   chosen: NamingReading | null;
   alternatives: NamingReading[];
   isAmbiguous: boolean;
+  /** Populated only when `chosen` is null; null for every named chord. */
+  unmatched: UnmatchedInfo | null;
 }
 
 interface RawReading {
@@ -47,6 +69,34 @@ const readingOf = (c: RawReading): NamingReading => ({
   aliases: c.interpretation.aliases ?? [],
   functionalRole: c.functional_role ?? null,
   score: c.score,
+});
+
+interface RawUnmatched {
+  prime_form?: number[];
+  normal_order?: number[];
+  interval_vector?: number[];
+  quality_subsets?: { root_pc: number; quality: string; pcs: number[]; added_pcs: number[] }[];
+  near_qualities?: { root_pc: number; quality: string; pcs: number[]; swap_from_pc: number; swap_to_pc: number }[];
+  near_quality_count?: number;
+  containing_scales?: { name: string; root_pc: number; cardinality: number; is_exact: boolean }[];
+  containing_scale_count?: number;
+}
+
+const unmatchedOf = (u: RawUnmatched): UnmatchedInfo => ({
+  primeForm: u.prime_form ?? [],
+  normalOrder: u.normal_order ?? [],
+  intervalVector: u.interval_vector ?? [],
+  qualitySubsets: (u.quality_subsets ?? []).map((q) => ({
+    rootPc: q.root_pc, quality: q.quality, pcs: q.pcs ?? [], addedPcs: q.added_pcs ?? [],
+  })),
+  nearQualities: (u.near_qualities ?? []).map((n) => ({
+    rootPc: n.root_pc, quality: n.quality, pcs: n.pcs ?? [], swapFromPc: n.swap_from_pc, swapToPc: n.swap_to_pc,
+  })),
+  nearQualityCount: u.near_quality_count ?? (u.near_qualities ?? []).length,
+  containingScales: (u.containing_scales ?? []).map((c) => ({
+    name: c.name, rootPc: c.root_pc, cardinality: c.cardinality, isExact: c.is_exact === true,
+  })),
+  containingScaleCount: u.containing_scale_count ?? (u.containing_scales ?? []).length,
 });
 
 /** GET / — true if the official bridge is up. Never throws. */
@@ -91,11 +141,16 @@ export async function nameChord(baseUrl: string, input: NameChordInput, signal?:
     "name_pcs",
     { pcs: input.pcs, tonic: input.tonic, key_name: input.keyName, realization_midi: input.realizationMidi },
     signal
-  )) as { chosen?: RawReading; alternatives?: RawReading[]; is_ambiguous?: boolean };
+  )) as {
+    chosen?: RawReading; alternatives?: RawReading[]; is_ambiguous?: boolean;
+    unmatched?: RawUnmatched | null;
+  };
   return {
     chosen: res.chosen ? readingOf(res.chosen) : null,
     alternatives: Array.isArray(res.alternatives) ? res.alternatives.map(readingOf) : [],
     isAmbiguous: res.is_ambiguous === true,
+    // Additive field: absent on engines predating gap 33, so tolerate its absence.
+    unmatched: res.unmatched ? unmatchedOf(res.unmatched) : null,
   };
 }
 
